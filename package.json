@@ -27,10 +27,13 @@
     "check:docs": "node scripts/check-docs.mjs",
     "check:publish": "node scripts/check-publication.mjs",
     "evaluate:recovery": "node scripts/evaluate-recovery.mjs",
+    "experiment:recovery": "node scripts/recovery-experiment.mjs",
+    "verify:recovery": "node scripts/recovery-synthetic.mjs",
     "benchmark": "node scripts/benchmark.mjs",
     "benchmark:full": "node scripts/benchmark.mjs --full",
     "verify:package": "node scripts/verify-package.mjs",
     "verify:api": "node scripts/verify-api.mjs",
+    "verify:viewer": "node web/scripts/verify-viewer.mjs",
     "verify:exports:text": "node scripts/verify-text-exports.mjs",
     "verify:exports:sarif": "node scripts/verify-sarif.mjs",
     "verify:exports": "npm run verify:exports:text && npm run verify:exports:sarif"

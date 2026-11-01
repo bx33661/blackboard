@@ -49,6 +49,7 @@ import { searchGraph } from '../lib/search.js';
 import { isOpenThread, isCurrentFinding } from '../lib/semantics.js';
 import { DEFAULT_PORT, resolvePort, rememberViewerPort, probeViewer, stopViewer, viewerUrl } from '../lib/service.js';
 import { stableCliPath, cliOrigin } from '../lib/release.js';
+import { buildInfo } from '../lib/build-info.js';
 import { ERROR_CODES, ERROR_SCHEMA, OUTPUTS, WRITE_TARGETS } from '../lib/contracts.js';
 import { COMMAND_FLAGS, closest, parseArgs } from '../lib/cli/args.js';
 import { usage } from '../lib/cli/help.js';
@@ -421,7 +422,8 @@ function cmdDigest(args, flags) {
 
 function cmdContext(args, flags) {
   needInitRead();
-  const g = replay(cwd());
+  const source = readEvents(cwd());
+  const g = replay(cwd(), source);
   const wanted = flags.focus || args[0] || null;
   const focus = wanted ? refOrFail(g.nodes, wanted, 'focus node') : null;
   let since = flags.since;
@@ -434,7 +436,7 @@ function cmdContext(args, flags) {
     depth: flags.depth === undefined ? 2 : Number(flags.depth),
     budgetTokens: flags.budget === undefined ? 4000 : Number(flags.budget),
     since,
-    ...(flags.since ? { events: readEvents(cwd()).events } : {}),
+    ...(flags.since ? { events: source.events } : {}),
     maxItems: flags.limit || flags.n,
   });
   if (flags.markdown || flags.md) console.log(renderAgentContext(packet));
@@ -1194,11 +1196,14 @@ async function cmdLauncher(args, flags) {
 }
 
 function cmdVersion() {
-  const origin = cliOrigin(CLI);
+  const build = buildInfo();
+  const origin = build.origin;
   const where = origin.kind === 'release'
     ? (origin.active ? '已安装版本 · current' : `已安装版本 ${origin.version} · 不是 current`)
     : origin.kind === 'checkout' ? `开发目录 ${origin.root}` : ROOT;
   console.log(`blackboard ${VERSION} (${where})`);
+  console.log(`构建 ${build.buildId}`);
+  if (build.commit) console.log(`源码 ${build.commit}${build.dirty === true ? ' · 有未提交改动' : ''}`);
 }
 
 /** Integrations written from a checkout follow every edit in it; say so, but do not refuse. */

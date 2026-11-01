@@ -60,7 +60,7 @@ node scripts/recovery-experiment.mjs prepare --board <项目根> --at <检查点
 - `A-summary.md`、`B-nodes.json`、`C-graph.json`：交给恢复者的三组材料。B、C 是 `context` 的 JSON 投影，也是 CLI 默认输出和适配层实际读取的格式；续接时分为 `interrupted`（S 时点）和 `since`（S→T 增量）两部分，各用同一预算。
 - `manifest.json`：截断位置、事件前缀的哈希、T 时存在的节点（类型、状态、可信度）、各组大小和记录成本。答题核对只用它，不再读原始黑板。
 
-截断严格按事件位置进行，T 之后的任何事件都不会进入材料。
+截断严格按事件位置进行，T 之后的任何事件都不会进入材料。S、T 的投影分别用独立事件副本回放，后续 patch 不会回写 S 的节点；清单的事件前缀哈希按原始事件内容计算。
 
 ## 出题
 
@@ -90,6 +90,87 @@ node scripts/recovery-experiment.mjs prepare --board <项目根> --at <检查点
 ```
 
 `stance` 取 `fact`（确定）、`guess`（推测）或 `unknown`（材料里没有）。答案内容是否正确由人判定，写入可选字段 `correct: true|false`。
+
+## 固定模型与重复执行（当前工具）
+
+`run` 只消费已准备的三组材料与题目，不读取原始黑板、不调用内核写入口。模型通过外部适配器执行；工具以 `spawn(argv[0], argv.slice(1), { shell: false })` 启动进程，以 stdin/stdout 传输 JSON，不拼接 shell 命令。普通测试和下面的合成 smoke 都不会调用模型。
+
+真实运行前，先独立准备并核对脱敏语料、截至 T 的问题与证据键，再提供一个已经配置好的模型适配器。适配器必须固定并如实报告模型的精确版本，遵守给定的输出 token 上限和参数；每次启动使用独立会话，不复用先前 A/B/C 的对话。模型服务权限、费用授权、适配器版本与可复现性参数（服务支持时的 seed、temperature 等）由操作者事先确认。工具不安装 SDK、不寻找或读取凭据、不自动访问真实黑板。真实模型请求由适配器及其已有授权负责；外部适配器不是沙箱，执行前应审阅其代码与访问范围。
+
+`runner.json` 示例（文件只放程序参数与模型设置，不放 token 或密钥；完整配置会被归档）：
+
+```json
+{
+  "argv": ["node", "/absolute/path/to/reviewed-model-adapter.mjs"],
+  "model": "provider-exact-model-revision",
+  "adapterRevision": "reviewed-adapter-version",
+  "parameters": { "temperature": 0, "seed": 123 }
+}
+```
+
+`argv` 是字符串数组，所有参数按原样传递；需要定位的脚本和资源使用绝对路径。每个进程的工作目录为独立的单次运行产物目录，避免它借当前目录发现原始黑板。配置中的 `adapterRevision` 是供人核对的可选标识，工具原样记录，不据此认证适配器代码。
+
+```bash
+node scripts/recovery-experiment.mjs run \
+  --manifest <准备目录>/manifest.json --questions questions.json \
+  --runner runner.json --prompt-file recovery-prompt.txt \
+  --repeats 3 --output-budget 2000 --timeout-ms 120000 \
+  --out <全新运行目录>
+```
+
+`--prompt-file` 可省略，此时使用固定的内置恢复提示。三组始终使用同一段提示、同一批题目、同一模型、同一参数与输出预算，只替换材料；`evidence` 与 `expected` 判定键不会交给模型。`prepare --budget` 固定 C 的投影预算，B 仍从该 C 派生，A 仍保留原文；`run --output-budget` 是所有请求相同的输出上限，不会重新截断任何材料。完整输入提示和 stdin 传输大小另行记录，不能把投影的估算 token 数当成实际模型输入用量。
+
+`--repeats` 是每组的运行次数，默认 3。顺序固定轮换为 A/B/C、B/C/A、C/A/B，再重复；每个单元启动新进程。模型和提示在同一轮不会改变，也没有失败重试或自动替换模型。除语料变化外，某次失败会留下记录并继续其余计划单元。运行目录必须全新，已有产物不会覆盖。`--timeout-ms` 默认 120000；超时会终止适配器并关闭其管道。在 POSIX 上同时终止它的进程组；Windows 上终止直接子进程，适配器需自行管理派生进程。stdout/stderr 各自最多保存 `--max-bytes` 字节（默认 4194304），超限作为失败处理。
+
+适配器从 stdin 读取一个 JSON 请求后退出，请求包含：
+
+```json
+{
+  "schema": "blackboard.recovery-run.request.v1",
+  "model": "provider-exact-model-revision",
+  "parameters": { "temperature": 0, "seed": 123 },
+  "budget": { "maxOutputTokens": 2000, "materialTokens": 4000 },
+  "questions": [{ "id": "q1", "text": "为什么放弃了缓存方案？" }],
+  "prompt": "固定提示、仅含 id/text 的题目和该组材料组成的完整提示"
+}
+```
+
+适配器将 `prompt` 原样作为本次模型输入，并按该服务的接口设置参数和输出上限。`questions` 是同一批公开题目的结构化副本，便于适配器构造输出约束。适配器必须在 stdout 只输出一个 JSON 对象，诊断文字放 stderr；模型回答不能混入人工作出的 `correct` 或运行器赋予的 `arm`：
+
+```json
+{
+  "model": "provider-exact-model-revision",
+  "answers": [
+    { "question": "q1", "answer": "材料中没有记录原因。", "cites": [], "stance": "unknown" }
+  ],
+  "supplementaryReads": 0,
+  "usage": { "inputTokens": 850, "outputTokens": 70 }
+}
+```
+
+`model` 必须与固定配置相同；模型别名无法证明后端版本固定，真实实验应使用服务提供的精确版本。每题恰好一个非空答案，引用为字符串数组，`stance` 仍是 `fact`、`guess` 或 `unknown`。未知题号、重复答案、漏题、错误格式、模型身份不符、自行判分、非零退出、启动失败、超时和输出超限都会将该单元标为失败，不生成其可用答案或核对结果。
+
+`supplementaryReads` 与 `usage` 均可省略，省略表示未测量，绝不补成 0。补读次数必须为非负整数，`usage` 为服务实际返回的非负数字测量值映射，单位体现在字段名中；不要用本地字符估算伪装服务用量。工具本身不会补读；适配器若允许模型工具调用，应明确记录其访问范围与实际补读次数。缺少测量值时不能比较对应成本。
+
+输出包括：
+
+- `run-manifest.json`：实验内容哈希、固定配置、轮换计划、语料文件哈希与准备清单的大小/记录成本，以及每次状态、模型、耗时、输入/输出大小和实际提供的可选测量值。
+- `corpus/`：准备清单、三组材料、含判定键的问题文件、适配器配置和可选提示源的初始字节副本。清单保持原文件名，可重新作为 `run` 的输入；原始黑板不复制。新准备清单给三组文件附 SHA-256，运行前检查这些哈希；旧清单缺少该字段时仍可运行，但只能从此次快照开始证明材料身份。
+- `prompt.txt`：固定提示。每个 `001-A` 等单元另存 `prompt.txt`（完整模型提示）、`request.json`（精确 stdin）、`stdout.txt`、`stderr.txt`；有效响应另存赋予组别的 `answers.json` 与机械 `check.json`。超限输出只保留上限内字节，失败记录注明截断原因。
+
+每次调用后核对所有输入文件的字节哈希；变化会标记失败并停止后续单元，避免混用语料。它只能检测变化，不能阻止有文件权限的外部适配器写入，因此应对只读的脱敏副本运行。相同输入与设置的 `experimentId`、请求哈希和计划可复现；耗时、实际用量、随机模型响应及外部服务版本漂移不保证相同。模型适配器代码应独立固定版本；工具不会扫描 argv 指向的文件以寻找实现或凭据。
+
+只有人工复核后，才在另存的答案文件中填写 `correct` 并执行 `check`。机械核对沿用下文的证据、未知、已反驳/已确认假设与 suspected 规则，不判断自由文本是否正确，不把失败请求或缺少人工判定的答案当成错误率样本。比较重复运行时同时列出每组成功/失败次数和缺失测量，不只筛选成功单元。
+
+无需模型、凭据或私人黑板的合成协议 smoke：
+
+```bash
+node scripts/recovery-synthetic.mjs
+```
+
+该命令在系统临时目录创建明确的合成事件、准备 A/B/C、通过只会回答 unknown 的本地适配器完成每组 3 次调用，并打印产物目录。它只验证执行链路，不能证明真实任务恢复有效。真实实验仍需要上面的真实任务脱敏语料、预先写定的问题与人工判定、经审阅并固定版本的模型适配器，以及独立获得授权的模型服务访问。原始答案与提示可能包含敏感内容，所有真实运行产物保留本地，不纳入发布或 Git。
+
+开发验证由集成者集中运行：`node --test test/recovery-experiment.test.js`；测试覆盖成功记录、缺失指标、失败退出、启动失败、超时、输出超限、畸形/漏题/重复答案、模型身份、拒绝自行判分和语料不变性。
 
 ## 指标
 

@@ -6,14 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { Segmented, SegmentedItem } from '@/components/ui/segmented';
 import { IconButton } from '@/components/icon-button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BrandMark } from '../BrandMark';
 import { ActivityPopover } from './ActivityPopover';
 import type { Connection } from '../use-graph-stream';
-import type { Activity, ViewMode } from '../types';
+import type { Activity, BuildInfo, ViewMode } from '../types';
 import { t } from '../i18n';
 
 type Props = {
   title: string;
+  build?: BuildInfo;
   mode: ViewMode;
   onMode: (mode: ViewMode) => void;
   agentId: string;
@@ -40,7 +42,7 @@ const CONNECTION = {
 } as const;
 
 export function Topbar(props: Props) {
-  const { title, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal } = props;
+  const { title, build, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal } = props;
   const status = isStatic ? { label: t('topbar.static'), dot: 'bg-strong' } : CONNECTION[connection];
   return (
     <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b bg-background px-3 py-2 lg:h-12 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-4 lg:py-0">
@@ -48,6 +50,24 @@ export function Topbar(props: Props) {
         <IconButton label={sidebarOpen ? t('topbar.collapseNav') : t('topbar.expandNav')} aria-pressed={sidebarOpen} onClick={onToggleSidebar}><PanelLeft /></IconButton>
         <BrandMark size={18} />
         <span className="text-sm font-semibold tracking-[-0.01em] max-md:hidden">blackboard</span>
+        {build && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" aria-label={t('topbar.version', { version: build.version })} className="shrink-0 rounded px-1 text-[10px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">v{build.version}</button>
+            </TooltipTrigger>
+            <TooltipContent className="block max-w-[min(32rem,calc(100vw-24px))] break-words p-3 font-normal" side="bottom">
+              <p className="mb-2 font-semibold">{t('topbar.version', { version: build.version })}</p>
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+                <dt>{t('topbar.build')}</dt><dd className="break-all font-mono">{build.buildId}</dd>
+                <dt>{t('topbar.source')}</dt><dd>{t(`topbar.source.${build.origin.kind}`)}{build.origin.version ? ` · ${build.origin.version}` : ''}</dd>
+                {build.commit && <><dt>{t('topbar.commit')}</dt><dd className="break-all font-mono">{build.commit}</dd></>}
+                {build.dirty !== null && <><dt>{t('topbar.worktree')}</dt><dd>{t(build.dirty ? 'topbar.dirty' : 'topbar.clean')}</dd></>}
+                {build.origin.active !== undefined && <><dt>{t('topbar.release')}</dt><dd>{t(build.origin.active ? 'topbar.active' : 'topbar.inactive')}</dd></>}
+                {build.origin.root && <><dt>{t('topbar.root')}</dt><dd className="break-all font-mono">{build.origin.root}</dd></>}
+              </dl>
+            </TooltipContent>
+          </Tooltip>
+        )}
         <span className="text-muted-foreground max-md:hidden">/</span>
         <span className="min-w-0 truncate text-sm text-subtle" title={title}>{title}</span>
       </div>

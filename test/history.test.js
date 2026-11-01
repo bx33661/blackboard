@@ -6,7 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import http from 'node:http';
 import { buildNodeHistory, buildCheckpointChanges } from '../lib/history.js';
-import { ensure, paths, appendEvent, readEvents } from '../lib/store.js';
+import { ensure, paths, appendEvent, readEvents, replay } from '../lib/store.js';
 import { startServer } from '../lib/server.js';
 
 const node = (id, type = 'note', title = id, extra = {}) => ({ id, type, title, ts: 100, ...extra });
@@ -47,6 +47,19 @@ test('checkpoint changes use event position, preserve transient changes and unkn
   assert.deepEqual(result.events.map((e) => e.index), [4, 5, 6, 7, 8, 9]);
   assert.equal(result.events.at(-1).at, 99, 'a lower wall-clock timestamp remains after the checkpoint');
   assert.equal(JSON.stringify(events), original, 'replay must not mutate node event payloads');
+});
+
+test('shared current and checkpoint projections retain the recorded pre-patch state', () => {
+  const source = { events: researchEvents(), corrupt: 2, future: 1 };
+  const graph = replay(undefined, source);
+  assert.equal(graph.nodes.hy1.status, 'refuted');
+  assert.equal(graph.integrity.corruptLines, 2);
+  assert.equal(graph.integrity.futureEvents, 1);
+  const changes = buildCheckpointChanges(source.events, 'cp1');
+  assert.equal(changes.nodes.updated[0].before.status, 'open');
+  assert.equal(changes.nodes.updated[0].after.status, 'refuted');
+  const history = buildNodeHistory(source.events, 'hy1');
+  assert.deepEqual(history.entries.find((entry) => entry.op === 'patch').changes.status, { before: 'open', after: 'refuted' });
 });
 
 test('history shows field values, recorded attribution, incident relations and removed nodes', () => {
@@ -191,4 +204,42 @@ test('real read-only server serves history/changes, reports corrupt/future event
   assert.deepEqual(await write.json(), { error: 'read_only' });
   assert.deepEqual({ log: hash(paths(cwd).events), state: hash(paths(cwd).state) }, before);
   assert.deepEqual(history.body, buildNodeHistory(readEvents(cwd).events, 'hy1', readEvents(cwd)));
+});
+
+test('HTTP projections report read failures and recover without losing committed data', async (t) => {
+  const cwd = fs.realpathSync(fixture(t));
+  for (const event of researchEvents()) appendEvent(event, cwd);
+  const file = paths(cwd).events;
+  const before = fs.readFileSync(file);
+  const server = await startServer({ cwd, port: 0, readOnly: true });
+  t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const open = fs.openSync;
+  const read = fs.readSync;
+  let descriptor;
+  fs.openSync = function(target, flags, ...args) {
+    const fd = open.call(this, target, flags, ...args);
+    if (target === file && flags === 'r') descriptor = fd;
+    return fd;
+  };
+  fs.readSync = function(fd, ...args) {
+    if (fd === descriptor) throw Object.assign(new Error('synthetic unavailable log'), { code: 'EIO' });
+    return read.call(this, fd, ...args);
+  };
+  try {
+    for (const route of ['/api/graph', '/api/context?since=cp1']) {
+      const response = await fetch(`${base}${route}`);
+      assert.equal(response.status, 500);
+      assert.equal((await response.json()).error, 'synthetic unavailable log');
+    }
+  } finally {
+    fs.openSync = open;
+    fs.readSync = read;
+  }
+  const response = await fetch(`${base}/api/graph`);
+  assert.equal(response.status, 200);
+  const graph = await response.json();
+  assert.equal(graph.nodes.hy1.status, 'refuted');
+  assert.equal(graph.nodes.o1.title, 'Old support');
+  assert.deepEqual(fs.readFileSync(file), before);
 });

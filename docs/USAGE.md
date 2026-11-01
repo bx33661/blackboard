@@ -351,12 +351,14 @@ blackboard hooks uninstall --user --write
 macOS 的 `setup` 常驻服务是共享工作区服务，不是前台进程。先确认归属，再选择停止或卸载：
 
 ```bash
-blackboard service status --json  # 归属 cwd、是否当前项目、loaded/running 与状态
+blackboard service status --json  # 归属 cwd、已注册端口 port、loaded/running 与状态
 blackboard service stop           # 卸载运行任务，保留 plist；用 setup 重新启动
 blackboard service uninstall      # 停止任务并删除本工具受管 plist
 ```
 
 `waiting` 表示任务已加载但未在运行，不等于查看器在线；页面是否可用仍以 `blackboard status` 的实际探测为准。`setup` 切换项目会报告原归属与新归属。停止/卸载针对共享服务的当前项目，即使它不是命令所在项目；不删除黑板数据，不操作其他服务。非 macOS 明确报告不支持持久服务管理，前台服务仍手动启动和停止。
+
+服务替换先保留原 plist 的完整字节与加载状态；写入、启动或 HTTP 健康校验失败时恢复原配置，原本停止的服务仍保持停止。首次安装失败会移除失败的配置与注册。若恢复本身失败，错误会给出保留的恢复文件路径，请保留该文件再处理服务；非本工具受管的注册不会被覆盖。`release refresh` 沿用 plist 中明确记录的端口，不因当前环境变量或项目配置改变而换端口。
 
 
 <a id="release"></a>
@@ -401,6 +403,8 @@ blackboard release ls          # 已安装版本，* 为 current
 blackboard release use 0.8.0   # 回滚或切换
 blackboard --version           # 显示版本，以及运行的是 current 还是开发目录
 ```
+
+`/api/status` 的 `build` 与实时 API / SSE、离线 HTML 的 `meta.build` 使用同一构建身份：`version` 为包版本，`buildId` 为已发布文件内容的 SHA-256 标识，`commit` / `dirty` 记录可获知的源码来源，`origin` 区分开发目录、已安装版本与其他包副本。来源不可获知时 `commit` / `dirty` 为 `null`，不会假装是干净的 Git checkout。安装路径和安装时间不参与构建标识；同版本号下代码或页面资产改变会得到不同标识。服务启动时缓存身份，因此比较运行中的服务与新安装内容时须重启服务；探测旧服务时允许它不提供 `build`。
 
 - **版本不可变**：同一版本号重复安装会报错，请提升 `package.json` 的版本号；确需覆盖时加 `--force`。
 - **切换即生效**：`install` 和 `use` 原子地切换 `current`，再由新版本自己刷新启动器、已安装的用户级 Skill（Claude / Codex）、用户级 Hook，并重启正在运行的受管常驻服务（已停止的服务只更新配置）。从 `current` 运行的 `setup`、`skill install`、`hooks install` 也记录 `current` 路径，而不是具体版本。

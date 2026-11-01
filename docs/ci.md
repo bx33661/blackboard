@@ -6,13 +6,15 @@
 
 ## 流程
 
-1. **构建一次**：Ubuntu / Node 24 先检查 publication hygiene，再执行 `npm ci`、`npm run check:types`、`npm run check:docs`、测试及前端 build；安装 Playwright Chromium 后，用真实 CLI 生成合成报告，在浏览器中渲染 Markdown/Mermaid，并用随库固定的 OASIS schema 校验 SARIF；收集 quick 合成性能报告，再 `npm pack --ignore-scripts`。本地 `npm run check` 合并类型、文档和 publication 检查，CI 将三项分开执行以明确失败位置。
+1. **构建一次**：Ubuntu / Node 24 先检查 publication hygiene，再执行 `npm ci`、`npm run check:types`、`npm run check:docs`、测试及前端 build；安装 Playwright Chromium 后，执行真实查看器交互与 3D 降级验证，再用真实 CLI 生成合成报告，在浏览器中渲染 Markdown/Mermaid，并用随库固定的 OASIS schema 校验 SARIF；收集 quick 合成性能报告，再 `npm pack --ignore-scripts`。本地 `npm run check` 合并类型、文档和 publication 检查，CI 将三项分开执行以明确失败位置。
 2. **同包多运行时验证**：将同一个 tarball 交给 Linux、macOS、Windows 的 Node 18 / 22 / 24 矩阵；不执行源码目录的 `npm ci`。
 3. **插件独立验证**：DSH 单元测试与静态 manifest/syntax 检查单独运行在插件声明支持的 Node 22.19 / 24；不把 Host SDK 加到根包，不假装这就是实际 DSH 端到端运行。
 
 Vite 8 的构建依赖要求 Node `^20.19.0 || >=22.12.0`。核心运行时仍是 Node ≥18；Node 18 只消费已构建的 public 产物，不承担前端构建。
 
 `blackboard-release-candidate` artifact 保存 tarball、npm pack 清单、合成导出的渲染截图与带机器信息的 quick 基线，保留 14 天。性能报告是观测，不是跨共享 runner 的毫秒级门禁。任何完整性断言失败仍会使任务失败。
+
+`blackboard-viewer-verification` 单独保存查看器截图、离线合成 HTML 与 `VERIFICATION.json`，保留 14 天。只要查看器步骤执行，后续上传步骤即使在验证失败时也会运行；失败报告记录已完成的检查、错误和浏览器诊断，能够截图的页面会额外保存失败现场。
 
 ## tarball smoke 的实际覆盖
 
@@ -57,6 +59,30 @@ npm run verify:exports:text -- --out-dir /tmp/blackboard-export-consumers
 验证器只创建临时合成黑板。Markdown 检查浏览器中显示的作者原文、章节与关系链接，并检查恶意输入没有生成可执行元素；Mermaid 使用本地官方 bundle 在 Chromium 中生成 SVG，覆盖普通图、长标题、特殊字符、分组和空图。SARIF 使用固定的官方 2.1.0 schema 校验真实 CLI 的结果，并检查有位置、缺位置和重复导出的身份语义。验证前后检查事件日志不变；不写真实项目，不依赖网络或模型账号。
 
 这些检查不宣称已经通过 GitHub code scanning 上传或特定 IDE 的导入验收。实际平台的权限、路径解析和告警生命周期仍需在对应环境验证。
+
+## 查看器浏览器回归
+
+```sh
+npm ci
+npm run build
+npx playwright install chromium
+# Linux 缺少浏览器系统库时，使用 npx playwright install --with-deps chromium
+BLACKBOARD_VIEWER_OUTPUT=dist/viewer-verification npm run verify:viewer
+```
+
+入口为 `web/scripts/verify-viewer.mjs`，默认使用项目已安装的 Playwright 开发依赖与其 Chromium，无需外部模块路径。构建工具的 Node 要求同上，建议 Node 24。每次先构建当前前端；验证器不会替你构建。可选 `PLAYWRIGHT_MODULE=/absolute/path/to/playwright-core/index.mjs` 与 `CHROMIUM_EXECUTABLE=/absolute/path/to/chromium` 仅用于已有外部安装。未安装依赖、浏览器缺失或正常 3D 无法渲染都会失败，不会跳过。
+
+验证器在临时目录创建明确的合成事件，使用隔离的 HOME / USERPROFILE 和 BLACKBOARD 环境，通过本地临时端口服务已构建的产物。正常 3D 显式使用 ANGLE / SwiftShader，供 CI 软件渲染；另起禁用 WebGL 的 Chromium 验证能力缺失路径。检查主体上限四分钟，单项等待、失败截图与清理也各有超时；结束时关闭浏览器、服务并删除临时数据。`BLACKBOARD_VIEWER_OUTPUT` 仅指定保留的证据目录，未指定时打印独立临时输出目录。
+
+检查通过可见控件、实际网络行为、Canvas 像素与事件日志字节观察行为，不读取 React 私有状态或断言源码结构：
+
+- 原有节点证据、历史、检查点变化、关联已有节点、独立字段编辑与冲突草稿；延迟历史 / 检查点响应与初始快照不会覆盖新选择或新 SSE；375px 窄屏可读性。
+- 版本按钮的可见 tooltip 与公开快照中的版本、构建标识和来源信息一致；缺少该可选字段的旧版快照仍能打开详情且不显示版本按钮；离线版本提示不新增 API / SSE 请求。
+- 真实进入 3D 并渲染，Escape 保持清除选择的既有语义，通过“返回平面画布”退出并恢复入口焦点；旋转与选择不发写请求、不改事件。只读服务也能查看 3D，且没有编辑或建立关系表单。
+- 初始 2D 就绪后真实阻断懒加载脚本，确认确有失败请求；另在确实无法创建 WebGL context 的浏览器打开 3D。两种情况都要求显示降级提示、恢复焦点，并能在 2D 点击节点打开详情。
+- 只读服务的历史仍可读，离线 HTML 明确说明历史不可用，并且不发 API / SSE 请求、不产生事件写入。
+
+正常与失败路径均输出 `VERIFICATION.json`；已有截图不会因后续失败而丢失，失败时还会尝试截图当前页面。诊断保留刻意制造的脚本 / WebGL 故障，是否通过由实际 UI 与事件断言决定。缺少浏览器等启动前错误无法生成页面截图，但仍保留失败报告。截图、HTML 与诊断只包含本次合成数据及当前程序的构建来源，不能用真实项目替代 fixture。
 
 ## DSH 真实 Host 与付费模型检查
 

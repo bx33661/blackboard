@@ -59,6 +59,10 @@ export const zhCN = {
   'api.inputTooLong': '未保存：{fields} 超出长度上限。请缩写或拆分；当前草稿仍保留。',
 
   'topbar.connecting': '连接中', 'topbar.live': '已同步', 'topbar.offline': '重连中', 'topbar.static': '离线快照',
+  'topbar.version': '版本 {version}', 'topbar.build': '构建标识', 'topbar.commit': '提交',
+  'topbar.source': '来源', 'topbar.source.checkout': '源码工作区', 'topbar.source.release': '已安装版本', 'topbar.source.other': '其他来源',
+  'topbar.worktree': '工作区', 'topbar.dirty': '有未提交更改', 'topbar.clean': '无未提交更改',
+  'topbar.release': '安装版本', 'topbar.active': '当前启用', 'topbar.inactive': '未启用', 'topbar.root': '来源路径',
   'topbar.collapseNav': '收起导航', 'topbar.expandNav': '展开导航',
   'topbar.views': '画布视图',
   'view.context': '现场', 'view.contextLabel': '现场视图',

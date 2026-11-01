@@ -46,21 +46,23 @@ npm run check
 npm test
 npm run build
 npm run evaluate:recovery
+npm run verify:recovery
 npm run verify:package
 ```
 
 `npm run check` 依次执行 `check:types`、`check:docs` 和 `check:publish`；需要定位问题时可单独调用。文档检查在本地解析 Markdown / HTML 的相对路径、图片和标题锚点，不依赖网络。提交与推送前仍应重新运行 publication 检查，覆盖最终公开内容。
 
-`npm test` 使用 Node 内置 test runner，覆盖根包行为和固定契约；部分前端纯模块测试会用本地 TypeScript 编译器，因此需要开发依赖。`evaluate:recovery` 只测合成投影的确定性正确性，模型恢复效果仍需单独试验。`verify:package` 打包当前源码并在隔离的临时消费者安装，检查完整 Skill、静态资产和实际 CLI；它不启动服务、不安装真实接入、不切换 `current`。
+`npm test` 使用 Node 内置 test runner，覆盖根包行为和固定契约；部分前端纯模块测试会用本地 TypeScript 编译器，因此需要开发依赖。`evaluate:recovery` 测合成投影正确性，`verify:recovery` 验证隔离合成材料的模型适配协议，两者都不证明真实任务恢复效果。真实模型实验通过 `npm run experiment:recovery -- run ...` 显式执行，协议与前置条件见[恢复试验](docs/RECOVERY_EXPERIMENT.md)。`verify:package` 在隔离消费者安装实际 tarball，不启动真实服务、不切换 `current`。
 
 改动导出逻辑或生成资产时，另行运行：
 
 ```bash
 npx playwright install chromium
+npm run verify:viewer
 npm run verify:exports
 ```
 
-该入口实际用 Chromium 渲染 Markdown / Mermaid，并按固定的官方 SARIF schema 校验 CLI 结果。可选 Postman CLI 检查为 `npm run verify:api`；合成性能观测为 `npm run benchmark -- --quick`。前置条件、完整命令和覆盖限制见 [CI 与导出验证](docs/ci.md)、[历史 API](docs/history-api.md#local-postman-cli-contract-check)、[性能基线](docs/performance.md)。
+`verify:viewer` 使用本地 Playwright/Chromium 操作合成黑板，覆盖工作区、2D/3D 切换与失败回退、离线导出及构建信息，并输出截图与结果。`verify:exports` 实际渲染 Markdown / Mermaid，并按官方 SARIF schema 校验 CLI 结果。可选 API 检查为 `npm run verify:api`；合成性能观测为 `npm run benchmark -- --quick`，显式 `--budget` 可检查本地延迟上限。细节见 [CI 与导出验证](docs/ci.md)、[历史 API](docs/history-api.md#local-postman-cli-contract-check)、[性能基线](docs/performance.md)。
 
 涉及 DSH 适配时，在插件目录按其[测试说明](plugins/dsh-blackboard/README.md#测试)运行单元与静态检查；通过 `BLACKBOARD_TEST_CLI` 明确指定本次内核执行真实 CLI 集成检查。真实 Host 验证和会发送模型请求的 `verify:e2e` 是分别执行的本地检查，不以单元测试结果代替。
 

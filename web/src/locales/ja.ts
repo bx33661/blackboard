@@ -60,6 +60,10 @@ export const ja: Messages = {
   'api.inputTooLong': '保存されませんでした：{fields} が文字数の上限を超えています。短くするか分割してください。下書きは保持されています。',
 
   'topbar.connecting': '接続中', 'topbar.live': '同期済み', 'topbar.offline': '再接続中', 'topbar.static': 'オフラインのスナップショット',
+  'topbar.version': 'バージョン {version}', 'topbar.build': 'ビルド ID', 'topbar.commit': 'コミット',
+  'topbar.source': 'ソース', 'topbar.source.checkout': 'ソースの作業コピー', 'topbar.source.release': 'インストール済みリリース', 'topbar.source.other': 'その他のソース',
+  'topbar.worktree': '作業ツリー', 'topbar.dirty': '未コミットの変更あり', 'topbar.clean': '未コミットの変更なし',
+  'topbar.release': 'インストール済みリリース', 'topbar.active': '有効', 'topbar.inactive': '無効', 'topbar.root': 'ソースのパス',
   'topbar.collapseNav': 'ナビゲーションを折りたたむ', 'topbar.expandNav': 'ナビゲーションを展開',
   'topbar.views': 'キャンバスの表示',
   'view.context': '現在地', 'view.contextLabel': '現在地ビュー',

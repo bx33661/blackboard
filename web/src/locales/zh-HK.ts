@@ -60,6 +60,10 @@ export const zhHK: Messages = {
   'api.inputTooLong': '未儲存：{fields} 超出長度上限。請縮寫或拆分；目前草稿仍保留。',
 
   'topbar.connecting': '連線中', 'topbar.live': '已同步', 'topbar.offline': '重新連線中', 'topbar.static': '離線快照',
+  'topbar.version': '版本 {version}', 'topbar.build': '建置識別', 'topbar.commit': '提交',
+  'topbar.source': '來源', 'topbar.source.checkout': '原始碼工作區', 'topbar.source.release': '已安裝版本', 'topbar.source.other': '其他來源',
+  'topbar.worktree': '工作區', 'topbar.dirty': '有未提交變更', 'topbar.clean': '無未提交變更',
+  'topbar.release': '安裝版本', 'topbar.active': '目前啟用', 'topbar.inactive': '未啟用', 'topbar.root': '來源路徑',
   'topbar.collapseNav': '收合導覽', 'topbar.expandNav': '展開導覽',
   'topbar.views': '畫布檢視',
   'view.context': '現場', 'view.contextLabel': '現場檢視',

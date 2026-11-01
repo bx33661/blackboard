@@ -14,6 +14,7 @@ export function useWorkspaceLocation() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Workspace resolves this once the snapshot and visible projection have arrived.
   const deepLink = useRef(initial.node);
+  const pendingFocus = useRef<string | null>(null);
 
   useEffect(() => {
     const url = new URL(location.href);
@@ -29,5 +30,5 @@ export function useWorkspaceLocation() {
     history.replaceState(null, '', url);
   }, [selectedId]);
 
-  return { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, deepLink };
+  return { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus };
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { addNode, appendEvent, ensure, paths, readEvents, replay, withLock } from '../lib/store.js';
+import { addNode, appendEvent, ensure, paths, readEvents, replay, withLock, writeBatch } from '../lib/store.js';
 
 function fixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-store-io-'));
@@ -46,9 +46,7 @@ for (const failingMethod of ['fstatSync', 'readSync']) {
       return original.call(this, fd, ...args);
     });
     try {
-      assert.deepEqual(readEvents(dir), {
-        events: [], corrupt: 0, future: 0, offset: 0, truncated: false,
-      });
+      assert.throws(() => readEvents(dir), { code: 'EIO' });
       assert.notEqual(opened(), undefined);
       assert.throws(() => stat(opened()), { code: 'EBADF' });
     } finally {
@@ -205,3 +203,78 @@ test('event reads preserve empty, exhausted, incomplete and missing-file cursor 
   fs.unlinkSync(paths(dir).events);
   assert.deepEqual(readEvents(dir, size), empty(size));
 });
+
+test('an interrupted large batch preserves earlier records when repair reads are short', (t) => {
+  const dir = fixture(t);
+  const { node: retained } = addNode({ title: 'Already committed 中文 evidence' }, dir);
+  const file = paths(dir).events;
+  const prefix = fs.readFileSync(file);
+  const records = Array.from({ length: 400 }, (_, index) => ({
+    line: index + 1, op: 'node', type: 'note', title: `Synthetic batch ${index}`, detail: 'x'.repeat(4000),
+  }));
+  writeBatch(records, { requestId: 'interrupted-large-batch' }, dir);
+  const complete = fs.readFileSync(file);
+  const firstLineEnd = complete.indexOf(0x0a, prefix.length);
+  assert.ok(firstLineEnd - prefix.length > 1024 * 1024, 'the legal request plan exceeds the old scan window');
+  fs.writeFileSync(file, complete.subarray(0, firstLineEnd - 17));
+  fs.unlinkSync(paths(dir).state);
+  const opened = observeOpen(t, file, 'r+');
+  replace(t, 'readSync', (original) => function(fd, buffer, offset, length, position) {
+    return original.call(this, fd, buffer, offset, fd === opened() ? Math.min(4096, length) : length, position);
+  });
+  const { node: next } = addNode({ title: 'Committed after interruption' }, dir);
+  const graph = replay(dir);
+  assert.deepEqual(fs.readFileSync(file).subarray(0, prefix.length), prefix);
+  assert.equal(graph.nodes[retained.id].title, 'Already committed 中文 evidence');
+  assert.equal(graph.nodes[next.id].title, 'Committed after interruption');
+  assert.deepEqual(Object.keys(graph.nodes), [retained.id, next.id]);
+  assert.equal(graph.integrity.corruptLines, 0);
+});
+
+test('a log read failure rejects a mutation without changing committed events', (t) => {
+  const dir = fixture(t);
+  const { node } = addNode({ title: 'Committed before read failure' }, dir);
+  const file = paths(dir).events;
+  const before = fs.readFileSync(file);
+  const opened = observeOpen(t, file, 'r');
+  const restore = replace(t, 'readSync', (original) => function(fd, ...args) {
+    if (fd === opened()) throw Object.assign(new Error('synthetic source failure'), { code: 'EIO' });
+    return original.call(this, fd, ...args);
+  });
+  try {
+    assert.throws(() => addNode({ title: 'Must not be committed' }, dir), { code: 'EIO' });
+  } finally {
+    restore();
+  }
+  assert.deepEqual(fs.readFileSync(file), before);
+  assert.equal(fs.existsSync(paths(dir).lock), false);
+  assert.equal(replay(dir).nodes[node.id].title, 'Committed before read failure');
+});
+
+for (const failure of ['error', 'eof']) {
+  test(`tail repair preserves the entire file on ${failure} during scanning`, (t) => {
+    const dir = fixture(t);
+    addNode({ title: 'Committed prefix' }, dir);
+    const file = paths(dir).events;
+    fs.appendFileSync(file, '{"unfinished":"' + 'x'.repeat(128 * 1024));
+    const before = fs.readFileSync(file);
+    const opened = observeOpen(t, file, 'r+');
+    const restore = replace(t, 'readSync', (original) => function(fd, buffer, offset, length, position) {
+      if (fd === opened() && length > 1) {
+        if (failure === 'eof') return 0;
+        throw Object.assign(new Error('synthetic scan failure'), { code: 'EIO' });
+      }
+      return original.call(this, fd, buffer, offset, length, position);
+    });
+    try {
+      assert.throws(() => addNode({ title: 'Must wait for repair' }, dir), { code: 'EIO' });
+      assert.deepEqual(fs.readFileSync(file), before);
+      assert.equal(fs.existsSync(paths(dir).lock), false);
+    } finally {
+      restore();
+    }
+    const { node } = addNode({ title: 'Repair can be retried' }, dir);
+    assert.equal(replay(dir).nodes[node.id].title, 'Repair can be retried');
+    assert.deepEqual(fs.readFileSync(file).subarray(0, before.indexOf(0x0a) + 1), before.subarray(0, before.indexOf(0x0a) + 1));
+  });
+}

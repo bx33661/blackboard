@@ -134,6 +134,19 @@ SARIF `level` 只映射记录的 severity：critical/high → error，medium →
 
 `ls` / `list` 先应用类型和开放节点筛选，再按创建时间返回最近 30 条；`--limit` 调整条数，`--all` 返回全部匹配，两者互斥。截断时在 stderr 说明匹配数、返回数和省略数；stdout 仍只输出节点或 JSON 裸数组。stderr 是给人看的提示，不作为机器契约；程序需要总数时读取 `search.total`。
 
+### 运行构建身份
+
+`GET /api/status` 返回项目 `cwd`、`readOnly`、`pid`，以及运行进程的 `build`。实时 HTTP、SSE 和离线 HTML 的图快照在 `meta.build` 中携带同一构建身份；旧快照可缺省该字段。`version` 的人类可读输出也显示构建标识，不新增 `--version --json` 契约。
+
+- `version`：包版本字符串。
+- `buildId`：`sha256:` 加发布包内容的 SHA-256；同一内容移动或安装后保持一致，同版本号的不同代码或资产可区分。安装路径、安装时间和黑板数据不参与计算。
+- `commit`、`dirty`：已知 Git 来源的提交与工作区状态；来源未知时分别为 `null`，不推断为干净。
+- `origin`：`kind` 为 `checkout`、`release` 或 `other`；已安装版本可含 `version`、`active`，本地运行可含 `root`。
+
+进程在启动时固定构建身份，不在每次请求或流推送中重算。切换代码后需重启服务；构建信息不写入事件日志。
+
+离线 HTML 保留相同的版本、内容指纹、提交与来源类别，但裁剪 `origin.root` 本机安装路径；打开离线页面不请求构建接口。
+
 
 ## 不在 v1 固定输出内的命令
 
@@ -184,6 +197,8 @@ SARIF `level` 只映射记录的 severity：critical/high → error，medium →
 - `eventId`：每个事件唯一。
 - `op`：`node`、`edge`、`patch`、`remove`（`kind: "node" | "edge"`）、`cursor`、`activity`、`checkpoint`、`meta`、`receipt`、`reset`。不认识的 `op` 被忽略并计入 `integrity.unknownOps`；无法解析的行被跳过并计数。两者都在 `lint` 里报告。
 - 未知节点类型和未知关系类型必须原样保存和回放。
+
+只回放以换行完整结束的记录；未完成尾行在读取时忽略。下一次写入前逐块回扫并截除未完成尾部，无论尾行多长都保留此前完整记录。日志读取或修复扫描失败时操作报错，不把 I/O 错误当作空日志继续分配 ID；HTTP 读取返回 500，写入不追加事件。
 
 写命令的存档里同时记录了这次写入追加的事件（`events` 字段），所以事件格式的变化也会让测试失败。固定日志 `integrity.events.jsonl` 覆盖旧事件、坏行、未知操作、更高版本事件、未知类型和未知关系。
 

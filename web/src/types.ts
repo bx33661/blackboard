@@ -41,6 +41,20 @@ export type Cursor = {
   at?: number;
 };
 
+/** Identity of the code serving or exporting this snapshot; older snapshots may omit it. */
+export type BuildInfo = {
+  version: string;
+  buildId: string;
+  commit: string | null;
+  dirty: boolean | null;
+  origin: {
+    kind: 'checkout' | 'release' | 'other';
+    version?: string;
+    active?: boolean;
+    root?: string;
+  };
+};
+
 export type GraphSnapshot = {
   meta: {
     title?: string;
@@ -49,6 +63,7 @@ export type GraphSnapshot = {
     session?: string;
     /** Set by a server that accepts edits from the viewer. */
     writable?: boolean;
+    build?: BuildInfo;
   };
   nodes: Record<string, BoardNode> | BoardNode[];
   edges: Record<string, BoardEdge> | BoardEdge[];

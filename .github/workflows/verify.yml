@@ -33,8 +33,23 @@ jobs:
       - run: npm run check:docs
       - run: npm test
       - run: npm run build
-      - name: Install Chromium for export consumer checks
+      - name: Install Chromium for viewer and export consumer checks
         run: npx playwright install --with-deps chromium
+      - name: Verify real viewer interactions and 3D fallbacks in Chromium
+        id: viewer
+        timeout-minutes: 6
+        # The verifier explicitly uses ANGLE SwiftShader for normal 3D rendering.
+        run: npm run verify:viewer
+        env:
+          BLACKBOARD_VIEWER_OUTPUT: dist/viewer-verification
+      - name: Preserve viewer screenshots and results, including failures
+        if: always() && steps.viewer.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackboard-viewer-verification
+          path: dist/viewer-verification/
+          if-no-files-found: error
+          retention-days: 14
       - name: Render Markdown and Mermaid in Chromium
         run: npm run verify:exports:text -- --out-dir dist/export-consumers
       - name: Validate actual CLI SARIF exports against the official schema

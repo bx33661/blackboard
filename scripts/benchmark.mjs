@@ -59,7 +59,7 @@ function argsOf(args) {
   for (let i = 0; i < args.length; i++) {
     const key = args[i];
     if (['--full', '--quick', '--no-concurrency', '--help'].includes(key)) opts[key.slice(2)] = true;
-    else if (['--source', '--output', '--runs', '--nodes', '--events', '--worker', '--board', '--count', '--worker-id'].includes(key)) {
+    else if (['--source', '--output', '--budget', '--runs', '--nodes', '--events', '--worker', '--board', '--count', '--worker-id'].includes(key)) {
       assert.ok(args[i + 1] && !args[i + 1].startsWith('--'), `${key} requires a value`);
       opts[key.slice(2)] = args[++i];
     } else throw new Error(`unknown option: ${key}`);
@@ -75,8 +75,25 @@ function positive(value, fallback, name) {
 const sha = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 const logPath = (board) => path.join(board, '.blackboard', 'events.jsonl');
 const fingerprint = (graph) => sha(JSON.stringify(graph));
-const sourceFingerprint = (source) => sha(['package.json', 'lib/store.js', 'lib/model.js', 'lib/context.js']
-  .map((name) => `${name}\n${fs.readFileSync(path.join(source, name), 'utf8')}`).join('\n'));
+function sourceFingerprint(source) {
+  const hash = crypto.createHash('sha256');
+  function include(relative) {
+    const file = path.join(source, relative);
+    if (!fs.existsSync(file)) return;
+    const stat = fs.lstatSync(file);
+    if (stat.isSymbolicLink()) throw new Error(`cannot fingerprint linked source: ${relative}`);
+    if (stat.isDirectory()) {
+      for (const entry of fs.readdirSync(file).sort()) include(path.join(relative, entry));
+    } else if (stat.isFile()) {
+      const bytes = fs.readFileSync(file);
+      const name = relative.split(path.sep).join('/');
+      hash.update(`${Buffer.byteLength(name)}:${name}:${bytes.length}:`);
+      hash.update(bytes);
+    }
+  }
+  for (const entry of ['package.json', 'package-lock.json', 'bin', 'lib']) include(entry);
+  return hash.digest('hex');
+}
 function isolatedEnv() {
   return isolatedBlackboardEnv({ BLACKBOARD_LOCK_TIMEOUT_MS: '120000', BLACKBOARD_QUIET: '1' });
 }
@@ -123,6 +140,23 @@ async function worker(opts) {
     samples.push(performance.now() - tick);
   }
   return { samples, elapsedMs: performance.now() - start, rssBytes: process.memoryUsage().rss };
+}
+
+/** Explicit local budgets are independent of the CI observation-only baseline. */
+export function checkPerformanceBudget(report, budget) {
+  assert.equal(budget?.schema, 'blackboard.performance-budget.v1', 'unsupported performance budget schema');
+  assert.ok(Array.isArray(budget.limits) && budget.limits.length > 0, 'budget needs nonempty limits');
+  const checks = budget.limits.map((limit) => {
+    assert.ok(Number.isSafeInteger(limit.nodes) && limit.nodes > 0 && Number.isSafeInteger(limit.events) && limit.events > 0, 'budget needs positive node and event counts');
+    assert.ok(typeof limit.metric === 'string' && ['p50', 'p95'].includes(limit.statistic), 'budget needs a metric and p50 or p95 statistic');
+    assert.ok(Number.isFinite(limit.maxMs) && limit.maxMs > 0, 'budget maxMs must be positive and finite');
+    const result = report.results.find((item) => item.nodes === limit.nodes && item.events === limit.events);
+    assert.ok(result, `budget fixture was not measured: ${limit.nodes} nodes / ${limit.events} events`);
+    const observedMs = result.metrics[limit.metric]?.[limit.statistic];
+    assert.ok(typeof observedMs === 'number' && Number.isFinite(observedMs) && observedMs >= 0, `budget metric was not measured: ${limit.metric}.${limit.statistic}`);
+    return { ...limit, observedMs, passed: observedMs <= limit.maxMs };
+  });
+  return { passed: checks.every((check) => check.passed), checks };
 }
 
 export async function runBenchmark(options = {}) {
@@ -222,27 +256,35 @@ export async function runBenchmark(options = {}) {
         integrity: { sourceUnchanged: true, fullReplayEqual: true, writePrefixPreserved: true, concurrentWritesExact: concurrency ? true : null } });
     }
     const pkg = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8'));
-    return { schemaVersion: 1, measuredAt: new Date().toISOString(), mode: full ? 'full' : 'quick', source, packageVersion: pkg.version, runs,
-      sourceFingerprint: { start: sourceSha256Start, end: sourceFingerprint(source), changedDuringRun: sourceSha256Start !== sourceFingerprint(source) },
+    const sourceSha256End = sourceFingerprint(source);
+    const report = { schemaVersion: 1, measuredAt: new Date().toISOString(), mode: full ? 'full' : 'quick', source, packageVersion: pkg.version, runs,
+      sourceFingerprint: { start: sourceSha256Start, end: sourceSha256End, changedDuringRun: sourceSha256Start !== sourceSha256End },
       machine: { platform: process.platform, arch: process.arch, node: process.version, cpu: os.cpus()[0]?.model || null, logicalCpus: os.cpus().length, memoryBytes: os.totalmem() },
       methodology: { clock: 'performance.now()', quantile: 'nearest-rank', cold: 'fresh Node process; includes startup and graph fingerprint; OS page cache is NOT cleared',
+        scriptSha256: sha(fs.readFileSync(SELF)),
         replay: 'full events.jsonl read, parse and projection; fingerprint/assertions outside timed section', contextProjection: 'bounded context from already replayed graph',
         recoveryContext: 'full replay plus bounded context', write: 'one addNode under lock against a cloned fixture, including state cache; cloning/validation not timed',
         concurrency: 'two child writers plus parent full replay reads; samples are contention-inclusive, not independent repeated runs',
         rss: 'observed process.memoryUsage().rss samples, not OS peak RSS; not additive across processes', fixtures: 'synthetic deterministic events only; temp directories removed on success or failure' }, results };
+    if (options.budget) {
+      assert.equal(report.sourceFingerprint.changedDuringRun, false, 'changed source cannot be assessed against a performance budget');
+      report.budget = checkPerformanceBudget(report, JSON.parse(fs.readFileSync(path.resolve(options.budget), 'utf8')));
+    }
+    return report;
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === SELF) {
   try {
     const opts = argsOf(process.argv.slice(2));
-    if (opts.help) console.log('Usage: node scripts/benchmark.mjs [--quick|--full] [--source DIR] [--output FILE] [--runs N] [--nodes N --events N] [--no-concurrency]\nDefault quick: 1k nodes / 10k events / 3 samples. Full: 1k and 10k nodes / 100k events / 5 samples.');
+    if (opts.help) console.log('Usage: node scripts/benchmark.mjs [--quick|--full] [--source DIR] [--output FILE] [--budget FILE] [--runs N] [--nodes N --events N] [--no-concurrency]\nDefault quick: 1k nodes / 10k events / 3 samples. Full: 1k and 10k nodes / 100k events / 5 samples. Explicit budgets enforce per-fixture p50/p95 limits; CI remains observation-only.');
     else {
       assert.ok(!(opts.quick && opts.full), 'choose --quick or --full, not both');
       const result = opts.worker ? await worker({ ...opts, source: path.resolve(opts.source || ROOT) }) : await runBenchmark(opts);
       const json = JSON.stringify(result, null, 2) + '\n';
       if (opts.output) fs.writeFileSync(path.resolve(opts.output), json);
       process.stdout.write(json);
+      if (result.budget && !result.budget.passed) process.exitCode = 1;
     }
   } catch (error) { console.error(`benchmark: ${error.message}`); process.exitCode = 1; }
 }

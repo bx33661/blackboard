@@ -33,9 +33,9 @@ flowchart TD
 | `lib/cli/format.js` | 终端颜色与人类可读的行格式；不决定 JSON schema |
 | `lib/contracts.js` | 纯常量：`OUTPUTS`、`WRITE_TARGETS`、`GRAPH_SCHEMA`；CLI 与投影共用，保持浏览器可用 |
 | `lib/model.js`、`lib/semantics.js` | CLI、服务、浏览器共用的回放与语义；不引入 Node-only API |
-| `lib/store.js` | 项目板发现、事件追加、缓存、游标与检查点；在写锁内校验事件版本，不认识宿主。单条写入与 `writeBatch` 共用同一套节点、关系、修改的执行函数，batch 只在内存工作图上逐行执行后整体提交 |
+| `lib/store.js` | 项目板发现、事件追加、缓存、游标与检查点；写锁内校验并读取一次日志，回执与工作图复用该快照。共享回放隔离会被 patch 修改的节点，保留原事件供历史投影使用。单条写入与 batch 共用执行函数，batch 在内存图上逐行验证后整体提交 |
 | `lib/batch.js` | `batch` 的 JSONL 解析：字段白名单、类型与批内引用检查，错误带输入行号；不写事件 |
-| `lib/storage/` | `file-lock.js` 管理跨进程锁、文件身份核对与异常清理；`event-file.js` 管理完整字节读取、短读和断尾修复；不决定事件语义 |
+| `lib/storage/` | `file-lock.js` 管理跨进程锁与所有权；`event-file.js` 处理短读，并以有界内存回扫任意长度的未完成尾行。扫描失败不截断，读取失败不伪装为空日志 |
 | `lib/context.js`、`lib/digest.js`、`lib/search.js`、`lib/history.js`、`lib/lint.js` | 由已记录的内容生成上下文、摘要、查询、追溯与提示；省略明确报告，不推断缺省维度 |
 | `lib/snapshot.js` | Node 运行时中的 `buildGraphSnapshot`；实时 HTTP / SSE 与离线 HTML 共用图、身份与有效焦点投影，通过选项保留各自的可写性和活动详情边界 |
 | `lib/server.js`、`lib/service.js` | loopback HTTP / SSE、读取路由、静态资产、服务端口与身份探测 |
@@ -44,6 +44,7 @@ flowchart TD
 | `lib/backup.js`、`lib/receipts.js` | 可校验备份恢复、从事件投影的写入回执 |
 | `lib/setup.js`、`lib/hooks.js`、`lib/release.js` | 接入安装、可选 Claude Hook、稳定版本与 current 切换；开发仓库不直接替代日常安装 |
 | `lib/release/` | `publication.js` 复制包文件、发布版本目录与 current 链接；强制替换失败时恢复原版本，回滚或清理失败时保留旧字节并报告恢复路径 |
+| `lib/build-info.js` | 固定运行进程的包内容指纹与来源；CLI、HTTP、SSE 和离线快照共用，不按请求重算 |
 | `skills/blackboard/` | 完整 Skill 的唯一发布源：入口、参考、方法、图标和宿主展示元信息一起分发 |
 | `web/src/` | React 工作台，读取 API / SSE 或离线快照，保留显式编辑、冲突草稿和 Agent 阅读视角 |
 | `public/` | Vite 从 `web/` 生成的分发资产，随根包提供给服务与离线导出 |
@@ -55,25 +56,33 @@ flowchart TD
 
 ## 实时与离线快照
 
-`lib/snapshot.js` 的内部入口为 `buildGraphSnapshot(cwd, { writable = false, includeActivityDetails = true } = {})`。它读取 store，统一节点投影、统计、各 Agent 摘要与焦点；依赖 Node 文件存储，不是浏览器共享模块，也不是供插件依赖的公开 API。
+`lib/snapshot.js` 的内部入口 `buildGraphSnapshot(cwd, options)` 读取 store，统一节点、统计、各 Agent 摘要、焦点与可选构建身份；`writable` 默认 false，`includeActivityDetails`、`includeLocalPaths` 默认 true。它依赖 Node 存储，不是浏览器模块或宿主公开 API。
 
 焦点只接受图中仍存在的节点：先取有效的事件元数据焦点，再取有效的缓存焦点，否则输出 null。`0.8.1` 修复了此前缓存 `focus` 指向不存在节点时，实时输出 null、离线 HTML 却保留失效 ID 的差异；有效节点与 Agent 身份的读取语义保持一致。
 
-离线 HTML 仍传入 `includeActivityDetails: false`，活动只保留 `id`、`tool`、`status`、`at`、`linkedNodeIds`，不带原始 `input` / `output` / `summary`，也不序列化 `meta.writable`。共享组装函数不表示把实时活动材料或页面写权限带入分享文件。相关行为由实际 HTTP 响应与 HTML 导出回归约束；是否已执行仍看本轮验证记录。
+离线 HTML 显式关闭 `includeActivityDetails` 和 `includeLocalPaths`：活动只保留 `id`、`tool`、`status`、`at`、`linkedNodeIds`，排除原始 `input` / `output` / `summary`；构建身份保留内容指纹和来源类别，但裁剪 `origin.root` 本机路径，也不序列化 `meta.writable`。共享组装不把本地材料或编辑权限带入分享文件。
 
 
 ## 前端如何分工
 
-`web/src/App.tsx` 负责 UI 组装、画布布局、拖动节点身份缓存和键盘交互；等待快照后恢复深链、清除已删除节点的选择仍留在 App，因为这些行为依赖投影与待布局焦点。工作台自己的派生数据与 URL 状态放在 `web/src/workspace/`：
+`web/src/App.tsx` 组装面板、画布与局部界面状态。工作台数据、交互与视图控制沿现有 `web/src/workspace/` 分工：
 
 - `selectors.ts`：纯快照索引、侧栏分组与筛选统计、Agent 阅读视角。
 - `use-workspace-data.ts`：派生数据和画布投影的 React memo 边界。
 - `use-workspace-location.ts`：读取 URL 初始值，并同步 Agent / view / node 地址；不承担依赖快照的节点选择与布局恢复。
+- `use-workspace-layout.ts`：共享节点与关系、异步 ELK 布局及取消、布局版本和拖动位置保留。
+- `use-workspace-selection.ts`：深链解析、失效选择清理、隐藏节点揭示、选择事件与键盘导航。
+- `use-workspace-viewport.ts`：首次框选、待聚焦节点、跟随和减少动态效果偏好。
+- `use-workspace-presentation.ts`：选择、高亮和关系装饰，保留未改变卡片的对象身份。
+- `use-workspace-scene.ts`：2D/3D 切换、触发器焦点归还、详情栏遮挡和图片导出。
+- `use-workspace-feedback.ts`：新增记录提示、剪贴板反馈、通知及其计时器。
 - `graph-stream.ts`：实时订阅控制器，管理 `/api/graph` 读取、`/events` 流、按请求开始排序和释放时中止请求；只接受顶层结构有效的图快照，无效数据保留上一份快照并显示离线，连接建立本身不算已同步。`use-graph-stream.ts` 只把它接入 React 状态。
 
 现有 `graph.ts` 负责图投影，`presentation.ts` 负责记录的显示语义，`api.ts` 负责写请求，`panels/` 负责面板。浏览器共享模型不得通过新的间接 import 引入文件系统、进程或开发脚本。界面风格见[界面规范](../design/UI_SYSTEM.md)。
 
 切换 Agent 只切换阅读视角。写请求仍由用户明确发起，只提交实际变更字段和对应基准；冲突保留草稿。实时工作台与离线 HTML 使用相同的图 schema 和身份语义，离线页面保留上述字段裁减，也不访问远端历史接口。
+
+Topbar 从快照的可选 `meta.build` 展示版本与构建来源；旧快照不显示该控件，离线页面不额外请求版本接口。CLI 与 HTTP 的增量上下文复用同一次日志读取；多 Agent Digest 共用统计、节点排序、轨迹与检查点分组。
 
 ## 适配与发布边界
 

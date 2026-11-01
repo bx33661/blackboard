@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url';
 import { applyAll, emptyGraph } from '../lib/model.js';
 import { readEvents } from '../lib/store.js';
 import { buildAgentContext, estimateTokensText } from '../lib/context.js';
+import { runExperiment } from './lib/recovery-runner.mjs';
 
 const SCHEMA = 'blackboard.recovery-experiment.v1';
 const ARMS = ['A', 'B', 'C'];
@@ -21,7 +22,9 @@ const SETTLED_STATUSES = new Set(['refuted', 'confirmed']);
 const USAGE = `Usage:
   recovery-experiment.mjs prepare --board <root> --at <checkpoint|event:N> [--since <checkpoint>]
                                   [--budget 4000] [--agent agent:primary] [--summary-file f] --out <dir>
-  recovery-experiment.mjs check --manifest <dir>/manifest.json --questions q.json --answers a.json [--json]`;
+  recovery-experiment.mjs check --manifest <dir>/manifest.json --questions q.json --answers a.json [--json]
+  recovery-experiment.mjs run --manifest <dir>/manifest.json --questions q.json --runner runner.json --out <new-dir>
+                              [--prompt-file f] [--repeats 3] [--timeout-ms 120000] [--output-budget 2000] [--max-bytes 4194304]`;
 
 function fail(message) {
   throw Object.assign(new Error(message), { usage: true });
@@ -53,7 +56,8 @@ function cutIndex(events, ref, label) {
 }
 
 function packetAt(events, options) {
-  return buildAgentContext(applyAll(emptyGraph(), events), { ...options, events });
+  // Reducer patches mutate their graph nodes; each cut must own its payloads.
+  return buildAgentContext(applyAll(emptyGraph(), structuredClone(events)), { ...options, events });
 }
 
 function projectGraph(events, { sinceEnd, sinceRef, budgetTokens, agentId }) {
@@ -148,7 +152,7 @@ export function prepare({ board, at, since = null, budget = 4000, agent = 'agent
   fs.writeFileSync(path.join(out, 'B-nodes.json'), `${JSON.stringify(materials.B, null, 2)}\n`);
   fs.writeFileSync(path.join(out, 'C-graph.json'), `${JSON.stringify(materials.C, null, 2)}\n`);
 
-  const atCut = applyAll(emptyGraph(), events);
+  const atCut = applyAll(emptyGraph(), structuredClone(events));
   const manifest = {
     schema: SCHEMA,
     mode: sinceEnd === null ? 'takeover' : 'resume',
@@ -171,6 +175,9 @@ export function prepare({ board, at, since = null, budget = 4000, agent = 'agent
     },
     cost: recordingCost(events),
   };
+  for (const arm of ARMS) {
+    manifest.arms[arm].sha256 = crypto.createHash('sha256').update(fs.readFileSync(path.join(out, manifest.arms[arm].file))).digest('hex');
+  }
   fs.writeFileSync(path.join(out, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;
 }
@@ -183,6 +190,16 @@ function isSpeculative(node) {
 
 export function check({ manifest, questions, answers }) {
   if (manifest?.schema !== SCHEMA) fail(`manifest schema must be ${SCHEMA}`);
+  if (!Array.isArray(questions) || !questions.length) fail('questions must be a nonempty array');
+  const questionIds = new Set();
+  for (const question of questions) {
+    if (!question || typeof question.id !== 'string' || !question.id || typeof question.text !== 'string' || !question.text.trim()) fail('questions need nonempty id and text');
+    if (questionIds.has(question.id)) fail(`duplicate question: ${question.id}`);
+    questionIds.add(question.id);
+    if (question.evidence !== undefined && (!Array.isArray(question.evidence) || question.evidence.some((id) => typeof id !== 'string' || !id))) fail(`invalid evidence for ${question.id}`);
+    if (question.expected !== undefined && question.expected !== 'unknown') fail(`invalid expected stance for ${question.id}`);
+  }
+  if (!Array.isArray(answers)) fail('answers must be an array');
   const byId = new Map(questions.map((q) => [q.id, q]));
   const nodes = manifest.nodesAtCut || {};
   const checkpoints = new Set(manifest.checkpointsAtCut || []);
@@ -197,6 +214,9 @@ export function check({ manifest, questions, answers }) {
   }]));
 
   for (const answer of answers) {
+    if (!answer || typeof answer !== 'object' || Array.isArray(answer)) fail('answers must be objects');
+    if (answer.cites !== undefined && (!Array.isArray(answer.cites) || answer.cites.some((id) => typeof id !== 'string' || !id))) fail('answer cites must be an array of nonempty IDs');
+    if (answer.correct !== undefined && typeof answer.correct !== 'boolean') fail('human correctness must be a boolean when supplied');
     const question = byId.get(answer.question);
     if (!question) fail(`answer refers to an unknown question: ${answer.question}`);
     if (!ARMS.includes(answer.arm)) fail(`answer for ${answer.question} has an unknown arm: ${answer.arm}`);
@@ -256,7 +276,11 @@ function renderCheck(result) {
   return lines.join('\n');
 }
 
-function main(argv) {
+export function run(options) {
+  return runExperiment({ ...options, checkAnswers: check });
+}
+
+async function main(argv) {
   const [command, ...rest] = argv;
   const { values } = parseArgs({
     args: rest,
@@ -264,6 +288,8 @@ function main(argv) {
       board: { type: 'string' }, at: { type: 'string' }, since: { type: 'string' },
       budget: { type: 'string' }, agent: { type: 'string' }, 'summary-file': { type: 'string' }, out: { type: 'string' },
       manifest: { type: 'string' }, questions: { type: 'string' }, answers: { type: 'string' }, json: { type: 'boolean' },
+      runner: { type: 'string' }, 'prompt-file': { type: 'string' }, repeats: { type: 'string' },
+      'timeout-ms': { type: 'string' }, 'output-budget': { type: 'string' }, 'max-bytes': { type: 'string' },
     },
   });
   if (command === 'prepare') {
@@ -283,12 +309,21 @@ function main(argv) {
     console.log(values.json ? JSON.stringify(result, null, 2) : renderCheck(result));
     return;
   }
+  if (command === 'run') {
+    const result = await run({ manifest: values.manifest, questions: values.questions, runner: values.runner,
+      promptFile: values['prompt-file'], out: values.out, repeats: values.repeats ?? 3,
+      timeoutMs: values['timeout-ms'] ?? 120000, outputBudget: values['output-budget'] ?? 2000,
+      maxBytes: values['max-bytes'] ?? 4194304 });
+    console.log(values.json ? JSON.stringify(result, null, 2) : `${result.status}: ${result.runs.length} runs → ${values.out}`);
+    if (result.status !== 'complete') process.exitCode = 1;
+    return;
+  }
   fail(command ? `unknown command: ${command}` : 'missing command');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
-    main(process.argv.slice(2));
+    await main(process.argv.slice(2));
   } catch (error) {
     console.error(error.message);
     if (error.usage) console.error(USAGE);

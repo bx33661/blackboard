@@ -61,6 +61,10 @@ export const en: Messages = {
   'api.inputTooLong': 'Not saved: {fields} exceeds the length limit. Shorten or split it; your draft is preserved.',
 
   'topbar.connecting': 'Connecting', 'topbar.live': 'Synced', 'topbar.offline': 'Reconnecting', 'topbar.static': 'Offline snapshot',
+  'topbar.version': 'Version {version}', 'topbar.build': 'Build ID', 'topbar.commit': 'Commit',
+  'topbar.source': 'Source', 'topbar.source.checkout': 'Source checkout', 'topbar.source.release': 'Installed release', 'topbar.source.other': 'Other source',
+  'topbar.worktree': 'Working tree', 'topbar.dirty': 'Uncommitted changes', 'topbar.clean': 'No uncommitted changes',
+  'topbar.release': 'Installed release', 'topbar.active': 'Active', 'topbar.inactive': 'Inactive', 'topbar.root': 'Source path',
   'topbar.collapseNav': 'Collapse navigation', 'topbar.expandNav': 'Expand navigation',
   'topbar.views': 'Canvas view',
   'view.context': 'Context', 'view.contextLabel': 'Context view',

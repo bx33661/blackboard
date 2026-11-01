@@ -682,10 +682,12 @@ test('status identifies the current viewer, another project, offline and unrelat
   const before = fs.readFileSync(paths(dir).events, 'utf8');
   const otherBefore = fs.readFileSync(paths(other).events, 'utf8');
   const online = await statusJson(env, '--port', port);
-  assert.deepEqual(online.viewer, {
-    port: Number(port), url: `http://127.0.0.1:${port}`, state: 'online',
-    cwd: fs.realpathSync(dir), readOnly: true,
-  });
+  assert.equal(online.viewer.port, Number(port));
+  assert.equal(online.viewer.url, `http://127.0.0.1:${port}`);
+  assert.equal(online.viewer.state, 'online');
+  assert.equal(online.viewer.cwd, fs.realpathSync(dir));
+  assert.equal(online.viewer.readOnly, true);
+  assert.match(online.viewer.build.buildId, /^sha256:[a-f0-9]{64}$/);
   assert.deepEqual(online.integration.claude, {
     skill: { project: false, user: false }, hooks: { project: [], user: [] },
   });

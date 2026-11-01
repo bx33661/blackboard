@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { check, prepare } from '../scripts/recovery-experiment.mjs';
+import { check, prepare, run } from '../scripts/recovery-experiment.mjs';
 import { estimateTokensText } from '../lib/context.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -274,4 +275,181 @@ test('the command line prints a per-arm table and fails with usage on bad input'
   const bad = spawnSync(process.execPath, [SCRIPT, 'prepare', '--board', root], { encoding: 'utf8' });
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /--at is required[\s\S]*Usage:/);
+});
+
+function runnerFixture(t, mode = 'complete', extraArg = '') {
+  const { root, file } = board();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const corpus = path.join(root, 'prepared');
+  const manifest = prepare({ board: root, at: 'cp1', out: corpus });
+  const questions = path.join(root, 'questions.json');
+  fs.writeFileSync(questions, JSON.stringify([
+    { id: 'evidence', text: 'What supports H1?', evidence: ['F1'] },
+    { id: 'unknown', text: 'Is the cause reproduced?', expected: 'unknown' },
+  ]));
+  const adapter = path.join(root, 'adapter.mjs');
+  fs.writeFileSync(adapter, `
+    import fs from 'node:fs';
+    let input = ''; for await (const chunk of process.stdin) input += chunk;
+    const request = JSON.parse(input);
+    const mode = process.argv[2];
+    if (request.prompt.includes('"expected"') || request.prompt.includes('"evidence":')) throw new Error('grading key leaked');
+    if (mode === 'timeout') await new Promise(() => setInterval(() => {}, 1000));
+    if (mode === 'fail') { console.error('synthetic failure'); process.exit(7); }
+    if (mode === 'malformed') { console.log('not json'); process.exit(0); }
+    if (mode === 'large') { console.log('x'.repeat(10000)); process.exit(0); }
+    if (mode === 'mutate') fs.appendFileSync(process.argv[3], 'changed');
+    const answers = request.questions.map(({ id }) => ({ question: id, answer: 'not recorded', cites: [], stance: 'unknown' }));
+    if (mode === 'incomplete') answers.pop();
+    if (mode === 'duplicate') answers[1] = answers[0];
+    if (mode === 'self-grade') answers[0].correct = true;
+    if (mode === 'bad-cites') answers[0].cites = 'F1';
+    const response = { model: mode === 'wrong-model' ? 'another-model' : request.model, answers };
+    if (mode === 'metrics') { response.usage = { inputTokens: 42, outputTokens: 8 }; response.supplementaryReads = 0; }
+    if (mode === 'bad-metrics') response.supplementaryReads = -1;
+    if (mode === 'bad-usage') response.usage = { inputTokens: 'unknown' };
+    console.log(JSON.stringify(response));
+  `);
+  const runner = path.join(root, 'runner.json');
+  fs.writeFileSync(runner, JSON.stringify({ argv: [process.execPath, adapter, mode, extraArg || 'literal;$(never-execute)'], model: 'synthetic-fixed-model', parameters: { temperature: 0, seed: 123 } }));
+  return { root, file, corpus, manifest, questions, runner,
+    options: { manifest: path.join(corpus, 'manifest.json'), questions, runner, out: path.join(root, 'run'), repeats: 1 } };
+}
+
+test('repeated runner saves fixed inputs, balanced order, raw answers and mechanical checks without grading', async (t) => {
+  const fixture = runnerFixture(t);
+  const inputs = [fixture.file, fixture.questions, fixture.runner, ...['manifest.json', 'A-summary.md', 'B-nodes.json', 'C-graph.json'].map((name) => path.join(fixture.corpus, name))];
+  const before = inputs.map((file) => fs.readFileSync(file));
+  const result = await run({ ...fixture.options, repeats: 3, outputBudget: 777 });
+  assert.equal(result.status, 'complete');
+  assert.deepEqual(result.runs.map(({ arm }) => arm), ['A', 'B', 'C', 'B', 'C', 'A', 'C', 'A', 'B']);
+  for (const record of result.runs) {
+    const dir = path.join(fixture.options.out, record.id);
+    const request = JSON.parse(read(dir, 'request.json'));
+    assert.equal(request.model, 'synthetic-fixed-model');
+    assert.deepEqual(request.parameters, { temperature: 0, seed: 123 });
+    assert.equal(request.budget.maxOutputTokens, 777);
+    assert.equal(request.budget.materialTokens, fixture.manifest.budgetTokens);
+    assert.deepEqual(request.questions.map(Object.keys), [['id', 'text'], ['id', 'text']]);
+    assert.equal(request.prompt, read(dir, 'prompt.txt'));
+    assert.ok(record.elapsedMs >= 0);
+    assert.equal(record.sizes.stdinBytes, Buffer.byteLength(read(dir, 'request.json')));
+    assert.equal(Object.hasOwn(record, 'usage'), false);
+    assert.equal(Object.hasOwn(record, 'supplementaryReads'), false);
+    const checked = JSON.parse(read(dir, 'check.json')).arms[record.arm];
+    assert.equal(checked.graded, 0);
+    assert.equal(checked.correct, 0);
+    assert.equal(checked.missed, 1);
+    assert.equal(checked.unknownHandled, 1);
+    assert.equal(JSON.parse(read(dir, 'stdout.txt')).model, request.model);
+  }
+  inputs.forEach((file, index) => assert.deepEqual(fs.readFileSync(file), before[index]));
+  assert.deepEqual(fs.readdirSync(path.join(fixture.root, '.blackboard')), ['events.jsonl']);
+  const repeated = await run({ ...fixture.options, repeats: 3, outputBudget: 777, out: path.join(fixture.root, 'second-run') });
+  assert.equal(repeated.experimentId, result.experimentId);
+  assert.deepEqual(repeated.runs.map(({ requestSha256 }) => requestSha256), result.runs.map(({ requestSha256 }) => requestSha256));
+  await assert.rejects(run(fixture.options), /EEXIST/);
+});
+
+test('runner preserves supplied metrics and leaves absent measurements unknown', async (t) => {
+  const fixture = runnerFixture(t, 'metrics');
+  const result = await run(fixture.options);
+  assert.equal(result.status, 'complete');
+  assert.deepEqual(result.runs[0].usage, { inputTokens: 42, outputTokens: 8 });
+  assert.equal(result.runs[0].supplementaryReads, 0);
+});
+
+for (const [mode, message] of [
+  ['malformed', /JSON response envelope/], ['incomplete', /incomplete/], ['duplicate', /duplicate answer/],
+  ['self-grade', /human correctness/], ['bad-cites', /string cites/], ['wrong-model', /model identity/],
+  ['bad-metrics', /supplementaryReads/], ['bad-usage', /usage must/], ['fail', /runner exited 7/],
+]) {
+  test(`runner records ${mode} failure without fabricating answers or scores`, async (t) => {
+    const fixture = runnerFixture(t, mode);
+    const result = await run(fixture.options);
+    assert.equal(result.status, 'failed');
+    assert.equal(result.runs.length, 3, 'each planned arm keeps its own failure record');
+    for (const record of result.runs) {
+      assert.equal(record.status, 'failed');
+      assert.match(record.error, message);
+      const dir = path.join(fixture.options.out, record.id);
+      assert.ok(fs.existsSync(path.join(dir, 'stdout.txt')));
+      assert.equal(fs.existsSync(path.join(dir, 'check.json')), false);
+      assert.equal(fs.existsSync(path.join(dir, 'answers.json')), false);
+    }
+    assert.equal(JSON.parse(read(fixture.options.out, 'run-manifest.json')).status, 'failed');
+  });
+}
+
+test('runner bounds execution time and captured output and records spawn failures', async (t) => {
+  for (const mode of ['timeout', 'large', 'spawn']) {
+    const fixture = runnerFixture(t, mode);
+    if (mode === 'spawn') fs.writeFileSync(fixture.runner, JSON.stringify({ argv: [path.join(fixture.root, 'missing-executable')], model: 'synthetic-fixed-model' }));
+    const result = await run({ ...fixture.options, timeoutMs: mode === 'timeout' ? 100 : 10000, maxBytes: mode === 'large' ? 256 : 4096 });
+    assert.equal(result.status, 'failed');
+    for (const record of result.runs) {
+      assert.match(record.error, mode === 'timeout' ? /timeout/ : mode === 'large' ? /exceeded 256 bytes/ : /spawn:/);
+      assert.ok(record.sizes.stdoutBytes <= (mode === 'large' ? 256 : 4096));
+    }
+  }
+});
+
+test('runner detects corpus changes before execution and during an adapter call', async (t) => {
+  const fixture = runnerFixture(t);
+  const material = path.join(fixture.corpus, 'A-summary.md');
+  fs.appendFileSync(material, 'unexpected edit');
+  await assert.rejects(run(fixture.options), /arm A changed after preparation/);
+  assert.equal(fs.existsSync(fixture.options.out), false);
+
+  const changed = runnerFixture(t, 'mutate');
+  const config = JSON.parse(fs.readFileSync(changed.runner, 'utf8'));
+  config.argv[3] = changed.questions;
+  fs.writeFileSync(changed.runner, JSON.stringify(config));
+  const result = await run(changed.options);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.runs.length, 1, 'stop mixing results after corpus mutation');
+  assert.match(result.runs[0].error, /corpus inputs changed: questions.json/);
+  assert.equal(JSON.parse(read(path.join(changed.options.out, 'corpus'), 'questions.json')).length, 2, 'immutable initial snapshot survives source mutation');
+});
+
+test('checker rejects malformed question keys and answer structures before tallying', (t) => {
+  const fixture = runnerFixture(t);
+  const questions = [{ id: 'q', text: 'Question' }];
+  assert.throws(() => check({ manifest: fixture.manifest, questions: [...questions, ...questions], answers: [] }), /duplicate question/);
+  assert.throws(() => check({ manifest: fixture.manifest, questions, answers: {} }), /answers must be an array/);
+  assert.throws(() => check({ manifest: fixture.manifest, questions, answers: [null] }), /answers must be objects/);
+  assert.throws(() => check({ manifest: fixture.manifest, questions, answers: [{ question: 'q', arm: 'A', stance: 'fact', cites: 'F1' }] }), /cites must be an array/);
+});
+
+test('run CLI returns failure status while preserving the inspectable manifest', (t) => {
+  const fixture = runnerFixture(t, 'malformed');
+  const result = spawnSync(process.execPath, [SCRIPT, 'run', '--manifest', fixture.options.manifest,
+    '--questions', fixture.questions, '--runner', fixture.runner, '--out', fixture.options.out, '--repeats', '1', '--json'], { encoding: 'utf8' });
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(JSON.parse(result.stdout).status, 'failed');
+  assert.equal(JSON.parse(read(fixture.options.out, 'run-manifest.json')).runs.length, 3);
+});
+
+test('resume projections keep pre-patch cut payloads and raw-prefix identity isolated', (t) => {
+  const { root, file } = board();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const events = fs.readFileSync(file, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+  events.splice(6, 0, { eventVersion: 1, eventId: 'patch-after-interruption', op: 'patch', id: 'H1',
+    set: { title: 'H1 later refuted title', status: 'refuted', updated: 6 } });
+  const source = `${events.map((event) => JSON.stringify(event)).join('\n')}\n`;
+  fs.writeFileSync(file, source);
+  const out = path.join(root, 'resume-patched');
+  const manifest = prepare({ board: root, at: 'cp2', since: 'cp1', out });
+  const graph = JSON.parse(read(out, 'C-graph.json'));
+  assert.equal(graph.interrupted.currentFocus.id, 'H1');
+  assert.equal(graph.interrupted.currentFocus.title, 'H1 title');
+  assert.equal(graph.interrupted.currentFocus.status, 'open');
+  assert.equal(graph.since.currentFocus.title, 'H1 later refuted title');
+  assert.equal(graph.since.currentFocus.status, 'refuted');
+  assert.equal(manifest.nodesAtCut.H1.status, 'refuted');
+  const prefix = events.slice(0, manifest.cut.atEvent);
+  assert.equal(manifest.cut.prefixSha256, crypto.createHash('sha256').update(prefix.map((event) => JSON.stringify(event)).join('\n')).digest('hex'));
+  assert.equal(fs.readFileSync(file, 'utf8'), source);
+  const interrupted = prepare({ board: root, at: 'cp1', out: path.join(root, 'interruption-only') });
+  assert.equal(interrupted.nodesAtCut.H1.status, 'open');
 });

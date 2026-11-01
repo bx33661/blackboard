@@ -1,19 +1,12 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, getNodesBounds, getViewportForBounds,
-  useEdgesState, useNodesInitialized, useNodesState, useReactFlow, useUpdateNodeInternals,
-  type Edge, type NodeMouseHandler, type OnNodesChange,
-} from '@xyflow/react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider } from '@xyflow/react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { BoardGroup } from './BoardGroup';
 import { BrandMark } from './BrandMark';
 import { SecurityNode } from './SecurityNode';
-import { focusedIds, frameStrategy, neighborInDirection, pickFocus, type ArrowKey } from './canvas-state';
-import { exportCanvasPng } from './export-image';
 import { RoutedEdge } from './RoutedEdge';
-import { layoutGraph, NODE_H, NODE_W, typeLabel as typeLabelOf, type CanvasNode, type EdgeStyle, type Positions } from './graph';
+import { typeLabel as typeLabelOf, type CanvasNode, type EdgeStyle } from './graph';
 import { EMPTY_FILTER, type NodeFilter } from './presentation';
-import type { ViewMode } from './types';
 import { useGraphStream } from './use-graph-stream';
 import { usePref } from './use-pref';
 import { CanvasToolbar } from './panels/CanvasToolbar';
@@ -30,8 +23,13 @@ import { locale, t } from './i18n';
 import { SessionDrafts } from './session-drafts';
 import { useWorkspaceData } from './workspace/use-workspace-data';
 import { useWorkspaceLocation } from './workspace/use-workspace-location';
-import type { Scene3DHandle, Scene3DProps } from './scene3d/shared';
-import { useSceneOcclusion } from './scene3d/use-scene-occlusion';
+import { useWorkspaceLayout } from './workspace/use-workspace-layout';
+import { useWorkspaceViewport } from './workspace/use-workspace-viewport';
+import { useWorkspaceSelection } from './workspace/use-workspace-selection';
+import { useWorkspacePresentation } from './workspace/use-workspace-presentation';
+import { useWorkspaceFeedback } from './workspace/use-workspace-feedback';
+import { useWorkspaceScene } from './workspace/use-workspace-scene';
+import type { Scene3DProps } from './scene3d/shared';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
 const edgeTypes = { routed: RoutedEdge };
@@ -43,9 +41,6 @@ const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
     return <></>;
   },
 })));
-const INSPECTOR_W = 372;
-/** Colour of a focused edge's arrowhead: its relation family, or ink when unclassified. */
-const focusColor = (group?: string) => group && group !== 'link' ? `var(--rel-${group})` : 'var(--ink)';
 const THEME_KEY = 'blackboard-theme-v3';
 
 const initialTheme = (): 'light' | 'dark' => {
@@ -58,347 +53,43 @@ const initialTheme = (): 'light' | 'dark' => {
 
 function Workspace() {
   const { snapshot, connection, syncedAt, isStatic, reload } = useGraphStream();
-  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, deepLink } = useWorkspaceLocation();
+  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus } = useWorkspaceLocation();
   const [theme, setTheme] = useState<'light' | 'dark'>(initialTheme);
   const [direction, setDirection] = usePref<'RIGHT' | 'DOWN'>('direction', 'RIGHT');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   const [showMap, setShowMap] = usePref('minimap', false);
-  // Closed by default: it covers cards, and the toolbar opens it when a reader wants the key.
   const [showLegend, setShowLegend] = usePref('legend-open', false);
   const [edgeStyle, setEdgeStyle] = usePref<EdgeStyle>('edge-style', 'curve');
   const [follow, setFollow] = usePref('follow', false);
-  const [scene3d, setScene3d] = usePref('scene3d', false);
-  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [digestOpen, setDigestOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [filter, setFilter] = useState<NodeFilter>(EMPTY_FILTER);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [offlineShown, setOfflineShown] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [overviewColumns, setOverviewColumns] = useState<1 | 2>(() => window.innerWidth > 1100 ? 2 : 1);
-  const [layoutRevision, setLayoutRevision] = useState(0);
-  const [layoutMode, setLayoutMode] = useState<ViewMode | null>(null);
-  const [laying, setLaying] = useState(0);
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const digestTrigger = useRef<HTMLButtonElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const flatRef = useRef<HTMLDivElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
-  const sceneRef = useRef<Scene3DHandle>(null);
-  const sceneReturnFocus = useRef<HTMLElement | null>(null);
-  const sceneWasOpen = useRef(scene3d);
-  const layoutKey = useRef('');
-  // Identity cache for display nodes: see displayNodes below.
-  const displayNodesCache = useRef(new Map<string, { source: CanvasNode; built: CanvasNode }>());
-  const lastPositions = useRef(new Map<string, Positions>());
-  const pendingFocus = useRef<string | null>(null);
-  const framedRevision = useRef(0);
-  const stamps = useRef<Map<string, number> | null>(null);
-  const freshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const linkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastCurrent = useRef<string | null>(null);
-  const live = useRef({ follow: false, currentId: null as string | null, selectedId: null as string | null });
-  const initialized = useNodesInitialized();
-  const [motion, setMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350);
-  useEffect(() => {
-    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => { setMotion(preference.matches ? 0 : 350); };
-    preference.addEventListener('change', update);
-    return () => { preference.removeEventListener('change', update); };
-  }, []);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([]);
-  const [edges, setEdges] = useEdgesState<Edge>([]);
-  const { fitView, getNode, getNodes, getNodesBounds, setCenter } = useReactFlow<CanvasNode>();
-  const updateNodeInternals = useUpdateNodeInternals();
-  const laidOutDirection = useRef<string | null>(null);
+  const closeSidebar = useCallback(() => { setSidebarOpen(false); }, []);
 
   const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter);
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
   const { agentIds, digest, currentId, current, findings, openItems } = agent;
-  const selected = selectedId ? byId.get(selectedId) || null : null;
-  const occlusion = useSceneOcclusion(viewportRef, inspectorRef, scene3d && Boolean(selected));
-
-  useEffect(() => {
-    const wasOpen = sceneWasOpen.current;
-    sceneWasOpen.current = scene3d;
-    if (scene3d || !wasOpen) return;
-    const previous = sceneReturnFocus.current;
-    const target = previous?.isConnected ? previous : flatRef.current?.querySelector<HTMLButtonElement>('[data-scene3d-trigger]');
-    target?.focus({ preventScroll: true });
-  }, [scene3d]);
-
-  useEffect(() => {
-    setCopied(false);
-    clearTimeout(copyTimer.current ?? undefined);
-  }, [digest, agentId]);
-
-
-  const highlighted = useMemo(() => focusedIds(selectedId, edges), [selectedId, edges]);
-  // Rebuild only what actually changed, so React Flow memoized cards keep their
-  // identity across selection switches and content-only stream ticks.
-  const displayNodes = useMemo(() => {
-    const cache = displayNodesCache.current;
-    let changed = false;
-    const next = nodes.map((node) => {
-      const selected = !node.data.group && node.id === selectedId;
-      const muted = !node.data.group && Boolean(selectedId) && !highlighted.has(node.id);
-      const freshFlag = fresh.has(node.id);
-      const hit = cache.get(node.id);
-      // Keyed on the node object itself: a drag replaces only the dragged node, and its new
-      // position must reach React Flow or the card snaps back.
-      if (hit && hit.source === node && hit.built.selected === selected && hit.built.data.muted === muted && hit.built.data.fresh === freshFlag) return hit.built;
-      changed = true;
-      return { ...node, selected, data: { ...node.data, muted, fresh: freshFlag } };
-    });
-    if (changed) {
-      displayNodesCache.current = new Map(next.map((built, i) => [built.id, { source: nodes[i], built }]));
-    }
-    return next;
-  }, [nodes, selectedId, highlighted, fresh]);
-  const displayEdges = useMemo(() => edges.map((edge) => {
-    const active = Boolean(selectedId) && (edge.source === selectedId || edge.target === selectedId);
-    const recolor = (marker: Edge['markerEnd']) => marker && selectedId
-      ? { ...(marker as object), color: active ? focusColor((edge.data as { group?: string } | undefined)?.group) : 'var(--line)' } as Edge['markerEnd']
-      : marker;
-    return {
-      ...edge,
-      type: 'routed',
-      data: { ...edge.data, style: edgeStyle },
-      // Arrowheads live outside the path, so they are recoloured here to follow focus and muting.
-      markerEnd: recolor(edge.markerEnd),
-      markerStart: recolor(edge.markerStart),
-      className: `${edge.className || ''} ${active ? 'is-focused' : selectedId ? 'is-muted' : ''}`,
-      // Labels only name the relations of the selected card; colour already tells the families apart.
-      label: active ? edge.label : undefined,
-      // The overview is a catalogue laid out in a grid, where every line would cut across cards;
-      // it only draws the relations of the selected node. Elsewhere weak links that would only add
-      // noise wait for a selection.
-      hidden: !active && (mode === 'all' || (!selectedId && Boolean((edge.data as { quiet?: boolean } | undefined)?.quiet))),
-      zIndex: active ? 10 : 0,
-      style: { ...edge.style, opacity: selectedId ? active ? 1 : .12 : 1, strokeWidth: active ? 2 : edge.style?.strokeWidth },
-    };
-  }), [edges, selectedId, mode, edgeStyle]);
+  const { fresh, notice, flash, linkCopied, copyNodeLink, copied, copyDigest, offlineShown } = useWorkspaceFeedback(snapshot, allNodes, digest, agentId, connection, isStatic);
+  const { nodes, edges, onNodesChange, layoutRevision, layoutMode, laying } = useWorkspaceLayout(projection, mode, direction);
+  const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision, mode, follow, currentId, selectedId });
+  const { scene3d, sceneRef, openScene, closeScene, occlusion, exporting, exportImage } = useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode, flash });
+  const { selected, focusNode, clearSelection, switchMode, handleNodesChange, onNodeClick } = useWorkspaceSelection({
+    snapshot, byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId,
+    deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d,
+  });
+  const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, mode, edgeStyle);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
   }, [theme]);
 
-  live.current = { follow: follow && mode !== 'all', currentId, selectedId };
-
-  // Mark nodes the Agent just wrote or changed, so a live board shows where work happened.
-  useEffect(() => {
-    if (!snapshot) return;
-    const next = new Map(allNodes.map((node) => [node.id, Number(node.updated || node.ts || 0)]));
-    const previous = stamps.current;
-    stamps.current = next;
-    if (!previous) return;
-    const changed = new Set<string>();
-    next.forEach((stamp, id) => { if (previous.get(id) !== stamp) changed.add(id); });
-    if (!changed.size) return;
-    setFresh(changed);
-    if (freshTimer.current) clearTimeout(freshTimer.current);
-    freshTimer.current = setTimeout(() => setFresh(new Set()), 4000);
-  }, [snapshot, allNodes]);
-
-
-  useEffect(() => {
-    const target = deepLink.current;
-    if (!target || !snapshot) return;
-    deepLink.current = null;
-    if (!byId.has(target)) { const url = new URL(location.href); url.searchParams.delete('node'); history.replaceState(null, '', url); return; }
-    pendingFocus.current = target;
-    setSelectedId(target);
-    if (!projection?.nodes.some((node) => node.id === target)) setMode('all');
-  }, [snapshot, byId, projection]);
-
-  // A card removed from the board (by a person, from any open page) cannot stay selected.
-  useEffect(() => {
-    if (snapshot && selectedId && !byId.has(selectedId)) setSelectedId(null);
-  }, [snapshot, byId, selectedId]);
-
-  // A dropped connection is only worth announcing if it lasts; EventSource usually recovers within a second.
-  useEffect(() => {
-    if (connection !== 'offline' || isStatic) { setOfflineShown(false); return; }
-    const timer = setTimeout(() => setOfflineShown(true), 1500);
-    return () => clearTimeout(timer);
-  }, [connection, isStatic]);
-
-  const flash = useCallback((message: string) => {
-    setNotice(message);
-    if (noticeTimer.current) clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(null), 2600);
-  }, []);
-
-  const exportImage = useCallback(async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      if (scene3d) {
-        if (!sceneRef.current) { flash(t('scene3d.loading')); return; }
-        await sceneRef.current.exportImage();
-      } else {
-        await exportCanvasPng(getNodesBounds(getNodes()), `blackboard-${mode}-${new Date().toISOString().slice(0, 10)}.png`);
-      }
-      flash(t('app.exported'));
-    } catch { flash(t('app.exportFailed')); }
-    finally { setExporting(false); }
-  }, [exporting, scene3d, getNodes, getNodesBounds, mode, flash]);
-
-  const copyNodeLink = async () => {
-    try {
-      await navigator.clipboard.writeText(location.href);
-      setLinkCopied(true);
-      if (linkTimer.current) clearTimeout(linkTimer.current);
-      linkTimer.current = setTimeout(() => setLinkCopied(false), 2000);
-    } catch { flash(t('app.clipboardFailed')); }
-  };
-
-  useEffect(() => {
-    const resize = () => setOverviewColumns(window.innerWidth > 1100 ? 2 : 1);
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
-  }, []);
-
-  const handleNodesChange: OnNodesChange<CanvasNode> = useCallback((changes) => {
-    onNodesChange(changes);
-    const selectedChange = changes.find((change) => change.type === 'select' && change.selected);
-    if (selectedChange?.type === 'select' && !selectedChange.id.startsWith('__display_group_')) setSelectedId(selectedChange.id);
-    // Deselect notifications can arrive from a previous layout. Pane click and
-    // Escape are the explicit clear actions; do not let stale events clear focus.
-  }, [onNodesChange]);
-
-  const centerOnNode = useCallback((id: string, reserveInspector = true, duration = motion) => {
-    const node = getNode(id);
-    if (!node) return;
-    const width = viewportRef.current?.clientWidth || 700;
-    // The inspector floats over the right edge; centre inside the remaining space.
-    const overlay = reserveInspector && width >= 640 ? Math.min(INSPECTOR_W, width * .5) : 0;
-    const zoom = Math.min(1, Math.max(.55, (width - overlay) / (NODE_W + 48)));
-    const parent = node.parentId ? getNode(node.parentId) : null;
-    setCenter(
-      node.position.x + (parent?.position.x || 0) + (node.data.compact ? 120 : NODE_W / 2) + overlay / (2 * zoom),
-      node.position.y + (parent?.position.y || 0) + Number(node.style?.height || NODE_H) / 2,
-      { zoom, duration },
-    );
-  }, [getNode, setCenter, motion]);
-
-  const focusNode = useCallback((id: string) => {
-    setSelectedId(id);
-    if (window.innerWidth < 1024) setSidebarOpen(false);
-    if (!projection?.nodes.some((node) => node.id === id)) {
-      pendingFocus.current = id;
-      setMode('all');
-    } else requestAnimationFrame(() => centerOnNode(id));
-  }, [projection, centerOnNode]);
-
-  const onNodeClick: NodeMouseHandler<CanvasNode> = useCallback((_event, node) => { if (!node.data.group) focusNode(node.id); }, [focusNode]);
-
-  useEffect(() => {
-    if (!projection) return;
-    const key = JSON.stringify([mode, direction, overviewColumns, projection.nodes.map((node) => node.id), projection.edges.map((edge) => [edge.id, edge.source, edge.target])]);
-    // Content-only stream updates must not discard dragged positions or reset zoom.
-    if (layoutKey.current === key) {
-      const fresh = new Map(projection.nodes.map((node) => [node.id, node]));
-      setNodes((previous) => previous.map((node) => {
-        const next = fresh.get(node.id);
-        if (!next) return node;
-        // A card's height follows its content (title-only vs title+summary);
-        // content-only updates must carry that style, not just the data.
-        return { ...node, style: next.style, data: { ...node.data, ...next.data } };
-      }));
-      // Keep each edge's computed route; only content changed, not the layout.
-      setEdges((previous) => {
-        const routes = new Map(previous.map((edge) => [edge.id, (edge.data as { route?: unknown } | undefined)?.route]));
-        return projection.edges.map((edge) => ({ ...edge, data: { ...edge.data, route: routes.get(edge.id) } }));
-      });
-      return;
-    }
-    let cancelled = false;
-    const viewKey = `${mode}:${direction}`;
-    // Only a layout that keeps the canvas waiting is worth announcing.
-    const slow = setTimeout(() => setLaying(projection.nodes.length), 300);
-    layoutGraph(projection.nodes, projection.edges, direction, mode === 'all', overviewColumns, lastPositions.current.get(viewKey)).then((layouted) => {
-      if (cancelled) return;
-      lastPositions.current.set(viewKey, new Map(layouted.nodes.map((node) => [node.id, node.position])));
-      layoutKey.current = key;
-      setNodes(layouted.nodes);
-      setEdges(layouted.edges);
-      setLayoutMode(mode);
-      setLayoutRevision((revision) => revision + 1);
-      // Handles move between the sides of a card when the direction flips; React Flow only re-measures
-      // them when asked. One batched request instead of one per card keeps a big board from stalling.
-      if (laidOutDirection.current && laidOutDirection.current !== direction) updateNodeInternals(layouted.nodes.map((node) => node.id));
-      laidOutDirection.current = direction;
-    }).finally(() => { clearTimeout(slow); if (!cancelled) setLaying(0); });
-    return () => { cancelled = true; clearTimeout(slow); };
-  }, [projection, mode, direction, overviewColumns, setNodes, setEdges, updateNodeInternals]);
-
-  useEffect(() => {
-    if (!initialized || !layoutRevision || framedRevision.current === layoutRevision) return;
-    const frame = requestAnimationFrame(() => {
-      // The first framing of a page load jumps into place; only later re-framings animate.
-      const duration = framedRevision.current === 0 ? 0 : motion;
-      framedRevision.current = layoutRevision;
-      const following = live.current.follow && live.current.currentId && getNode(live.current.currentId) ? live.current.currentId : null;
-      // A requested node that this layout does not contain yet (a view switch is pending) stays queued.
-      const requested = pendingFocus.current && getNode(pendingFocus.current) ? pendingFocus.current : null;
-      if (requested) {
-        centerOnNode(requested, true, duration);
-        pendingFocus.current = null;
-      } else if (following) centerOnNode(following, Boolean(live.current.selectedId), duration);
-      else {
-        // A board that only fits at an unreadable zoom opens where reading starts; "fit" still shows it all.
-        const cards = getNodes().filter((node) => !node.data.group);
-        const box = viewportRef.current;
-        const fitZoom = mode !== 'all' && cards.length && box
-          ? getViewportForBounds(getNodesBounds(cards), box.clientWidth, box.clientHeight, .08, 1, .14).zoom
-          : 1;
-        const start = frameStrategy(fitZoom) === 'focus'
-          ? pickFocus(cards.map((node) => ({ id: node.id, degree: node.data.degree, ts: node.data.item.ts })), live.current.currentId)
-          : null;
-        if (start) centerOnNode(start, false, duration);
-        else fitView({ padding: .14, duration, minZoom: .08, maxZoom: 1 });
-      }
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [initialized, layoutRevision, centerOnNode, fitView, getNode, getNodes, mode, motion]);
-
-  // Follow mode: when the Agent's cursor moves, bring the new position into view.
-  useEffect(() => {
-    const previous = lastCurrent.current;
-    lastCurrent.current = currentId;
-    if (!currentId || previous === currentId || !follow || mode === 'all') return;
-    const frame = requestAnimationFrame(() => centerOnNode(currentId, Boolean(live.current.selectedId)));
-    return () => cancelAnimationFrame(frame);
-  }, [currentId, follow, mode, centerOnNode]);
-
-  // Arrow keys walk the explicit one-hop neighbours of the selected node.
-  useEffect(() => {
-    const onArrow = (event: KeyboardEvent) => {
-      if (!selectedId || event.metaKey || event.ctrlKey || event.altKey || !event.key.startsWith('Arrow')) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, [contenteditable], [role="dialog"], [role="slider"], [role="menu"]')) return;
-      const boxes = nodes.filter((node) => !node.data.group).map((node) => {
-        const parent = node.parentId ? nodes.find((candidate) => candidate.id === node.parentId) : null;
-        return { id: node.id, x: node.position.x + (parent?.position.x || 0), y: node.position.y + (parent?.position.y || 0), w: Number(node.style?.width || NODE_W), h: Number(node.style?.height || NODE_H) };
-      });
-      const next = neighborInDirection(selectedId, boxes, edges, event.key as ArrowKey);
-      // Capture phase, and also when there is no neighbour: React Flow would otherwise nudge the focused node by a few pixels.
-      event.preventDefault();
-      event.stopPropagation();
-      if (!next) return;
-      focusNode(next);
-      if (!scene3d) requestAnimationFrame(() => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(next)}"]`)?.focus({ preventScroll: true }));
-    };
-    window.addEventListener('keydown', onArrow, true);
-    return () => window.removeEventListener('keydown', onArrow, true);
-  }, [selectedId, nodes, edges, focusNode, scene3d]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -408,35 +99,12 @@ function Workspace() {
       } else if (!event.metaKey && !event.ctrlKey && !event.altKey && !(event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]') && !document.querySelector('[role="dialog"]') && (event.key === '/' || event.key === '[' || event.key === '?')) {
         event.preventDefault();
         if (event.key === '/') setPaletteOpen(true); else if (event.key === '?') setShortcutsOpen(true); else setSidebarOpen((open) => !open);
-      } else if (event.key === 'Escape' && !document.querySelector('[role="dialog"], [role="menu"]')) setSelectedId(null);
+      } else if (event.key === 'Escape' && !document.querySelector('[role="dialog"], [role="menu"]')) clearSelection();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [clearSelection]);
 
-  // Each transient feedback timer belongs to the Workspace lifetime, independently of shortcuts.
-  useEffect(() => () => {
-    clearTimeout(copyTimer.current ?? undefined);
-    clearTimeout(freshTimer.current ?? undefined);
-    clearTimeout(noticeTimer.current ?? undefined);
-    clearTimeout(linkTimer.current ?? undefined);
-  }, []);
-
-  const copyDigest = async () => {
-    try {
-      await navigator.clipboard.writeText(digest);
-      setCopied(true);
-      if (copyTimer.current) clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), 2000);
-    } catch { setCopied(false); }
-  };
-
-  const switchMode = (next: ViewMode) => {
-    if (next === mode) return;
-    pendingFocus.current = null;
-    setSelectedId(null);
-    setMode(next);
-  };
 
   if (!snapshot) {
     return (
@@ -456,6 +124,7 @@ function Workspace() {
     <div className="flex h-full flex-col">
       <Topbar
         title={snapshot.meta.title || t('app.untitledTask')}
+        build={snapshot.meta.build}
         mode={mode}
         onMode={switchMode}
         agentId={agentId}
@@ -508,7 +177,7 @@ function Workspace() {
             edgeTypes={edgeTypes}
             onNodesChange={handleNodesChange}
             onNodeClick={onNodeClick}
-            onPaneClick={() => setSelectedId(null)}
+            onPaneClick={clearSelection}
             nodesConnectable={false}
             deleteKeyCode={null}
             autoPanOnNodeFocus={false}
@@ -539,7 +208,7 @@ function Workspace() {
               onToggleLegend={() => setShowLegend((open) => !open)}
               edgeStyle={edgeStyle}
               onEdgeStyle={setEdgeStyle}
-              onScene3d={() => { sceneReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setScene3d(true); }}
+              onScene3d={openScene}
             />
             {showMap && (
               <MiniMap
@@ -573,8 +242,8 @@ function Workspace() {
                 occlusion={occlusion}
                 exporting={exporting}
                 onExport={exportImage}
-                onSelect={setSelectedId}
-                onExit={() => setScene3d(false)}
+                onSelect={(id) => id ? setSelectedId(id) : clearSelection()}
+                onExit={closeScene}
                 onNotice={flash}
               />
             </Suspense>
@@ -606,7 +275,7 @@ function Workspace() {
 
           <p className="sr-only" role="status" aria-live="polite">{selected ? t('app.selected', { type: typeLabelOf(selected.type), title: selected.title }) : ''}</p>
 
-          {selected && <Inspector panelRef={inspectorRef} node={selected} edges={allEdges} byId={byId} onClose={() => setSelectedId(null)} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
+          {selected && <Inspector panelRef={inspectorRef} node={selected} edges={allEdges} byId={byId} onClose={clearSelection} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
         </main>
       </div>
 
