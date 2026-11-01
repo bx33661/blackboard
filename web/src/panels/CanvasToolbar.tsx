@@ -1,4 +1,4 @@
-import { AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Crosshair, CornerDownRight, Map as MapIcon, ImageDown, Maximize2, Minus, Plus, Palette, Radio, Slash, Spline } from 'lucide-react';
+import { AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Box, Crosshair, CornerDownRight, Map as MapIcon, ImageDown, Maximize2, Minus, Plus, Palette, Radio, Slash, Spline } from 'lucide-react';
 import { Panel, useReactFlow, useStore, useViewport } from '@xyflow/react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -26,10 +26,11 @@ type Props = {
   onToggleLegend: () => void;
   edgeStyle: EdgeStyle;
   onEdgeStyle: (style: EdgeStyle) => void;
+  onScene3d: () => void;
 };
 
 /** One floating toolbar: framing, layout, and zoom live together. */
-export function CanvasToolbar({ hasCurrent, canFollow, canExport, onExport, grouped, direction, showMap, follow, motion, onLocate, onDirection, onToggleMap, onToggleFollow, edgeStyle, onEdgeStyle, showLegend, onToggleLegend }: Props) {
+export function CanvasToolbar({ hasCurrent, canFollow, canExport, onExport, grouped, direction, showMap, follow, motion, onLocate, onDirection, onToggleMap, onToggleFollow, edgeStyle, onEdgeStyle, showLegend, onToggleLegend, onScene3d }: Props) {
   const { zoom } = useViewport();
   const { zoomTo, zoomIn, zoomOut, fitView } = useReactFlow();
   const minZoom = useStore((state) => state.minZoom);
@@ -68,6 +69,7 @@ export function CanvasToolbar({ hasCurrent, canFollow, canExport, onExport, grou
         </Popover>
         {canExport && <IconButton label={t('toolbar.export')} onClick={onExport}><ImageDown /></IconButton>}
         <IconButton label={showMap ? t('toolbar.hideMap') : t('toolbar.showMap')} aria-pressed={showMap} onClick={onToggleMap}><MapIcon /></IconButton>
+        <IconButton label={t('toolbar.scene3d')} onClick={onScene3d}><Box /></IconButton>
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           <span className="mx-1 hidden h-4 w-px bg-border sm:block" />
           <IconButton label={t('toolbar.zoomOut')} onClick={() => zoomOut({ duration: motion })}><Minus /></IconButton>

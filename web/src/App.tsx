@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, getNodesBounds, getViewportForBounds,
   useEdgesState, useNodesInitialized, useNodesState, useReactFlow, useUpdateNodeInternals,
@@ -30,9 +30,18 @@ import { locale, t } from './i18n';
 import { SessionDrafts } from './session-drafts';
 import { useWorkspaceData } from './workspace/use-workspace-data';
 import { useWorkspaceLocation } from './workspace/use-workspace-location';
+import type { Scene3DProps } from './scene3d/shared';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
 const edgeTypes = { routed: RoutedEdge };
+// three.js and the post-processing stack load only when the reader opens the sandbox. An offline HTML
+// export has no server for that chunk; the board then announces it and stays on the flat canvas.
+const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
+  default: function Unavailable({ onExit, onNotice }: Scene3DProps) {
+    useEffect(() => { onNotice(t('scene3d.failed')); onExit(); }, []);
+    return <></>;
+  },
+})));
 const INSPECTOR_W = 372;
 /** Colour of a focused edge's arrowhead: its relation family, or ink when unclassified. */
 const focusColor = (group?: string) => group && group !== 'link' ? `var(--rel-${group})` : 'var(--ink)';
@@ -57,6 +66,7 @@ function Workspace() {
   const [showLegend, setShowLegend] = usePref('legend-open', false);
   const [edgeStyle, setEdgeStyle] = usePref<EdgeStyle>('edge-style', 'curve');
   const [follow, setFollow] = usePref('follow', false);
+  const [scene3d, setScene3d] = usePref('scene3d', false);
   const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [digestOpen, setDigestOpen] = useState(false);
@@ -70,6 +80,7 @@ function Workspace() {
   const [copied, setCopied] = useState(false);
   const [overviewColumns, setOverviewColumns] = useState<1 | 2>(() => window.innerWidth > 1100 ? 2 : 1);
   const [layoutRevision, setLayoutRevision] = useState(0);
+  const [layoutMode, setLayoutMode] = useState<ViewMode | null>(null);
   const [laying, setLaying] = useState(0);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const digestTrigger = useRef<HTMLButtonElement>(null);
@@ -291,6 +302,7 @@ function Workspace() {
       layoutKey.current = key;
       setNodes(layouted.nodes);
       setEdges(layouted.edges);
+      setLayoutMode(mode);
       setLayoutRevision((revision) => revision + 1);
       // Handles move between the sides of a card when the direction flips; React Flow only re-measures
       // them when asked. One batched request instead of one per card keeps a big board from stalling.
@@ -499,6 +511,7 @@ function Workspace() {
               onToggleLegend={() => setShowLegend((open) => !open)}
               edgeStyle={edgeStyle}
               onEdgeStyle={setEdgeStyle}
+              onScene3d={() => setScene3d(true)}
             />
             {showMap && (
               <MiniMap
@@ -513,13 +526,35 @@ function Workspace() {
             )}
           </ReactFlow>
 
+          {scene3d && (
+            <Suspense fallback={<div role="status" className="absolute inset-0 z-[5] flex items-center justify-center bg-background text-xs text-muted-foreground">{t('scene3d.loading')}</div>}>
+              <Scene3D
+                nodes={nodes}
+                edges={edges}
+                mode={mode}
+                layoutMode={layoutMode}
+                theme={theme}
+                selectedId={selectedId}
+                highlighted={highlighted}
+                currentId={currentId}
+                follow={follow && !isStatic}
+                fresh={fresh}
+                motion={motion > 0}
+                inspectorWidth={INSPECTOR_W}
+                onSelect={setSelectedId}
+                onExit={() => setScene3d(false)}
+                onNotice={flash}
+              />
+            </Suspense>
+          )}
+
           {showLegend && nodes.length > 0 && <Legend types={legend.types} groups={legend.groups} onClose={() => setShowLegend(false)} />}
 
           {projection && projection.nodes.length === 0 && (
             <EmptyBoard viewEmpty={allNodes.length > 0} isStatic={isStatic} onShowAll={() => switchMode('all')} />
           )}
 
-          <div className="pointer-events-none absolute left-1/2 top-3 flex -translate-x-1/2 flex-col items-center gap-2">
+          <div className="pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 flex-col items-center gap-2">
             {offlineShown && (
               <div role="alert" className="whitespace-nowrap rounded-full border border-destructive/40 bg-danger-soft px-3 py-1 text-xs text-destructive shadow-xs">
                 {t('app.disconnected')}{syncedAt ? t('app.frozenAt', { time: new Date(syncedAt).toLocaleTimeString(locale, { hour12: false }) }) : ''}

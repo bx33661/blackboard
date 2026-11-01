@@ -78,6 +78,50 @@ by `@tailwindcss/vite`.
 - If ELK layout throws, `gridLayout` places nodes on a simple grid instead of
   leaving the canvas empty.
 
+## 2.5D sandbox (experimental)
+
+- Toolbar → 2.5D opens a read-only WebGL view of the current view's layout (`web/src/scene3d/`).
+  three.js, React Three Fiber, drei and postprocessing load as a separate lazy chunk; the flat
+  canvas bundle is unchanged. If the chunk or WebGL fails (offline HTML export, blocked GPU),
+  a notice appears and the board returns to the flat canvas. The choice persists (`scene3d` pref).
+- The board is a finished circuit board: a lacquered slab with a printed border and plated mounting
+  holes, floating over a plain stage and lit by a small painted environment (no image is fetched).
+  Chip positions are the ELK layout, unstretched, so routes end exactly on chip edges. Height encodes
+  recorded severity only: critical > high > medium > unknown authored levels > low > unset. High and
+  critical chips carry a seam of light at the base; medium and worse bleed heat onto the board. The
+  package stays neutral (`model.ts`, `board-material.ts`, `BoardMesh.tsx`, `Hardware.tsx`).
+- Relations are copper traces along ELK's route, with corners cut at 45°; without a usable route a
+  trace runs at right angles between the facing chip edges. All traces are one mesh: signals run in
+  each relation's recorded direction inside the shader. 反驳 is dashed, 取代 dotted. Which relations
+  are drawn follows the flat canvas rules.
+- Card faces are canvas textures drawn with the system font (CJK without bundled fonts): type,
+  status, severity badge, headline and supporting sentence, coloured from the same CSS tokens.
+  From afar a floating headline stands in for the face at a constant screen size; it steps aside once
+  the card is past the flat canvas's overview zoom (`detailLevel`). At a distance only goals, rated
+  chips, the selection, the current position and the hovered chip are named, and labels never overlap.
+  They are drawn after post-processing, so tilt-shift never blurs them.
+- The current position is a hovering green gem with a light cone and ripples on its chip; a sweep
+  runs outwards over the pads from it.
+- Selecting a chip flies the camera to it, outlines it, mutes everything outside the
+  one-hop neighbourhood and opens the Inspector; follow mode flies to the Agent's cursor. Clearing
+  the selection flies back to the whole board, unless the reader has dragged or zoomed the camera since.
+  Framing waits for the requested view's layout; selection and follow wait for their chip's coordinates.
+- Past 40 drawn relations traces dim and only every third carries a signal until a selection names
+  the ones that matter.
+- Stream ticks stay cheap: traces and hardware rebuild only when `shapeKey`/`tracesKey` change, and
+  card faces and labels redraw per card when `cardKey` changes.
+- A view opens with a power-on: current spreads from the goals along recorded relations (`bootDepths`)
+  and each chip seats and flashes as it arrives, while the camera dives in. `homeFrame` places the
+  camera so every corner of the board's box fits the frame, centred; fog follows that distance. A
+  chip-height legend sits bottom-right while nothing is selected.
+- Dark: glowing pads, bloom, light film grain, tilt-shift at the frame's far edges, vignette; severe
+  seams breathe. Light: pale ceramic on a grey stage, no bloom.
+  `PerformanceMonitor` lowers resolution, then drops shadows and tilt-shift when frames fall behind.
+  Shaders must never output NaN: bloom spreads one bad pixel across the whole frame.
+- Reduced motion disables the power-on, intro dive, idle orbit, flights, signals, sweep, breathing and
+  flashes on incoming edits. Chips waiting for power-on cannot be picked.
+- Export there captures the WebGL canvas as a PNG. No dragging or editing in this view.
+
 ## Theme
 
 Neutral zinc surfaces, near-black (light) / near-white (dark) as the only accent.

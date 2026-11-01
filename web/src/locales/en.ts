@@ -161,6 +161,9 @@ export const en: Messages = {
   'toolbar.edgeStyle': 'Line style', 'toolbar.curve': 'Curved', 'toolbar.step': 'Stepped', 'toolbar.straight': 'Straight',
   'toolbar.export': 'Export as image', 'toolbar.hideMap': 'Hide minimap', 'toolbar.showMap': 'Show minimap',
   'toolbar.zoomOut': 'Zoom out', 'toolbar.zoom': 'Canvas zoom', 'toolbar.zoomIn': 'Zoom in', 'toolbar.zoomReset': 'Reset zoom to 100%',
+  'toolbar.scene3d': '2.5D sandbox view (experimental)',
+  'scene3d.label': '2.5D sandbox', 'scene3d.exit': 'Back to the flat canvas', 'scene3d.orbit': 'Orbit slowly when idle', 'scene3d.stopOrbit': 'Stop orbiting',
+  'scene3d.hint': 'Drag to rotate · right-drag to pan · scroll to zoom · read-only', 'scene3d.loading': 'Loading the sandbox…', 'scene3d.failed': 'Could not start 3D rendering; back on the flat canvas', 'scene3d.heightKey': 'Chip height = severity',
   'legend.label': 'Legend',
 
   'empty.example': 'The first thing you want to figure out',

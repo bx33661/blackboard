@@ -160,6 +160,9 @@ export const ja: Messages = {
   'toolbar.edgeStyle': '線のスタイル', 'toolbar.curve': '曲線', 'toolbar.step': '折れ線', 'toolbar.straight': '直線',
   'toolbar.export': '画像として書き出す', 'toolbar.hideMap': 'ミニマップを隠す', 'toolbar.showMap': 'ミニマップを表示',
   'toolbar.zoomOut': '縮小', 'toolbar.zoom': 'キャンバスのズーム', 'toolbar.zoomIn': '拡大', 'toolbar.zoomReset': 'ズームを 100% に戻す',
+  'toolbar.scene3d': '2.5D サンドボックス表示（実験的）',
+  'scene3d.label': '2.5D サンドボックス', 'scene3d.exit': '平面キャンバスに戻る', 'scene3d.orbit': 'アイドル時に自動で周回', 'scene3d.stopOrbit': '自動周回を止める',
+  'scene3d.hint': 'ドラッグで回転 · 右ドラッグで移動 · スクロールでズーム · 閲覧のみ', 'scene3d.loading': 'サンドボックスを読み込み中…', 'scene3d.failed': '3D 描画を開始できないため、平面キャンバスに戻りました', 'scene3d.heightKey': 'チップの高さ = 重大度',
   'legend.label': '凡例',
 
   'empty.example': '最初に明らかにしたいこと',

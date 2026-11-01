@@ -160,6 +160,9 @@ export const zhHK: Messages = {
   'toolbar.edgeStyle': '連線樣式', 'toolbar.curve': '曲線', 'toolbar.step': '折線', 'toolbar.straight': '直線',
   'toolbar.export': '匯出為圖片', 'toolbar.hideMap': '隱藏小地圖', 'toolbar.showMap': '顯示小地圖',
   'toolbar.zoomOut': '縮小', 'toolbar.zoom': '畫布縮放', 'toolbar.zoomIn': '放大', 'toolbar.zoomReset': '重設為 100% 縮放',
+  'toolbar.scene3d': '2.5D 沙盤視圖（實驗）',
+  'scene3d.label': '2.5D 沙盤', 'scene3d.exit': '返回平面畫布', 'scene3d.orbit': '閒置時自動環繞', 'scene3d.stopOrbit': '停止自動環繞',
+  'scene3d.hint': '拖動旋轉 · 右鍵平移 · 滾輪縮放 · 唯讀', 'scene3d.loading': '正在載入沙盤…', 'scene3d.failed': '無法啟動 3D 渲染，已返回平面畫布', 'scene3d.heightKey': '晶片高度 = 嚴重度',
   'legend.label': '圖例',
 
   'empty.example': '你想弄清楚的第一件事',

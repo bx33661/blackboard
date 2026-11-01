@@ -159,6 +159,9 @@ export const zhCN = {
   'toolbar.edgeStyle': '连线样式', 'toolbar.curve': '曲线', 'toolbar.step': '折线', 'toolbar.straight': '直线',
   'toolbar.export': '导出为图片', 'toolbar.hideMap': '隐藏小地图', 'toolbar.showMap': '显示小地图',
   'toolbar.zoomOut': '缩小', 'toolbar.zoom': '画布缩放', 'toolbar.zoomIn': '放大', 'toolbar.zoomReset': '重置为 100% 缩放',
+  'toolbar.scene3d': '2.5D 沙盘视图（实验）',
+  'scene3d.label': '2.5D 沙盘', 'scene3d.exit': '返回平面画布', 'scene3d.orbit': '空闲时自动环绕', 'scene3d.stopOrbit': '停止自动环绕',
+  'scene3d.hint': '拖动旋转 · 右键平移 · 滚轮缩放 · 只读', 'scene3d.loading': '正在载入沙盘…', 'scene3d.failed': '无法启动 3D 渲染，已返回平面画布', 'scene3d.heightKey': '芯片高度 = 严重度',
   'legend.label': '图例',
 
   'empty.example': '你想弄清楚的第一件事',
