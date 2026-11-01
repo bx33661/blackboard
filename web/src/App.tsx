@@ -30,7 +30,8 @@ import { locale, t } from './i18n';
 import { SessionDrafts } from './session-drafts';
 import { useWorkspaceData } from './workspace/use-workspace-data';
 import { useWorkspaceLocation } from './workspace/use-workspace-location';
-import type { Scene3DProps } from './scene3d/shared';
+import type { Scene3DHandle, Scene3DProps } from './scene3d/shared';
+import { useSceneOcclusion } from './scene3d/use-scene-occlusion';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
 const edgeTypes = { routed: RoutedEdge };
@@ -85,6 +86,11 @@ function Workspace() {
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const digestTrigger = useRef<HTMLButtonElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const flatRef = useRef<HTMLDivElement>(null);
+  const inspectorRef = useRef<HTMLElement>(null);
+  const sceneRef = useRef<Scene3DHandle>(null);
+  const sceneReturnFocus = useRef<HTMLElement | null>(null);
+  const sceneWasOpen = useRef(scene3d);
   const layoutKey = useRef('');
   // Identity cache for display nodes: see displayNodes below.
   const displayNodesCache = useRef(new Map<string, { source: CanvasNode; built: CanvasNode }>());
@@ -98,7 +104,13 @@ function Workspace() {
   const lastCurrent = useRef<string | null>(null);
   const live = useRef({ follow: false, currentId: null as string | null, selectedId: null as string | null });
   const initialized = useNodesInitialized();
-  const motion = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350;
+  const [motion, setMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350);
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => { setMotion(preference.matches ? 0 : 350); };
+    preference.addEventListener('change', update);
+    return () => { preference.removeEventListener('change', update); };
+  }, []);
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([]);
   const [edges, setEdges] = useEdgesState<Edge>([]);
   const { fitView, getNode, getNodes, getNodesBounds, setCenter } = useReactFlow<CanvasNode>();
@@ -109,6 +121,16 @@ function Workspace() {
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
   const { agentIds, digest, currentId, current, findings, openItems } = agent;
   const selected = selectedId ? byId.get(selectedId) || null : null;
+  const occlusion = useSceneOcclusion(viewportRef, inspectorRef, scene3d && Boolean(selected));
+
+  useEffect(() => {
+    const wasOpen = sceneWasOpen.current;
+    sceneWasOpen.current = scene3d;
+    if (scene3d || !wasOpen) return;
+    const previous = sceneReturnFocus.current;
+    const target = previous?.isConnected ? previous : flatRef.current?.querySelector<HTMLButtonElement>('[data-scene3d-trigger]');
+    target?.focus({ preventScroll: true });
+  }, [scene3d]);
 
   useEffect(() => {
     setCopied(false);
@@ -217,11 +239,16 @@ function Workspace() {
     if (exporting) return;
     setExporting(true);
     try {
-      await exportCanvasPng(getNodesBounds(getNodes()), `blackboard-${mode}-${new Date().toISOString().slice(0, 10)}.png`);
+      if (scene3d) {
+        if (!sceneRef.current) { flash(t('scene3d.loading')); return; }
+        await sceneRef.current.exportImage();
+      } else {
+        await exportCanvasPng(getNodesBounds(getNodes()), `blackboard-${mode}-${new Date().toISOString().slice(0, 10)}.png`);
+      }
       flash(t('app.exported'));
     } catch { flash(t('app.exportFailed')); }
     finally { setExporting(false); }
-  }, [exporting, getNodes, getNodesBounds, mode, flash]);
+  }, [exporting, scene3d, getNodes, getNodesBounds, mode, flash]);
 
   const copyNodeLink = async () => {
     try {
@@ -367,11 +394,11 @@ function Workspace() {
       event.stopPropagation();
       if (!next) return;
       focusNode(next);
-      requestAnimationFrame(() => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(next)}"]`)?.focus({ preventScroll: true }));
+      if (!scene3d) requestAnimationFrame(() => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(next)}"]`)?.focus({ preventScroll: true }));
     };
     window.addEventListener('keydown', onArrow, true);
     return () => window.removeEventListener('keydown', onArrow, true);
-  }, [selectedId, nodes, edges, focusNode]);
+  }, [selectedId, nodes, edges, focusNode, scene3d]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -473,6 +500,7 @@ function Workspace() {
         )}
 
         <main ref={viewportRef} className="relative min-w-0 flex-1" aria-label={t('app.canvas')}>
+          <div ref={flatRef} className="absolute inset-0" inert={scene3d} aria-hidden={scene3d}>
           <ReactFlow
             nodes={displayNodes}
             edges={displayEdges}
@@ -511,7 +539,7 @@ function Workspace() {
               onToggleLegend={() => setShowLegend((open) => !open)}
               edgeStyle={edgeStyle}
               onEdgeStyle={setEdgeStyle}
-              onScene3d={() => setScene3d(true)}
+              onScene3d={() => { sceneReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setScene3d(true); }}
             />
             {showMap && (
               <MiniMap
@@ -525,10 +553,12 @@ function Workspace() {
               />
             )}
           </ReactFlow>
+          </div>
 
           {scene3d && (
             <Suspense fallback={<div role="status" className="absolute inset-0 z-[5] flex items-center justify-center bg-background text-xs text-muted-foreground">{t('scene3d.loading')}</div>}>
               <Scene3D
+                ref={sceneRef}
                 nodes={nodes}
                 edges={edges}
                 mode={mode}
@@ -540,7 +570,9 @@ function Workspace() {
                 follow={follow && !isStatic}
                 fresh={fresh}
                 motion={motion > 0}
-                inspectorWidth={INSPECTOR_W}
+                occlusion={occlusion}
+                exporting={exporting}
+                onExport={exportImage}
                 onSelect={setSelectedId}
                 onExit={() => setScene3d(false)}
                 onNotice={flash}
@@ -574,7 +606,7 @@ function Workspace() {
 
           <p className="sr-only" role="status" aria-live="polite">{selected ? t('app.selected', { type: typeLabelOf(selected.type), title: selected.title }) : ''}</p>
 
-          {selected && <Inspector node={selected} edges={allEdges} byId={byId} onClose={() => setSelectedId(null)} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
+          {selected && <Inspector panelRef={inspectorRef} node={selected} edges={allEdges} byId={byId} onClose={() => setSelectedId(null)} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
         </main>
       </div>
 
@@ -588,7 +620,7 @@ function Workspace() {
         onMode={switchMode}
         onTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         onCopyDigest={copyDigest}
-        onExport={nodes.length > 0 ? exportImage : null}
+        onExport={nodes.length > 0 && !exporting ? exportImage : null}
         onShortcuts={() => setShortcutsOpen(true)}
       />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

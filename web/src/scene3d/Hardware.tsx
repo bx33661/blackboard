@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { AdditiveBlending, CanvasTexture, NormalBlending, Object3D, type InstancedMesh, type MeshBasicMaterial } from 'three';
 import { GOLD, ratedSeverity, type Block } from './model';
 import type { Palette } from './palette';
@@ -27,8 +27,9 @@ function pinsOf(block: Block): [number, number, number, boolean][] {
 /** Gold-plated legs along every chip's edges, printed before any chip seats; one instanced draw for the board. */
 export function Pins({ blocks, palette, faded }: { blocks: Block[]; palette: Palette; faded: boolean }) {
   const mesh = useRef<InstancedMesh>(null);
+  const invalidate = useThree((state) => state.invalidate);
   const pins = useMemo(() => blocks.flatMap(pinsOf), [blocks]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = mesh.current;
     if (!node) return;
     pins.forEach(([x, z, side, horizontal], i) => {
@@ -39,7 +40,8 @@ export function Pins({ blocks, palette, faded }: { blocks: Block[]; palette: Pal
     });
     node.instanceMatrix.needsUpdate = true;
     node.computeBoundingSphere();
-  }, [pins]);
+    invalidate();
+  }, [pins, invalidate]);
   return (
     <instancedMesh key={pins.length} ref={mesh} args={[undefined, undefined, pins.length]} raycast={() => null}>
       <boxGeometry args={[1, 1, 1]} />
@@ -59,6 +61,7 @@ function softTexture(paint: (ctx: CanvasRenderingContext2D) => void) {
 export function ContactShadows({ blocks, boot }: { blocks: Block[]; boot: { current: number } }) {
   const mesh = useRef<InstancedMesh>(null);
   const material = useRef<MeshBasicMaterial>(null);
+  const invalidate = useThree((state) => state.invalidate);
   const seat = useMemo(() => softTexture((ctx) => {
     ctx.filter = 'blur(11px)';
     ctx.fillStyle = 'black';
@@ -67,7 +70,7 @@ export function ContactShadows({ blocks, boot }: { blocks: Block[]; boot: { curr
   useEffect(() => () => seat.dispose(), [seat]);
   // Faded in late: before its chip seats, a shadow is only a stain on the board.
   useFrame(() => { if (material.current) material.current.opacity = 0.6 * Math.max(0, Math.min(1, (boot.current - 0.8) * 5)); });
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = mesh.current;
     if (!node) return;
     blocks.forEach((block, i) => {
@@ -80,11 +83,12 @@ export function ContactShadows({ blocks, boot }: { blocks: Block[]; boot: { curr
     dummy.rotation.set(0, 0, 0);
     node.instanceMatrix.needsUpdate = true;
     node.computeBoundingSphere();
-  }, [blocks]);
+    invalidate();
+  }, [blocks, invalidate]);
   return (
     <instancedMesh key={blocks.length} ref={mesh} args={[undefined, undefined, blocks.length]} raycast={() => null}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial ref={material} map={seat} transparent opacity={0} depthWrite={false} toneMapped={false} />
+      <meshBasicMaterial ref={material} map={seat} transparent opacity={0.6 * Math.max(0, Math.min(1, (boot.current - 0.8) * 5))} depthWrite={false} toneMapped={false} />
     </instancedMesh>
   );
 }
@@ -93,6 +97,7 @@ export function ContactShadows({ blocks, boot }: { blocks: Block[]; boot: { curr
 export function Heat({ blocks, palette, dark, faded, boot }: { blocks: Block[]; palette: Palette; dark: boolean; faded: boolean; boot: { current: number } }) {
   const mesh = useRef<InstancedMesh>(null);
   const material = useRef<MeshBasicMaterial>(null);
+  const invalidate = useThree((state) => state.invalidate);
   const spots = useMemo(() => blocks.flatMap((block) => {
     const rated = ratedSeverity(block.node.data.item.severity);
     return rated && rated !== 'low' ? [{ block, rated, ...HEAT[rated] }] : [];
@@ -107,7 +112,7 @@ export function Heat({ blocks, palette, dark, faded, boot }: { blocks: Block[]; 
     ctx.fillRect(0, 0, 128, 128);
   }), []);
   useEffect(() => () => glow.dispose(), [glow]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = mesh.current;
     if (!node) return;
     spots.forEach(({ block, rated, spread, power }, i) => {
@@ -124,7 +129,8 @@ export function Heat({ blocks, palette, dark, faded, boot }: { blocks: Block[]; 
     node.instanceMatrix.needsUpdate = true;
     node.computeBoundingSphere();
     if (node.instanceColor) node.instanceColor.needsUpdate = true;
-  }, [spots, palette, dark]);
+    invalidate();
+  }, [spots, palette, dark, invalidate]);
   useFrame(() => {
     if (material.current) material.current.opacity = (dark ? 0.4 : 0.5) * (faded ? 0.25 : 1) * Math.max(0, (boot.current - 0.8) * 5);
   });
@@ -132,7 +138,7 @@ export function Heat({ blocks, palette, dark, faded, boot }: { blocks: Block[]; 
   return (
     <instancedMesh key={spots.length} ref={mesh} args={[undefined, undefined, spots.length]} raycast={() => null}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial ref={material} map={glow} transparent opacity={0} blending={dark ? AdditiveBlending : NormalBlending} depthWrite={false} toneMapped={false} />
+      <meshBasicMaterial ref={material} map={glow} transparent opacity={(dark ? 0.4 : 0.5) * (faded ? 0.25 : 1) * Math.max(0, (boot.current - 0.8) * 5)} blending={dark ? AdditiveBlending : NormalBlending} depthWrite={false} toneMapped={false} />
     </instancedMesh>
   );
 }

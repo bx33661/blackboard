@@ -1,6 +1,11 @@
+import type { Ref } from 'react';
 import type { Edge } from '@xyflow/react';
 import type { CanvasNode } from '../graph';
 import type { ViewMode } from '../types';
+
+export type Scene3DHandle = { exportImage: () => Promise<void> };
+/** Pixels covered by the Inspector at the right or bottom edge of the canvas. */
+export type SceneOcclusion = { right: number; bottom: number };
 
 export type Scene3DProps = {
   nodes: CanvasNode[];
@@ -17,8 +22,10 @@ export type Scene3DProps = {
   fresh: ReadonlySet<string>;
   /** False under prefers-reduced-motion: no orbit, flights, pulses or breathing. */
   motion: boolean;
-  /** Width the Inspector covers on the right edge while a node is selected. */
-  inspectorWidth: number;
+  occlusion: SceneOcclusion;
+  ref: Ref<Scene3DHandle>;
+  exporting: boolean;
+  onExport: () => void;
   onSelect: (id: string | null) => void;
   onExit: () => void;
   onNotice: (message: string) => void;

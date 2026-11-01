@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Line, RoundedBox } from '@react-three/drei';
 import { DoubleSide } from 'three';
 import { boardMaterial } from './board-material';
@@ -15,14 +15,19 @@ const STAGE_DROP = 1.3;
 /** A finished board: a lacquered slab with a printed border and plated mounting holes, floating over its own shadow. */
 export function BoardMesh({ board, palette, dark, current, motion }: { board: SceneBounds; palette: Palette; dark: boolean; current?: Block; motion: boolean }) {
   const { cx, cz, w, d } = board;
+  const invalidate = useThree((state) => state.invalidate);
   const skin = useMemo(
     () => boardMaterial(palette, dark, palette.color('--live').multiplyScalar(dark ? 1.5 : 0.9), cx, cz, Math.hypot(w, d) / 2),
     [palette, dark, cx, cz, w, d],
   );
   useEffect(() => () => skin.material.dispose(), [skin]);
   const reach = Math.max(8, Math.min(18, Math.hypot(w, d) / 2));
+  useLayoutEffect(() => {
+    if (!motion || !current) skin.scanPower.value = 0;
+    invalidate();
+  }, [skin, current, motion, invalidate]);
   useFrame((state) => {
-    if (!current || !motion) { skin.scanPower.value = 0; return; }
+    if (!current || !motion) return;
     const radius = (state.clock.elapsedTime * 2.2) % reach;
     skin.scan.value.set(current.x, current.z, radius);
     skin.scanPower.value = 1 - radius / reach;

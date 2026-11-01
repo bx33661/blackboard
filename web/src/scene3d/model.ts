@@ -260,3 +260,34 @@ export function ribbonStrip(points: [number, number, number][], half: number) {
   });
   return { positions, along, side, length: run };
 }
+
+export type TraceArrowhead = {
+  /** Tip, then the two base corners, wound toward the top of the board. */
+  positions: number[];
+  /** Distance back from the recorded relation's destination for each vertex. */
+  setbacks: [number, number, number];
+};
+
+/** A solid arrow anchored to the recorded destination, contained within its last nonzero run. */
+export function traceArrowhead(points: [number, number, number][], reversed: boolean, length: number, halfWidth: number): TraceArrowhead | null {
+  if (points.length < 2 || !Number.isFinite(length) || !Number.isFinite(halfWidth) || length <= 0 || halfWidth <= 0) return null;
+  const end = reversed ? 0 : points.length - 1;
+  const step = reversed ? 1 : -1;
+  const tip = points[end];
+  for (let i = end + step; i >= 0 && i < points.length; i += step) {
+    const previous = points[i];
+    const dx = tip[0] - previous[0], dz = tip[2] - previous[2];
+    const run = Math.hypot(dx, dz);
+    if (run <= 1e-6) continue;
+    if (!Number.isFinite(run)) return null;
+    const reach = Math.min(length, run);
+    const width = halfWidth * (reach / length);
+    const tx = dx / run, tz = dz / run;
+    const bx = tip[0] - tx * reach, bz = tip[2] - tz * reach;
+    return {
+      positions: [tip[0], tip[1], tip[2], bx + tz * width, tip[1], bz - tx * width, bx - tz * width, tip[1], bz + tx * width],
+      setbacks: [0, reach, reach],
+    };
+  }
+  return null;
+}

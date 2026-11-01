@@ -2,11 +2,13 @@ import { useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import { BufferAttribute, BufferGeometry, ShaderMaterial } from 'three';
-import { ribbonStrip, touches, type Link, type Zone } from './model';
+import { ribbonStrip, traceArrowhead, touches, type Link, type Zone } from './model';
 import { relationToken, type Palette } from './palette';
 
 /** Half the strip's width: room for the glow; the copper itself is a narrow core down its middle. */
 const HALF = 0.16;
+const ARROW_LENGTH = 0.26;
+const ARROW_HALF_WIDTH = 0.09;
 /** On a dense board only every third trace carries a signal until a selection names the ones that matter. */
 const DENSE_SIGNAL_EVERY = 3;
 
@@ -24,7 +26,8 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 
-// vTrace: distance along the relation's direction, side (-1..1), total length, phase. vStyle: pattern, signal, opacity, depth.
+// vTrace: distance along the relation's direction, side (-1..1), total length, phase.
+// vStyle: pattern (-1 for a solid direction arrow), signal, opacity, depth.
 const fragmentShader = /* glsl */ `
 uniform float uTime;
 uniform float uBoot;
@@ -41,10 +44,12 @@ void main() {
   float pixel = max(fwidth(vTrace.y), 1e-4);
   float width = max(uCore, pixel * 0.8);
   float core = 1.0 - smoothstep(width, width + pixel * 1.2, across);
+  bool arrow = vStyle.x < -0.5;
+  if (arrow) core = 1.0;
   if (vStyle.x > 1.5) core *= step(fract(flow / 0.18), 0.35);
   else if (vStyle.x > 0.5) core *= step(fract(flow / 0.36), 0.6);
   float edge = clamp(1.0 - across, 0.0, 1.0);
-  float halo = exp(-across * across * 10.0) * edge;
+  float halo = arrow ? 0.0 : exp(-across * across * 10.0) * edge;
   float x = mod(uTime * 2.4 + vTrace.w * (total + TAIL), total + TAIL) - flow;
   float signal = x >= 0.0 && x < TAIL ? 1.0 - x / TAIL : 0.0;
   signal *= signal * vStyle.y * uSignal;
@@ -59,9 +64,9 @@ void main() {
 type TraceProps = { links: Link[]; palette: Palette; dark: boolean; dense: boolean; selectedId: string | null; depths: ReadonlyMap<string, number>; boot: { current: number }; motion: boolean };
 
 /**
- * Every relation as one lit strip of copper in the family colour, all in a single draw. Signals run along
- * them in the relation's recorded direction and the boot current fills them in; both live in the shader,
- * so neither costs a frame's worth of JavaScript. 反驳 stays dashed and 取代 dotted.
+ * Every relation as one lit strip of copper and a permanent direction arrow in the family colour, all
+ * in a single draw. Signals and the boot current live in the shader, so neither costs a frame's worth
+ * of JavaScript. 反驳 stays dashed and 取代 dotted; arrows stay solid even without motion.
  */
 export function Traces({ links, palette, dark, dense, selectedId, depths, boot, motion }: TraceProps) {
   const geometry = useMemo(() => {
@@ -84,6 +89,17 @@ export function Traces({ links, palette, dark, dense, selectedId, depths, boot, 
       for (let k = 0; k < strip.along.length / 2 - 1; k++) {
         const a = base + k * 2;
         index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+      const arrow = traceArrowhead(link.points, link.reversed, ARROW_LENGTH, ARROW_HALF_WIDTH);
+      if (arrow) {
+        const arrowBase = positions.length / 3;
+        positions.push(...arrow.positions);
+        for (const setback of arrow.setbacks) {
+          trace.push(strip.length - setback, 0, strip.length, (i * 0.618) % 1);
+          colors.push(color.r, color.g, color.b);
+          styles.push(-1, signal, opacity, depth);
+        }
+        index.push(arrowBase, arrowBase + 1, arrowBase + 2);
       }
     });
     const result = new BufferGeometry();

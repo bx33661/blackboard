@@ -17,7 +17,7 @@ for (const entry of fs.readdirSync(dir, { recursive: true }).filter((name) => na
 }
 fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
 fs.symlinkSync(path.join(root, 'node_modules'), path.join(dir, 'node_modules'), 'dir');
-const { boardBounds, bootDepths, chamfer, chipHeight, homeFrame, ratedSeverity, resample, ribbonStrip, sceneTraces, shapeKey, traceCourse, tracesKey, visibleTraces } = await import(pathToFileURL(path.join(dir, 'scene3d/model.js')).href);
+const { boardBounds, bootDepths, chamfer, chipHeight, homeFrame, ratedSeverity, resample, ribbonStrip, sceneTraces, shapeKey, traceArrowhead, traceCourse, tracesKey, visibleTraces } = await import(pathToFileURL(path.join(dir, 'scene3d/model.js')).href);
 
 const W = 2.88, D = 1.28;
 /** x and z are the chip's centre, as sceneLayout places it. */
@@ -157,6 +157,50 @@ test('a trace strip keeps its width through a corner and measures its length', (
   assert.ok(Math.abs(Math.hypot(p[3] - p[0], p[5] - p[2]) - 0.2) < 1e-9, 'a straight end is exactly the width');
   assert.ok(Math.abs(Math.hypot(p[9] - p[6], p[11] - p[8]) - 0.2 * Math.SQRT2) < 1e-9, 'a right-angle mitre reaches √2 further');
   for (const value of p) assert.ok(Number.isFinite(value));
+});
+
+test('direction arrows anchor to the recorded destination and follow its final run', () => {
+  const points = [[0, 0.2, 0], [0, 0.2, 0], [3, 0.2, 0], [3, 0.2, 4], [3, 0.2, 4]];
+  for (const reversed of [false, true]) {
+    const arrow = traceArrowhead(points, reversed, 0.4, 0.12);
+    assert.ok(arrow);
+    const tip = arrow.positions.slice(0, 3), left = arrow.positions.slice(3, 6), right = arrow.positions.slice(6, 9);
+    assert.deepEqual(tip, reversed ? points[0] : points.at(-1));
+    const base = left.map((value, i) => (value + right[i]) / 2);
+    assert.deepEqual(base, reversed ? [0.4, 0.2, 0] : [3, 0.2, 3.6]);
+    assert.ok(Math.abs(Math.hypot(left[0] - right[0], left[2] - right[2]) - 0.24) < 1e-9);
+    assert.deepEqual(arrow.setbacks, [0, 0.4, 0.4]);
+    const up = (left[2] - tip[2]) * (right[0] - tip[0]) - (left[0] - tip[0]) * (right[2] - tip[2]);
+    assert.ok(up > 0, 'both directions face the camera above the board');
+    assert.deepEqual(arrow, traceArrowhead([...points].reverse(), !reversed, 0.4, 0.12));
+  }
+});
+
+test('short arrowheads scale to the terminal run without spanning a corner', () => {
+  const arrow = traceArrowhead([[0, 0, 0], [2, 0, 0], [2, 0, 0.02]], false, 0.4, 0.12);
+  assert.ok(arrow);
+  assert.deepEqual(arrow.positions.slice(0, 3), [2, 0, 0.02]);
+  assert.equal(arrow.positions[5], 0);
+  assert.equal(arrow.positions[8], 0);
+  assert.deepEqual(arrow.setbacks, [0, 0.02, 0.02]);
+  assert.ok(Math.abs(Math.abs(arrow.positions[6] - arrow.positions[3]) - 0.012) < 1e-9, 'width shrinks with length');
+  assert.ok(arrow.positions.every(Number.isFinite));
+});
+
+test('arrowheads omit collapsed paths and stay finite next to degenerate boundaries', () => {
+  for (const reversed of [false, true]) {
+    for (const points of [[], [[1, 0, 2]], [[1, 0, 2], [1, 0, 2]], [[0, 0, 0], [1e-12, 0, 0]]]) {
+      assert.equal(traceArrowhead(points, reversed, 0.4, 0.12), null);
+    }
+    for (const distance of [1e-5, 0.399999, 0.4, 0.400001]) {
+      const points = [[0, 0, 0], [0, 0, 0], [distance, 0, 0], [distance, 0, 0]];
+      const arrow = traceArrowhead(points, reversed, 0.4, 0.12);
+      assert.ok(arrow);
+      assert.ok(arrow.positions.every(Number.isFinite));
+      assert.ok(arrow.setbacks.every((value) => Number.isFinite(value) && value >= 0 && value <= distance));
+      assert.ok(arrow.positions.filter((_value, i) => i % 3 === 0).every((x) => x >= 0 && x <= distance));
+    }
+  }
 });
 
 test('the board extends past the chips on every side and stays centred', () => {

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { AdditiveBlending, DoubleSide, ShaderMaterial, type Mesh, type MeshBasicMaterial } from 'three';
 import type { Block } from './model';
 import type { Palette } from './palette';
@@ -24,22 +24,42 @@ export function Explorer({ block, palette, dark, motion }: { block: Block; palet
   useEffect(() => () => cone.dispose(), [cone]);
   const gem = useRef<Mesh>(null);
   const rings = useRef<(Mesh | null)[]>([]);
+  const invalidate = useThree((state) => state.invalidate);
   const top = block.height;
   const hover = 1.25;
   const reach = Math.min(block.w, block.d) * 0.5;
 
+  useLayoutEffect(() => {
+    if (!motion) {
+      if (gem.current) {
+        gem.current.rotation.y = 0;
+        gem.current.position.y = top + hover;
+      }
+      for (let i = 0; i < rings.current.length; i++) {
+        const ring = rings.current[i];
+        if (!ring) continue;
+        const phase = 0.35 + i * 0.3;
+        ring.scale.setScalar(reach * (0.35 + phase * 1.1));
+        (ring.material as MeshBasicMaterial).opacity = (1 - phase) * 0.55;
+      }
+    }
+    invalidate();
+  }, [block, cone, motion, reach, top, invalidate]);
+
   useFrame((state, delta) => {
+    if (!motion) return;
     const time = state.clock.elapsedTime;
     if (gem.current) {
-      if (motion) gem.current.rotation.y += delta * 1.1;
-      gem.current.position.y = top + hover + (motion ? Math.sin(time * 1.8) * 0.08 : 0);
+      gem.current.rotation.y += delta * 1.1;
+      gem.current.position.y = top + hover + Math.sin(time * 1.8) * 0.08;
     }
-    rings.current.forEach((ring, i) => {
-      if (!ring) return;
-      const phase = motion ? (time * 0.5 + i / 2) % 1 : 0.35 + i * 0.3;
+    for (let i = 0; i < rings.current.length; i++) {
+      const ring = rings.current[i];
+      if (!ring) continue;
+      const phase = (time * 0.5 + i / 2) % 1;
       ring.scale.setScalar(reach * (0.35 + phase * 1.1));
       (ring.material as MeshBasicMaterial).opacity = (1 - phase) * 0.55;
-    });
+    }
   });
 
   return (

@@ -82,8 +82,9 @@ by `@tailwindcss/vite`.
 
 - Toolbar → 2.5D opens a read-only WebGL view of the current view's layout (`web/src/scene3d/`).
   three.js, React Three Fiber, drei and postprocessing load as a separate lazy chunk; the flat
-  canvas bundle is unchanged. If the chunk or WebGL fails (offline HTML export, blocked GPU),
-  a notice appears and the board returns to the flat canvas. The choice persists (`scene3d` pref).
+  canvas does not load that stack. If the chunk or WebGL fails (offline HTML export, blocked GPU or a lost
+  context), a notice appears and the board returns to the flat canvas. The choice persists (`scene3d`
+  pref). The covered flat canvas is inert; entering focuses the 3D toolbar and exiting restores focus.
 - The board is a finished circuit board: a lacquered slab with a printed border and plated mounting
   holes, floating over a plain stage and lit by a small painted environment (no image is fetched).
   Chip positions are the ELK layout, unstretched, so routes end exactly on chip edges. Height encodes
@@ -92,7 +93,9 @@ by `@tailwindcss/vite`.
   package stays neutral (`model.ts`, `board-material.ts`, `BoardMesh.tsx`, `Hardware.tsx`).
 - Relations are copper traces along ELK's route, with corners cut at 45°; without a usable route a
   trace runs at right angles between the facing chip edges. All traces are one mesh: signals run in
-  each relation's recorded direction inside the shader. 反驳 is dashed, 取代 dotted. Which relations
+  each relation's recorded direction inside the shader. Solid arrowheads keep that direction readable
+  with motion disabled and in PNGs; reversed layouts still point to the recorded destination. 反驳 is
+  dashed, 取代 dotted. Selected relations are named in the sharp canvas label layer. Which relations
   are drawn follows the flat canvas rules.
 - Card faces are canvas textures drawn with the system font (CJK without bundled fonts): type,
   status, severity badge, headline and supporting sentence, coloured from the same CSS tokens.
@@ -106,6 +109,9 @@ by `@tailwindcss/vite`.
   one-hop neighbourhood and opens the Inspector; follow mode flies to the Agent's cursor. Clearing
   the selection flies back to the whole board, unless the reader has dragged or zoomed the camera since.
   Framing waits for the requested view's layout; selection and follow wait for their chip's coordinates.
+  A measured Inspector reserves space on the right or, on narrow screens, at the bottom; focus and
+  whole-board framing use the remaining viewport. The toolbar rises above a bottom drawer.
+  Idle orbit is off by default and remembers the reader's choice (`scene3d-orbit` pref).
 - Past 40 drawn relations traces dim and only every third carries a signal until a selection names
   the ones that matter.
 - Stream ticks stay cheap: traces and hardware rebuild only when `shapeKey`/`tracesKey` change, and
@@ -116,11 +122,16 @@ by `@tailwindcss/vite`.
   chip-height legend sits bottom-right while nothing is selected.
 - Dark: glowing pads, bloom, light film grain, tilt-shift at the frame's far edges, vignette; severe
   seams breathe. Light: pale ceramic on a grey stage, no bloom.
-  `PerformanceMonitor` lowers resolution, then drops shadows and tilt-shift when frames fall behind.
+  `PerformanceMonitor` lowers DPR relative to the device's initial resolution, so a downgrade never
+  raises it. MSAA, shadow-map size, bloom, tilt-shift and grain drop with the quality level; low quality
+  keeps a lightweight base pass and the sharp labels.
   Shaders must never output NaN: bloom spreads one bad pixel across the whole frame.
 - Reduced motion disables the power-on, intro dive, idle orbit, flights, signals, sweep, breathing and
-  flashes on incoming edits. Chips waiting for power-on cannot be picked.
-- Export there captures the WebGL canvas as a PNG. No dragging or editing in this view.
+  flashes on incoming edits. Chips waiting for power-on cannot be picked. With motion disabled the
+  canvas renders on demand: camera interaction, selection, theme and stream changes request a frame,
+  then drawing stops again.
+- Both the toolbar and command palette export the currently visible renderer. A 3D PNG includes
+  static arrowheads and selected relation names. No dragging or editing in this view.
 
 ## Theme
 

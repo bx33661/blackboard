@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import { Collapsible } from 'radix-ui';
 import { Check, ArrowDownLeft, ArrowUpRight, ChevronRight, Link2, Unlink, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,12 +26,14 @@ type Props = HistoryAvailability & {
   /** The server accepts edits from this page. */
   writable?: boolean;
   onReload: () => Promise<void>;
+  panelRef?: Ref<HTMLElement>;
 };
 
-export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, linkCopied, writable, onReload, isStatic, connected, revision }: Props) {
+export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, linkCopied, writable, onReload, isStatic, connected, revision, panelRef }: Props) {
   const relations = edges.filter((edge) => edge.from === node.id || edge.to === node.id);
   return (
     <aside
+      ref={panelRef}
       aria-label={t('inspector.label')}
       className="anim-slide-in absolute inset-x-3 bottom-3 top-auto z-20 flex max-h-[62%] flex-col rounded-xl border bg-card shadow-float sm:inset-x-auto sm:right-3 sm:top-3 sm:max-h-none sm:w-[360px]"
     >

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import { BoxGeometry, Color, EdgesGeometry, Mesh, type Group, type MeshBasicMaterial, type MeshPhysicalMaterial } from 'three';
 import { cardKey, cardTexture } from './card-texture';
@@ -23,6 +23,7 @@ export function NodeBlock({ block, palette, dark, font, textureScale, selected, 
   const group = useRef<Group>(null);
   const body = useRef<MeshPhysicalMaterial>(null);
   const seamMaterial = useRef<MeshBasicMaterial>(null);
+  const invalidate = useThree((state) => state.invalidate);
   const [hovered, setHovered] = useState(false);
   const flashUntil = useRef(0);
   const seated = useRef(!motion);
@@ -37,13 +38,32 @@ export function NodeBlock({ block, palette, dark, font, textureScale, selected, 
     [cardKey(item), W, D, compact, current, palette, font, textureScale],
   );
   useEffect(() => () => texture.dispose(), [texture]);
-  const outline = useMemo(() => new EdgesGeometry(new BoxGeometry(block.w + 0.08, block.height + 0.08, block.d + 0.08)), [block.w, block.height, block.d]);
+  const outline = useMemo(() => {
+    const box = new BoxGeometry(block.w + 0.08, block.height + 0.08, block.d + 0.08);
+    const edges = new EdgesGeometry(box);
+    box.dispose();
+    return edges;
+  }, [block.w, block.height, block.d]);
   useEffect(() => () => outline.dispose(), [outline]);
   const side = useMemo(() => new Color(palette.css(dark ? 'color-mix(in srgb, var(--surface-3) 55%, var(--bg))' : 'color-mix(in srgb, var(--ink-3) 45%, var(--surface))')), [palette, dark]);
   const seam = useMemo(() => severity === 'critical' || severity === 'high' ? palette.color(`--severity-${severity}`).multiplyScalar(dark ? 2.4 : 1) : null, [palette, severity, dark]);
 
+  useLayoutEffect(() => {
+    if (!motion) {
+      flashUntil.current = 0;
+      seated.current = true;
+      if (group.current) {
+        group.current.visible = true;
+        group.current.position.y = 0;
+      }
+      if (body.current) body.current.emissiveIntensity = 0;
+      if (seam) seamMaterial.current?.color.copy(seam);
+    }
+    invalidate();
+  }, [block, texture, side, seam, motion, muted, selected, current, hovered, invalidate]);
+
   // A chip the Agent just wrote pushes up through the board and flashes once.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!motion) { flashUntil.current = 0; return; }
     if (!fresh || !group.current) return;
     flashUntil.current = performance.now() + 1600;
@@ -51,11 +71,12 @@ export function NodeBlock({ block, palette, dark, font, textureScale, selected, 
   }, [fresh, motion]);
 
   useFrame((state, delta) => {
+    if (!motion) return;
     const node = group.current;
     if (!node) return;
     // The current reaches this chip at its depth on the boot clock; it seats and flashes as it arrives.
     const arrive = depth * 0.8;
-    if (motion && boot.current < 1 && boot.current < arrive) {
+    if (boot.current < 1 && boot.current < arrive) {
       seated.current = false;
       node.visible = false;
       node.position.y = -block.height;
@@ -64,13 +85,13 @@ export function NodeBlock({ block, palette, dark, font, textureScale, selected, 
     node.visible = true;
     if (!seated.current) {
       seated.current = true;
-      if (motion) flashUntil.current = performance.now() + 900;
+      flashUntil.current = performance.now() + 900;
     }
-    node.position.y = motion ? node.position.y * (1 - Math.min(1, delta * 7)) : 0;
-    const breath = motion && seam ? 0.5 + 0.5 * Math.sin(state.clock.elapsedTime * (severity === 'critical' ? 2.2 : 1.4)) : 0.5;
+    node.position.y *= 1 - Math.min(1, delta * 7);
+    const breath = seam ? 0.5 + 0.5 * Math.sin(state.clock.elapsedTime * (severity === 'critical' ? 2.2 : 1.4)) : 0.5;
     if (seam) seamMaterial.current?.color.copy(seam).multiplyScalar(0.6 + 0.8 * breath);
     if (body.current) {
-      const flash = motion ? Math.max(0, (flashUntil.current - performance.now()) / 1000) : 0;
+      const flash = Math.max(0, (flashUntil.current - performance.now()) / 1000);
       body.current.emissiveIntensity = flash * (dark ? 1.4 : 0.3) * (muted ? 0.25 : 1);
     }
   });
