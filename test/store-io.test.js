@@ -192,7 +192,7 @@ test('writable lock callbacks receive the current log while holding the lock', (
 
 test('event reads preserve empty, exhausted, incomplete and missing-file cursor results', (t) => {
   const dir = fixture(t);
-  const empty = (offset, truncated = false) => ({ events: [], corrupt: 0, future: 0, offset, truncated });
+  const empty = (offset, truncated = false) => ({ events: [], corrupt: 0, future: 0, corruptAt: [], futureAt: [], offset, truncated });
   assert.deepEqual(readEvents(dir), empty(0));
   addNode({ title: 'Complete event' }, dir);
   const size = fs.statSync(paths(dir).events).size;

@@ -239,6 +239,10 @@
 }
 .fresh-pulse { animation: fresh-ring 1.4s ease-out 3; }
 
+/* Time machine: what the log changed between two checkpoints. Line style only, so no hue gains a second meaning. */
+.change-added { outline: 2px solid var(--ink); outline-offset: 3px; }
+.change-updated { outline: 2px dashed var(--ink-2); outline-offset: 3px; }
+
 /* Severity is independent of the node kind, status and confidence. */
 .severity-badge {
   --severity: var(--ink-3);

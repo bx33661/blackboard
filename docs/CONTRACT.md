@@ -63,7 +63,7 @@
 | `reset` | — | `outputs/reset.json` | `blackboard.reset.v1` | 重置后的状态对象（见“已知缺口”） |
 | `search` | — | `outputs/search.json` | `blackboard.search.v2` | 搜索结果；`--group-by` 增加 `groupBy` 和覆盖全部匹配的 `groups` |
 | `history` | — | `outputs/history.json` | `blackboard.history.v2` | 单个节点的历史 |
-| `changes` | — | `outputs/changes.json` | `blackboard.changes.v2` | 某检查点以来的变化 |
+| `changes` | — | `outputs/changes.json` | `blackboard.changes.v2` | 某检查点以来的变化；加 `--as-of` 时只算到该检查点为止 |
 | `backup` | — | `outputs/backup.json` | `blackboard.backup-receipt.v1` | 备份回执 |
 | `restore` | — | `outputs/restore.json` | `blackboard.restore-receipt.v1` | 恢复回执 |
 | `receipt` | — | `outputs/receipt.json` | `blackboard.receipt.v1` | 写入回执 |
@@ -115,8 +115,17 @@ Markdown/Mermaid 支持 `--group-by severity,status,tag:<键>` 的组合，含�
 - **mermaid**：flowchart 源码；节点使用独立生成的安全标识，原 ID/标题保留在标签中，`related-to` 用带方向的虚线，其他关系为有向实线。`--max-nodes` 默认 200、接受正整数，先选中节点后上下文；超限在注释中列出省略节点/边数，不生成悬空边。多重组归属用注释保留。为匹配默认 Mermaid 消费端，显示边数超过 500 或源码长度超过 50,000 字符时失败，提示减少选中内容；不自动提高消费端限制、不截短原文或额外隐藏边。
 - **sarif**：SARIF 2.1.0，仅将带有效已记录 `loc` 的 finding/vuln 转为结果；缺位置和不支持的类型逐项记入 `runs[].properties.skippedNodes`，`coverage` 报告选中/结果/省略数。无有效位置时是结果为空且省略原因可见的日志，不伪造代码位置。原始节点、证据/反证关系保存在 result properties，指纹基于节点 ID。消息文本按 SARIF 规则转义字面量花括号；`properties.node` 保持原始作者文本。代码路径按 URI 编码；只有正整数行/列才生成 region。`--group-by` 不用于 SARIF，`--max-nodes` 仅用于 Mermaid。
 
-SARIF `level` 只映射记录的 severity：critical/high → error，medium → warning，low/info → note；缺省或未知 → none（kind=review）。status/confidence 原样独立保留。官方 schema 为 <https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json>。未来路线图里的 `--as-of`、`--redact` 不属于本次导出参数，不宣称已实现。
+SARIF `level` 只映射记录的 severity：critical/high → error，medium → warning，low/info → note；缺省或未知 → none（kind=review）。status/confidence 原样独立保留。官方 schema 为 <https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json>。路线图里的 `--redact` 尚未实现，不宣称已实现；`--as-of` 见下一节。
 
+### 时间点读取（`--as-of`）
+
+`ls`/`list`、`show`、`search`、`context`、`changes`、`export` 接受 `--as-of <检查点>`，`capabilities` 以 `features.asOf` 声明。它只回放到该检查点事件为止，得到当时的黑板；不写事件、不写缓存、不移动游标。
+
+- **引用**：按检查点 ID 解析，接受与节点引用相同的写法（大小写不敏感、唯一前缀、`[cp3]`）。同一 ID 在 `reset` 前后各出现过时，指最后一次，与 `changes --since` 一致。找不到时退出码 1，`--json` 下错误码为 `not_found`；前缀有歧义时为 `ambiguous_ref` 并带 `candidates`。
+- **等价**：每个 `--json` 输出与“把 `events.jsonl` 复制一份、截到该检查点那一行之后，再运行同一命令”的结果完全相同，包括坏行与新版本事件的计数（只计截断点之前的）。JSON 输出不另加时点标记，因此 schema 不变。
+- **如实标注**：给人看的文本在 stderr 注明时点；`context --markdown` 多一行 `As of checkpoint`；报告格式在元数据里注明时点：Markdown 在 Selection 下多一行 `As of checkpoint`，Mermaid 多一行同名注释，SARIF 在 `runs[].properties.asOf` 写 `{id, at}`，HTML 快照在 `meta.asOf` 写 `{id, at, agentId, sessionId, summary, eventId}`。去掉这些标注后，报告与截断日志的导出相同。
+- **HTTP**：`/api/graph`、`/api/digest`、`/api/context`、`/api/history`、`/api/changes` 接受 `?asOf=`，语义同上。`/api/graph?asOf=` 的快照带 `meta.asOf`，且永远不带 `meta.writable`。检查点不存在时为 404 `{error: "checkpoint_not_found", asOf}`，有歧义时为 400 `{error, code: "ambiguous_ref", asOf, candidates}`。
+- **工作台**：时间线播放不因实时写入而延后步进。带 `node` 与 `asOf` 的链接在目标历史快照就绪后解析节点，可以定位后来已删除的节点；历史快照加载期间不提供编辑操作，返回“现在”后恢复实时黑板。
 
 ### 查询、统计与列表完整性
 
@@ -214,6 +223,7 @@ SARIF `level` 只映射记录的 severity：critical/high → error，medium →
 - `features.nodeJsonDefaults`：节点公开投影包含三个可空维度；具体版本仍以 `outputs` 为准。
 - `features.nodeMultiTarget`：`node add` / 简写命令 / `promote` 的 `--to` 可重复，用同一关系连向多个已有节点；任一目标不存在时整次写入不发生。
 - `features.checkpointDelta`：`checkpoint --json` 带 `sincePrevious`。
+- `features.asOf`：读命令接受 `--as-of <检查点>`，见“时间点读取”。
 - `features.batchCheck`：`batch --check` 只校验、不写入。
 - `features.jsonErrors`：带 `--json` 的失败输出 `blackboard.error.v1`；`errors` 给出 `{stream, schema, codes}`。
 - `exportFormats`：当前支持 `html`、`markdown`、`mermaid`、`sarif`。

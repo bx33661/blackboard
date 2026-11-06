@@ -33,7 +33,7 @@ const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
 /** Check the envelope consumed by the viewer, without rewriting authored data. */
-function isGraphSnapshot(value: unknown): value is GraphSnapshot {
+export function isGraphSnapshot(value: unknown): value is GraphSnapshot {
   return record(value) && record(value.meta) && [value.nodes, value.edges].every((items) =>
     (Array.isArray(items) || record(items)) && Object.values(items).every(record));
 }

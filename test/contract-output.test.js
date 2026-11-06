@@ -113,11 +113,15 @@ const CASES = {
     { board: 'empty', args: ['ls'] },
     { board: 'integrity', args: ['ls'] },
     { board: 'research', args: ['ls', '--all', '--type', 'fact'] },
+    { board: 'research', args: ['ls', '--all', '--as-of', 'cp1'] },
+    { board: 'research', args: ['ls', '--as-of', 'cp9'] },
   ],
   show: [
     { board: 'research', args: ['show', 'v1'] },
     { board: 'integrity', args: ['show', 'x1'] },
     { board: 'research', args: ['show', 'nope'] },
+    { board: 'research', args: ['show', 'v1', '--as-of', 'cp1'] },
+    { board: 'research', args: ['show', 'f3', '--as-of', 'cp1'] },
   ],
   digest: [
     { board: 'research', args: ['digest'] },
@@ -129,6 +133,7 @@ const CASES = {
     { board: 'research', args: ['context', '--since', 'cp1'] },
     { board: 'research', args: ['context', '--focus', 'v1', '--depth', '1', '--budget', '600'] },
     { board: 'empty', args: ['context'] },
+    { board: 'research', args: ['context', '--as-of', 'cp1'] },
   ],
   lint: [
     { board: 'research', args: ['lint'] },
@@ -140,6 +145,7 @@ const CASES = {
     { board: 'research', args: ['export', '--format', 'markdown', '--type', 'vuln', '--group-by', 'status', '--out', '<root>/out.md'] },
     { board: 'research', args: ['export', '--format', 'mermaid', '--max-nodes', '3', '--out', '<root>/out.mmd'] },
     { board: 'research', args: ['export', '--format', 'sarif', '--out', '<root>/out.sarif'] },
+    { board: 'research', args: ['export', '--format', 'markdown', '--as-of', 'cp1', '--out', '<root>/out-cp1.md'] },
   ],
   reset: [{ board: 'research', args: ['reset', '--yes'] }],
   search: [
@@ -148,6 +154,7 @@ const CASES = {
     { board: 'research', args: ['search', '--type', 'vuln', '--sev', 'high', '--confidence', 'static-confirmed', '--group-by', 'severity,status', '--limit', '1'] },
     { board: 'research', args: ['search', '--group-by', 'tag:site,status', '--limit', '1'] },
     { board: 'empty', args: ['search', '--group-by', 'severity'] },
+    { board: 'research', args: ['search', 'session', '--as-of', 'cp1'] },
   ],
   history: [
     { board: 'research', args: ['history', 'v1'] },
@@ -157,6 +164,8 @@ const CASES = {
   changes: [
     { board: 'research', args: ['changes', '--since', 'cp1'] },
     { board: 'research', args: ['changes', '--since', 'cp2'] },
+    { board: 'research', args: ['changes', '--since', 'cp1', '--as-of', 'cp2'] },
+    { board: 'research', args: ['changes', '--since', 'cp2', '--as-of', 'cp1'] },
   ],
   backup: [{ board: 'research', args: ['backup', '--out', '<root>/backup'] }],
   restore: [

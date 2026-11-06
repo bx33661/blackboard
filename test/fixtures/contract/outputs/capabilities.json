@@ -95,7 +95,8 @@
           "checkpointDelta": true,
           "batch": true,
           "batchCheck": true,
-          "jsonErrors": true
+          "jsonErrors": true,
+          "asOf": true
         },
         "exportFormats": [
           "html",
@@ -395,7 +396,8 @@
           "checkpointDelta": true,
           "batch": true,
           "batchCheck": true,
-          "jsonErrors": true
+          "jsonErrors": true,
+          "asOf": true
         },
         "exportFormats": [
           "html",

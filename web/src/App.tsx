@@ -1,11 +1,12 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider } from '@xyflow/react';
+import { History } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { BoardGroup } from './BoardGroup';
 import { BrandMark } from './BrandMark';
 import { SecurityNode } from './SecurityNode';
 import { RoutedEdge } from './RoutedEdge';
-import { typeLabel as typeLabelOf, type CanvasNode, type EdgeStyle } from './graph';
+import { formatTime, typeLabel as typeLabelOf, type CanvasNode, type EdgeStyle } from './graph';
 import { EMPTY_FILTER, type NodeFilter } from './presentation';
 import { useGraphStream } from './use-graph-stream';
 import { usePref } from './use-pref';
@@ -19,6 +20,7 @@ import { Inspector } from './panels/Inspector';
 import { NewNodeDialog } from './panels/EditPanel';
 import { Sidebar } from './panels/Sidebar';
 import { Topbar } from './panels/Topbar';
+import { TimelineBar } from './panels/TimelineBar';
 import { locale, t } from './i18n';
 import { SessionDrafts } from './session-drafts';
 import { useWorkspaceData } from './workspace/use-workspace-data';
@@ -29,6 +31,7 @@ import { useWorkspaceSelection } from './workspace/use-workspace-selection';
 import { useWorkspacePresentation } from './workspace/use-workspace-presentation';
 import { useWorkspaceFeedback } from './workspace/use-workspace-feedback';
 import { useWorkspaceScene } from './workspace/use-workspace-scene';
+import { useWorkspaceTimeline } from './workspace/use-workspace-timeline';
 import type { Scene3DProps } from './scene3d/shared';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
@@ -52,8 +55,13 @@ const initialTheme = (): 'light' | 'dark' => {
 };
 
 function Workspace() {
-  const { snapshot, connection, syncedAt, isStatic, reload } = useGraphStream();
-  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus } = useWorkspaceLocation();
+  const { snapshot: live, connection, syncedAt, isStatic, reload } = useGraphStream();
+  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
+  // A checkpoint view replaces what every panel reads; the live stream keeps running underneath.
+  const timeline = useWorkspaceTimeline(live, asOf, setAsOf, isStatic);
+  const snapshot = timeline.snapshot;
+  const [timelineOpen, setTimelineOpen] = useState(() => Boolean(asOf) && !isStatic);
+  const [showChanges, setShowChanges] = usePref('timeline-changes', true);
   const [theme, setTheme] = useState<'light' | 'dark'>(initialTheme);
   const [direction, setDirection] = usePref<'RIGHT' | 'DOWN'>('direction', 'RIGHT');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -75,15 +83,18 @@ function Workspace() {
   const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter);
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
   const { agentIds, digest, currentId, current, findings, openItems } = agent;
-  const { fresh, notice, flash, linkCopied, copyNodeLink, copied, copyDigest, offlineShown } = useWorkspaceFeedback(snapshot, allNodes, digest, agentId, connection, isStatic);
+  // Stepping through checkpoints is not the Agent writing: only the live board pulses.
+  const { fresh, notice, flash, linkCopied, copyNodeLink, copied, copyDigest, offlineShown } = useWorkspaceFeedback(timeline.active ? null : snapshot, allNodes, digest, agentId, connection, isStatic);
   const { nodes, edges, onNodesChange, layoutRevision, layoutMode, laying } = useWorkspaceLayout(projection, mode, direction);
   const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision, mode, follow, currentId, selectedId });
   const { scene3d, sceneRef, openScene, closeScene, occlusion, exporting, exportImage } = useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode, flash });
+  // Resolve selection against the requested checkpoint, never its loading fallback.
   const { selected, focusNode, clearSelection, switchMode, handleNodesChange, onNodeClick } = useWorkspaceSelection({
-    snapshot, byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId,
+    snapshot: timeline.active && !timeline.point ? null : snapshot,
+    byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId,
     deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d,
   });
-  const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, mode, edgeStyle);
+  const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, mode, edgeStyle, showChanges && timeline.active ? timeline.changeMap : null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -116,7 +127,9 @@ function Workspace() {
     );
   }
 
-  const writable = !isStatic && snapshot.meta.writable === true;
+  // While a checkpoint is shown (or still loading over the live picture) nothing can be written.
+  const writable = !isStatic && !timeline.active && snapshot.meta.writable === true;
+  const pastPoint = snapshot.meta.asOf;
   const stats = snapshot.stats || {};
   const hidden = projection?.hidden || 0;
 
@@ -142,6 +155,11 @@ function Workspace() {
         digestRef={digestTrigger}
         activities={activities}
         activityTotal={stats.activities || activities.length}
+        timelineOpen={timelineOpen}
+        onTimeline={isStatic ? undefined : () => {
+          if (timelineOpen) { timeline.pause(); setAsOf(null); }
+          setTimelineOpen(!timelineOpen);
+        }}
       />
 
       <div className="relative flex min-h-0 flex-1">
@@ -261,6 +279,21 @@ function Workspace() {
                 {t('app.disconnected')}{syncedAt ? t('app.frozenAt', { time: new Date(syncedAt).toLocaleTimeString(locale, { hour12: false }) }) : ''}
               </div>
             )}
+            {timeline.active && (
+              <div role="status" className="pointer-events-auto flex items-center gap-2 whitespace-nowrap rounded-full border border-foreground bg-card px-3 py-1 text-xs text-foreground shadow-float">
+                <History className="size-3.5" />
+                {t('timeline.banner', { id: timeline.point?.id ?? asOf ?? '', time: formatTime(timeline.point?.at ?? undefined) })}
+                <button type="button" className="rounded px-1 font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { timeline.pause(); setAsOf(null); }}>
+                  {t('timeline.backToNow')}
+                </button>
+              </div>
+            )}
+            {isStatic && pastPoint && (
+              <div role="status" className="flex items-center gap-2 whitespace-nowrap rounded-full border border-foreground bg-card px-3 py-1 text-xs text-foreground shadow-xs">
+                <History className="size-3.5" />
+                {t('timeline.staticBadge', { id: pastPoint.id, time: formatTime(pastPoint.at ?? undefined) })}
+              </div>
+            )}
             {hidden > 0 && (
               <button
                 className="pointer-events-auto whitespace-nowrap rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground shadow-xs transition-colors hover:border-strong hover:text-foreground"
@@ -278,6 +311,25 @@ function Workspace() {
           {selected && <Inspector panelRef={inspectorRef} node={selected} edges={allEdges} byId={byId} onClose={clearSelection} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
         </main>
       </div>
+
+      {timelineOpen && !isStatic && (
+        <TimelineBar
+          points={timeline.points}
+          position={timeline.position}
+          active={timeline.active}
+          loading={timeline.loading}
+          error={timeline.error}
+          previousId={timeline.previousId}
+          changes={timeline.changes}
+          showChanges={showChanges}
+          onShowChanges={setShowChanges}
+          playing={timeline.playing}
+          onPlay={timeline.play}
+          onPause={timeline.pause}
+          onGoTo={timeline.goTo}
+          onClose={() => { timeline.pause(); setAsOf(null); setTimelineOpen(false); }}
+        />
+      )}
 
       <CommandPalette
         open={paletteOpen}

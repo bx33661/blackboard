@@ -38,6 +38,7 @@ import {
   replay,
   readState,
   readEvents,
+  readEventsAsOf,
   stats,
   writeBatch,
   checkBatch,
@@ -154,6 +155,19 @@ function out(flags, obj, output) {
   console.log(JSON.stringify(body));
 }
 
+/** The log a read projects: the whole of it, or cut right after --as-of's checkpoint. */
+function readSource(flags) {
+  if (flags['as-of'] === undefined) return readEvents(cwd());
+  try { return readEventsAsOf(cwd(), flags['as-of']); } catch (error) { return fail(error); }
+}
+
+/** Human output says it shows the past; --json stays identical to reading a log cut at that point. */
+function noteAsOf(source, flags) {
+  if (!source.asOf || flags.json) return;
+  const { id, at } = source.asOf;
+  console.error(C.dim(`时点 ${id}${Number.isFinite(at) ? `（${new Date(at).toISOString()}）` : ''} · 只读历史视图，日志之后的记录未计入`));
+}
+
 
 async function cmdServe(args, flags) {
   const target = cwd();
@@ -219,16 +233,17 @@ async function cmdExport(args, flags) {
       if (target.dev === source.dev && target.ino === source.ino) fail('导出文件不能覆盖黑板数据或其文件别名');
     }
   }
-  const relatedTo = flags['related-to'] ? refOrFail(replay(cwd()).nodes, flags['related-to']) : undefined;
+  const source = readSource(flags);
+  const relatedTo = flags['related-to'] ? refOrFail(replay(cwd(), source).nodes, flags['related-to']) : undefined;
   const content = renderExport({
-    cwd: cwd(), format, version: VERSION, query: args.join(' '),
+    cwd: cwd(), source: flags['as-of'] === undefined ? undefined : source, format, version: VERSION, query: args.join(' '),
     type: flags.type, status: flags.status, severity: flags.sev, confidence: flags.confidence,
     tags: flags.tag, relation: flags.rel, relatedTo, sort: flags.sort, groupBy: flags['group-by'],
     maxNodes: flags['max-nodes'] === undefined ? undefined : Number(flags['max-nodes']),
   });
   fs.writeFileSync(abs, content);
   if (flags.json) return out(flags, { file: abs, format }, OUTPUTS.export);
-  console.log(`${C.grn('已导出')} ${format} · ${abs}`);
+  console.log(`${C.grn('已导出')} ${format}${source.asOf ? ` · 时点 ${source.asOf.id}` : ''} · ${abs}`);
 }
 
 async function cmdStatus(args, flags) {
@@ -298,7 +313,9 @@ async function cmdStatus(args, flags) {
 
 function cmdList(args, flags) {
   needInitRead();
-  const g = replay(cwd());
+  const source = readSource(flags);
+  const g = replay(cwd(), source);
+  noteAsOf(source, flags);
   let nodes = Object.values(g.nodes).sort((a, b) => (a.ts || 0) - (b.ts || 0));
   const type = flags.type || flags.t;
   if (type) nodes = nodes.filter((n) => n.type === type || TYPE_LABEL[n.type] === type);
@@ -320,10 +337,12 @@ function cmdShow(args, flags) {
   needInitRead();
   const id = args[0];
   if (!id) fail('用法: blackboard show <id>');
-  const g = replay(cwd());
+  const source = readSource(flags);
+  const g = replay(cwd(), source);
   const nodeId = refOrFail(g.nodes, id);
   const n = g.nodes[nodeId];
   if (flags.json) return out(flags, { node: projectNode(n), parents: parentsOf(g, nodeId).map(projectNode), children: childrenOf(g, nodeId).map(projectNode) }, OUTPUTS.show);
+  noteAsOf(source, flags);
   const chain = [];
   let cur = n;
   const seen = new Set();
@@ -422,7 +441,7 @@ function cmdDigest(args, flags) {
 
 function cmdContext(args, flags) {
   needInitRead();
-  const source = readEvents(cwd());
+  const source = readSource(flags);
   const g = replay(cwd(), source);
   const wanted = flags.focus || args[0] || null;
   const focus = wanted ? refOrFail(g.nodes, wanted, 'focus node') : null;
@@ -439,13 +458,14 @@ function cmdContext(args, flags) {
     ...(flags.since ? { events: source.events } : {}),
     maxItems: flags.limit || flags.n,
   });
-  if (flags.markdown || flags.md) console.log(renderAgentContext(packet));
+  if (flags.markdown || flags.md) console.log(renderAgentContext(packet, { asOf: source.asOf }));
   else out({ json: true }, packet, OUTPUTS.context);
 }
 
 function cmdSearch(args, flags) {
   needInitRead();
-  const graph = replay(cwd());
+  const source = readSource(flags);
+  const graph = replay(cwd(), source);
   const relatedTo = flags['related-to'] ? refOrFail(graph.nodes, flags['related-to']) : undefined;
   const result = searchGraph(graph, {
     query: args.join(' '), type: flags.type, tags: flags.tag, status: flags.status,
@@ -453,6 +473,7 @@ function cmdSearch(args, flags) {
     relation: flags.rel, relatedTo, limit: flags.limit || 30,
   });
   if (flags.json) return out(flags, result, OUTPUTS.search);
+  noteAsOf(source, flags);
   if (result.groups) {
     console.log(`${result.total} 条匹配 · 按 ${result.groupBy.join('、')} 统计全部匹配`);
     for (const group of result.groups) {
@@ -484,11 +505,12 @@ async function cmdHistory(args, flags) {
 async function cmdChanges(args, flags) {
   needInitRead();
   const since = flags.since || args[0];
-  if (!since || args.length > 1 || (args.length && flags.since)) fail('用法: blackboard changes --since <checkpoint-id> [--json]');
+  if (!since || args.length > 1 || (args.length && flags.since)) fail('用法: blackboard changes --since <checkpoint-id> [--as-of <checkpoint-id>] [--json]');
   const { buildCheckpointChanges } = await import('../lib/history.js');
-  const source = readEvents(cwd());
+  const source = readSource(flags);
   const result = buildCheckpointChanges(source.events, since, source);
   if (flags.json) return out(flags, result, OUTPUTS.changes);
+  noteAsOf(source, flags);
   console.log(`交接点 ${result.since.id} 之后（只读）`);
   console.log(`节点 +${result.nodes.added.length} ~${result.nodes.updated.length} -${result.nodes.removed.length}；关系 +${result.edges.added.length} -${result.edges.removed.length}`);
   for (const node of result.nodes.added) console.log(`+ ${nodeLine(node)}`);
@@ -537,7 +559,7 @@ function cmdCapabilities(args, flags) {
       writeAttribution: true, cwdFlag: true, noInit: true,
       rejectTruncation: true, inputTruncationMetadata: true, nodeEdgeLabel: true,
       searchFilters: true, searchGrouping: true, listAll: true, nodeJsonDefaults: true,
-      nodeMultiTarget: true, checkpointDelta: true, batch: true, batchCheck: true, jsonErrors: true },
+      nodeMultiTarget: true, checkpointDelta: true, batch: true, batchCheck: true, jsonErrors: true, asOf: true },
     exportFormats: ['html', 'markdown', 'mermaid', 'sarif'],
     errors: { stream: 'stderr', schema: ERROR_SCHEMA, codes: ERROR_CODES },
     contextContract: { readOnly: true, prescriptive: false, nextStepSelection: 'agent-controlled' },

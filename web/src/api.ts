@@ -1,4 +1,6 @@
 import { t } from './i18n';
+import type { CheckpointChanges, GraphSnapshot } from './types';
+import { isGraphSnapshot } from './workspace/graph-stream';
 
 /** Writes a person makes from the viewer. The server stamps them as human and checks where they came from. */
 export type NodeInput = { type: string; title: string; detail?: string; parent?: string; relation?: string };
@@ -31,7 +33,10 @@ async function send<T>(method: string, url: string, body?: unknown): Promise<T> 
       const fields = Array.isArray(envelope.fields) ? envelope.fields.filter((field): field is string => typeof field === 'string').map((field) => Object.hasOwn(labels, field) ? labels[field] : field).join(', ') : '';
       throw Object.assign(new Error(t('api.inputTooLong', { fields })), { status: response.status });
     }
+    const ref = typeof envelope?.asOf === 'string' ? envelope.asOf : typeof envelope?.since === 'string' ? envelope.since : '';
     const message = envelope?.error === 'read_only' ? t('api.readOnly')
+      : envelope?.error === 'checkpoint_not_found' ? t('api.checkpointNotFound', { id: ref })
+      : envelope?.code === 'ambiguous_ref' ? t('api.ambiguousRef', { id: ref, candidates: Array.isArray(envelope.candidates) ? envelope.candidates.filter((item): item is string => typeof item === 'string').join(', ') : '' })
       : typeof envelope?.error === 'string' && envelope.error ? envelope.error : t('api.failed', { status: response.status });
     throw Object.assign(new Error(message), { status: response.status });
   }
@@ -61,5 +66,13 @@ export const SETTABLE_STATUSES = ['open', 'active', 'done', 'blocked', 'dead', '
 /** Read projections from this server only; static exports never call these. */
 export const getNodeHistory = (id: string) => send<import('./types').NodeHistory>('GET', `/api/history?node=${encodeURIComponent(id)}`);
 export const getCheckpointChanges = (id: string) => send<import('./types').CheckpointChanges>('GET', `/api/changes?since=${encodeURIComponent(id)}`);
+/** The board as it stood right after checkpoint `ref`; never writable. */
+export async function getGraphAsOf(ref: string): Promise<GraphSnapshot> {
+  const data = await send<unknown>('GET', `/api/graph?asOf=${encodeURIComponent(ref)}`);
+  if (!isGraphSnapshot(data)) throw new Error(t('api.invalidSnapshot'));
+  return data;
+}
+/** What changed after `since`, counting only the log up to checkpoint `asOf`. */
+export const getChangesBetween = (since: string, asOf: string) => send<CheckpointChanges>('GET', `/api/changes?since=${encodeURIComponent(since)}&asOf=${encodeURIComponent(asOf)}`);
 export const SETTABLE_SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const;
 export const SETTABLE_CONFIDENCES = ['suspected', 'static-confirmed', 'reproduced', 'confirmed'] as const;

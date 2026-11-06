@@ -7,11 +7,15 @@ export function useWorkspaceLocation() {
     const params = new URLSearchParams(location.search);
     const view = params.get('view');
     const mode: ViewMode = view === 'logic' || view === 'all' ? view : 'context';
-    return { agentId: params.get('agent') || 'agent:primary', mode, node: params.get('node') };
+    // An offline export has no server to ask for another checkpoint; its own snapshot is all there is.
+    const asOf = window.__BLACKBOARD_DATA__ === undefined ? params.get('asOf') || null : null;
+    return { agentId: params.get('agent') || 'agent:primary', mode, node: params.get('node'), asOf };
   });
   const [agentId, setAgentId] = useState(initial.agentId);
   const [mode, setMode] = useState(initial.mode);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** The checkpoint the reader is looking back at; `null` is the live board. */
+  const [asOf, setAsOf] = useState<string | null>(initial.asOf);
   // Workspace resolves this once the snapshot and visible projection have arrived.
   const deepLink = useRef(initial.node);
   const pendingFocus = useRef<string | null>(null);
@@ -30,5 +34,12 @@ export function useWorkspaceLocation() {
     history.replaceState(null, '', url);
   }, [selectedId]);
 
-  return { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus };
+  useEffect(() => {
+    if (window.__BLACKBOARD_DATA__ !== undefined) return;
+    const url = new URL(location.href);
+    if (asOf) url.searchParams.set('asOf', asOf); else url.searchParams.delete('asOf');
+    history.replaceState(null, '', url);
+  }, [asOf]);
+
+  return { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus };
 }

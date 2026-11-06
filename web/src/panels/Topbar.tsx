@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { Check, ChevronDown, FileText, Focus, GitBranch, ListTree, Moon, PanelLeft, Plus, Search, Sun, Users } from 'lucide-react';
+import { Check, ChevronDown, FileText, Focus, GitBranch, History, ListTree, Moon, PanelLeft, Plus, Search, Sun, Users } from 'lucide-react';
 import { Select } from 'radix-ui';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,9 @@ type Props = {
   digestRef: RefObject<HTMLButtonElement | null>;
   activities: Activity[];
   activityTotal: number;
+  timelineOpen: boolean;
+  /** Absent where there is no server to replay the log (offline HTML). */
+  onTimeline?: () => void;
 };
 
 const CONNECTION = {
@@ -42,7 +45,7 @@ const CONNECTION = {
 } as const;
 
 export function Topbar(props: Props) {
-  const { title, build, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal } = props;
+  const { title, build, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal, timelineOpen, onTimeline } = props;
   const status = isStatic ? { label: t('topbar.static'), dot: 'bg-strong' } : CONNECTION[connection];
   return (
     <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b bg-background px-3 py-2 lg:h-12 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-4 lg:py-0">
@@ -115,6 +118,7 @@ export function Topbar(props: Props) {
         </Button>
         <IconButton label={t('topbar.search')} className="md:hidden" onClick={onSearch}><Search /></IconButton>
         <ActivityPopover activities={activities} total={activityTotal} />
+        {onTimeline && <IconButton label={timelineOpen ? t('timeline.close') : t('timeline.open')} aria-pressed={timelineOpen} onClick={onTimeline}><History /></IconButton>}
         {onNew && <Button size="sm" onClick={onNew} aria-label={t('topbar.newNode')}><Plus className="size-3.5" /><span className="max-sm:hidden">{t('topbar.new')}</span></Button>}
         <Button ref={digestRef} size="sm" onClick={onDigest} aria-label={t('topbar.digestLabel')}><FileText className="size-3.5" /><span className="max-sm:hidden">{t('topbar.digest')}</span></Button>
         <IconButton label={theme === 'light' ? t('theme.toDark') : t('theme.toLight')} onClick={onTheme}>{theme === 'light' ? <Moon /> : <Sun />}</IconButton>

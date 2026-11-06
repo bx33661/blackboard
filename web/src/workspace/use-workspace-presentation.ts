@@ -4,8 +4,10 @@ import { focusedIds } from '../canvas-state';
 import type { CanvasNode, EdgeStyle } from '../graph';
 import type { ViewMode } from '../types';
 
+export type NodeChange = { kind: 'added' | 'updated'; fields: string[] };
+
 /** Decorate selection without replacing unchanged React Flow cards or the shared layout. */
-export function useWorkspacePresentation(nodes: CanvasNode[], edges: Edge[], selectedId: string | null, fresh: ReadonlySet<string>, mode: ViewMode, edgeStyle: EdgeStyle) {
+export function useWorkspacePresentation(nodes: CanvasNode[], edges: Edge[], selectedId: string | null, fresh: ReadonlySet<string>, mode: ViewMode, edgeStyle: EdgeStyle, changes: ReadonlyMap<string, NodeChange> | null = null) {
   const cache = useRef(new Map<string, { source: CanvasNode; built: CanvasNode }>());
   const highlighted = useMemo(() => focusedIds(selectedId, edges), [selectedId, edges]);
   const displayNodes = useMemo(() => {
@@ -13,14 +15,16 @@ export function useWorkspacePresentation(nodes: CanvasNode[], edges: Edge[], sel
       const selected = !node.data.group && node.id === selectedId;
       const muted = !node.data.group && Boolean(selectedId) && !highlighted.has(node.id);
       const freshFlag = fresh.has(node.id);
+      const change = changes?.get(node.id);
       const hit = cache.current.get(node.id);
       // Dragging replaces the source object: its new position must reach React Flow.
-      if (hit && hit.source === node && hit.built.selected === selected && hit.built.data.muted === muted && hit.built.data.fresh === freshFlag) return hit.built;
-      return { ...node, selected, data: { ...node.data, muted, fresh: freshFlag } };
+      if (hit && hit.source === node && hit.built.selected === selected && hit.built.data.muted === muted && hit.built.data.fresh === freshFlag
+        && hit.built.data.change === change?.kind && hit.built.data.changeFields === change?.fields) return hit.built;
+      return { ...node, selected, data: { ...node.data, muted, fresh: freshFlag, change: change?.kind, changeFields: change?.fields } };
     });
     cache.current = new Map(next.map((built, i) => [built.id, { source: nodes[i], built }]));
     return next;
-  }, [nodes, selectedId, highlighted, fresh]);
+  }, [nodes, selectedId, highlighted, fresh, changes]);
 
   const displayEdges = useMemo(() => edges.map((edge) => {
     const active = Boolean(selectedId) && (edge.source === selectedId || edge.target === selectedId);

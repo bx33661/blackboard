@@ -48,7 +48,7 @@ export function TypeDot({ type, className }: { type: string; className?: string 
 const handleClass = 'size-1! min-h-0! min-w-0! border-0! bg-transparent! opacity-0! pointer-events-none!';
 
 export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeProps<CanvasNode>) {
-  const { item, current, dimmed, direction, compact, muted, fresh, agents } = data;
+  const { item, current, dimmed, direction, compact, muted, fresh, agents, change, changeFields } = data;
   const level = useStore((state) => detailLevel(state.transform[2]));
   const vertical = direction === 'DOWN';
   const text = presentNode(item);
@@ -65,7 +65,7 @@ export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeP
       tabIndex={-1}
       style={{ '--c': `var(--node-${item.type in DOT_CLASS ? item.type : 'note'})` } as CSSProperties}
       data-detail-level={level}
-      title={t('node.previewHint')}
+      title={change === 'added' ? `${t('node.changeAdded')}\n${t('node.previewHint')}` : change === 'updated' ? `${t('node.changeUpdated', { fields: (changeFields || []).join(', ') })}\n${t('node.previewHint')}` : t('node.previewHint')}
       aria-label={`${typeLabel(item.type)}：${item.title}${state ? ` · ${state}` : ''}`}
       className={cn(
         'flex flex-col gap-1.5 py-3 pl-4 pr-3.5 text-left',
@@ -78,11 +78,18 @@ export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeP
         dimmed && 'opacity-25',
         muted && 'opacity-35',
         fresh && 'fresh-pulse',
+        change === 'added' && 'change-added',
+        change === 'updated' && 'change-updated',
       )}
     >
       <i aria-hidden className="absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full bg-(--c)" />
       <Handle type="target" position={vertical ? Position.Top : Position.Left} className={handleClass} />
-      {overview && current && (
+      {overview && change && (
+        <span className="zoom-chip at-left inline-flex items-center gap-1 rounded-md border border-strong bg-card px-2 font-mono text-[11px] text-foreground">
+          {change === 'added' ? '+' : '~'} {change === 'added' ? t('node.changeAdded') : t('node.changeUpdated', { fields: (changeFields || []).join(', ') })}
+        </span>
+      )}
+      {overview && current && !change && (
         <span className="zoom-chip at-left inline-flex items-center gap-1 rounded-md bg-live px-2 text-[11px] text-white">
           <i className="size-1.5 rounded-full bg-white" />{t('node.current')}
         </span>
@@ -108,6 +115,11 @@ export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeP
               <i className="size-1.5 shrink-0 rounded-full bg-strong" />{agent}
             </span>
           ))}
+          {change && (
+            <span className="ml-1 inline-flex items-center rounded-md border border-strong px-1 font-mono text-[10px] leading-4 text-foreground" title={change === 'added' ? t('node.changeAdded') : t('node.changeUpdated', { fields: (changeFields || []).join(', ') })}>
+              {change === 'added' ? '+' : '~'}
+            </span>
+          )}
           <span title={progress} className="ml-auto min-w-0 truncate">{progress}</span>
           {item.severity && <SeverityBadge severity={item.severity} />}
         </header>

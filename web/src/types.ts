@@ -55,6 +55,11 @@ export type BuildInfo = {
   };
 };
 
+/** Identifies the checkpoint a historical snapshot was cut at (`/api/graph?asOf=`, `export --as-of`). */
+export type CheckpointRef = { id: string; at?: number | null; agentId?: string | null; sessionId?: string | null; summary?: string; eventId?: string | null; [key: string]: unknown };
+
+export type Checkpoint = { id?: string; at?: number; agentId?: string; summary?: string; trigger?: string; [key: string]: unknown };
+
 export type GraphSnapshot = {
   meta: {
     title?: string;
@@ -64,13 +69,15 @@ export type GraphSnapshot = {
     /** Set by a server that accepts edits from the viewer. */
     writable?: boolean;
     build?: BuildInfo;
+    /** The checkpoint this snapshot was cut at; absent on the live board. Such a snapshot is never writable. */
+    asOf?: CheckpointRef;
   };
   nodes: Record<string, BoardNode> | BoardNode[];
   edges: Record<string, BoardEdge> | BoardEdge[];
   cursors?: Record<string, Cursor>;
   cursorTrail?: unknown[];
   activities?: Record<string, Activity> | Activity[];
-  checkpoints?: Record<string, { agentId?: string; [key: string]: unknown }>;
+  checkpoints?: Record<string, Checkpoint>;
   stats?: {
     total?: number;
     edges?: number;

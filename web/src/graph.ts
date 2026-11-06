@@ -35,6 +35,9 @@ export type CanvasNodeData = Record<string, unknown> & {
   group?: boolean;
   muted?: boolean;
   fresh?: boolean;
+  /** Set only while viewing a checkpoint: recorded in the span since the previous checkpoint. */
+  change?: 'added' | 'updated';
+  changeFields?: string[];
   /** Other Agents whose cursor is on this card (the selected Agent is shown as "current"). */
   agents?: string[];
   groupCount?: number;

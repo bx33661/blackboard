@@ -80,6 +80,27 @@
         "file": "<root>/out.sarif",
         "format": "sarif"
       }
+    },
+    {
+      "board": "research",
+      "args": [
+        "export",
+        "--format",
+        "markdown",
+        "--as-of",
+        "cp1",
+        "--out",
+        "<root>/out-cp1.md",
+        "--cwd",
+        "<board>",
+        "--json"
+      ],
+      "exitCode": 0,
+      "output": {
+        "schema": "blackboard.export.v1",
+        "file": "<root>/out-cp1.md",
+        "format": "markdown"
+      }
     }
   ]
 }

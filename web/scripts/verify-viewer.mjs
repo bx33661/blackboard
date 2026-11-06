@@ -128,7 +128,7 @@ async function verify() {
   const env = isolatedBlackboardEnv({ HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local', 'share'), XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.local', 'state'), BLACKBOARD_CWD: board, BLACKBOARD_QUIET: '1' });
   for (const key of Object.keys(process.env)) if (key.startsWith('BLACKBOARD_')) delete process.env[key];
   Object.assign(process.env, env);
-  const { ensure, addNode, addEdge, patchNode, removeEdge, moveCursor, addCheckpoint, replay, readEvents, paths } = await import('../../lib/store.js');
+  const { ensure, addNode, addEdge, patchNode, removeNode, removeEdge, moveCursor, addCheckpoint, replay, readEvents, paths } = await import('../../lib/store.js');
   const { startServer } = await import('../../lib/server.js');
   const { renderExport } = await import('../../lib/export.js');
   eventFile = paths(board).events;
@@ -338,6 +338,67 @@ async function verify() {
   assert.deepEqual(streamErrors, []);
   await streamPage.close();
   ok('a slow initial graph fetch never rolls back a newer SSE snapshot');
+
+  const timelineBoard = path.join(scratch, 'timeline'); fs.mkdirSync(timelineBoard); ensure(timelineBoard);
+  const archived = addNode({ type: 'note', title: 'Archived timeline target' }, timelineBoard).node;
+  const firstPoint = addCheckpoint({ summary: 'Before the archived node was removed' }, timelineBoard);
+  const marker = addNode({ type: 'note', title: 'Live timeline marker' }, timelineBoard).node;
+  const secondPoint = addCheckpoint({ summary: 'Second timeline checkpoint' }, timelineBoard);
+  removeNode(archived.id, {}, timelineBoard);
+  const timelineServer = await startServer({ cwd: timelineBoard, port: 0 }); servers.push(timelineServer);
+  const timelineUrl = `http://127.0.0.1:${timelineServer.address().port}`;
+  const timelineContext = await viewerContext();
+  const timelinePage = await timelineContext.newPage();
+  const timelineErrors = []; timelinePage.on('pageerror', (error) => timelineErrors.push(String(error)));
+  const timelineWrites = allWrites.length;
+  const timelineEvents = () => fs.readFileSync(paths(timelineBoard).events, 'utf8');
+  const beforeTimeline = timelineEvents();
+  let releasePast; let pastReceived; let pastFinished;
+  const heldPast = new Promise((resolve) => { releasePast = resolve; });
+  const receivedPast = new Promise((resolve) => { pastReceived = resolve; });
+  const finishedPast = new Promise((resolve) => { pastFinished = resolve; });
+  await timelinePage.route('**/api/graph?*', async (route) => {
+    const response = await route.fetch(); pastReceived(); await heldPast;
+    await route.fulfill({ response }); pastFinished();
+  });
+  await timelinePage.goto(`${timelineUrl}/?view=all&node=${archived.id}&asOf=${firstPoint.id}`);
+  await bounded(receivedPast, 'held historical graph request');
+  await timelinePage.locator('[data-timeline]').waitFor();
+  await timelinePage.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(new URL(timelinePage.url()).searchParams.get('node'), archived.id, 'the live loading fallback must not discard the historical node link');
+  assert.equal(await timelinePage.getByRole('button', { name: '新建节点', exact: true }).count(), 0);
+  releasePast(); await bounded(finishedPast, 'released historical graph response');
+  const timelineInspector = timelinePage.getByRole('complementary', { name: '节点详情' });
+  await timelineInspector.getByRole('heading', { name: archived.title, exact: true }).waitFor();
+  assert.equal(new URL(timelinePage.url()).searchParams.get('node'), archived.id);
+  assert.equal(await timelineInspector.getByRole('region', { name: '编辑节点' }).count(), 0);
+  assert.equal(await timelineInspector.getByRole('region', { name: '关联已有节点' }).count(), 0);
+  assert.equal(timelineEvents(), beforeTimeline);
+  assert.equal(allWrites.length, timelineWrites);
+  await screenshot(timelinePage, 'timeline-historical-link.png');
+  ok('a delayed checkpoint snapshot preserves and selects a linked node removed from the live board without writes');
+
+  let ticks = 0;
+  await timelinePage.getByRole('button', { name: '依次播放检查点', exact: true }).click();
+  const updateTimer = setInterval(() => patchNode(marker.id, { title: `Live timeline tick ${++ticks}` }, timelineBoard), 300);
+  try {
+    await timelinePage.waitForFunction((id) => document.querySelector('[data-timeline] button[aria-current="step"]')?.textContent.includes(id), secondPoint.id, { timeout: 6000 });
+    await timelinePage.getByRole('button', { name: '暂停播放', exact: true }).click();
+    assert.ok(ticks >= 3, 'live writes continue throughout the playback step');
+  } finally { clearInterval(updateTimer); }
+  const afterTimelineWrites = timelineEvents();
+  const latestTitle = replay(timelineBoard).nodes[marker.id].title;
+  await screenshot(timelinePage, 'timeline-live-playback.png');
+  await timelinePage.getByRole('button', { name: '回到现在', exact: true }).click();
+  await timelinePage.locator(`.react-flow__node[data-id="${marker.id}"]`).click();
+  await timelineInspector.getByRole('heading', { name: latestTitle, exact: true }).waitFor();
+  assert.equal(new URL(timelinePage.url()).searchParams.has('asOf'), false);
+  await timelinePage.getByRole('button', { name: '新建节点', exact: true }).waitFor();
+  assert.equal(timelineEvents(), afterTimelineWrites);
+  assert.equal(allWrites.length, timelineWrites);
+  assert.deepEqual(timelineErrors, []);
+  await timelineContext.close();
+  ok('checkpoint playback advances during continuous live writes and returns to the latest live board without edits');
 
   await racePage.getByRole('button', { name: '关闭摘要', exact: true }).click();
   await racePage.setViewportSize({ width: 375, height: 812 });

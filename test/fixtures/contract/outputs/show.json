@@ -125,6 +125,76 @@
       ],
       "exitCode": 1,
       "output": null
+    },
+    {
+      "board": "research",
+      "args": [
+        "show",
+        "v1",
+        "--as-of",
+        "cp1",
+        "--cwd",
+        "<board>",
+        "--json"
+      ],
+      "exitCode": 0,
+      "output": {
+        "schema": "blackboard.show.v2",
+        "node": {
+          "id": "v1",
+          "type": "vuln",
+          "title": "Session fixation on login",
+          "ts": 1767225960000,
+          "session": "session_FIXTURE",
+          "detail": "The session id survives authentication.",
+          "author": "agent:primary",
+          "severity": "high",
+          "confidence": "suspected",
+          "status": null
+        },
+        "parents": [
+          {
+            "id": "h1",
+            "type": "hint",
+            "title": "Check whether logout rotates the id",
+            "ts": 1767226020000,
+            "session": "session_FIXTURE",
+            "author": "agent:primary",
+            "edge": "related-to",
+            "status": null,
+            "severity": null,
+            "confidence": null
+          }
+        ],
+        "children": [
+          {
+            "id": "f2",
+            "type": "fact",
+            "title": "Session cookie lacks SameSite",
+            "ts": 1767225900000,
+            "session": "session_FIXTURE",
+            "author": "agent:primary",
+            "confidence": "static-confirmed",
+            "edge": "depends-on",
+            "status": null,
+            "severity": null
+          }
+        ]
+      }
+    },
+    {
+      "board": "research",
+      "args": [
+        "show",
+        "f3",
+        "--as-of",
+        "cp1",
+        "--cwd",
+        "<board>",
+        "--json"
+      ],
+      "exitCode": 1,
+      "output": null
     }
   ]
 }

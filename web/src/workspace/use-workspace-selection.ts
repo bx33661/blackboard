@@ -98,7 +98,7 @@ export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges
     const onArrow = (event: KeyboardEvent) => {
       if (!selectedId || event.metaKey || event.ctrlKey || event.altKey || !event.key.startsWith('Arrow')) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, [contenteditable], [role="dialog"], [role="slider"], [role="menu"]')) return;
+      if (target?.closest('input, textarea, select, [contenteditable], [role="dialog"], [role="slider"], [role="menu"], [data-timeline]')) return;
       const boxes = nodes.filter((node) => !node.data.group).map((node) => {
         const parent = node.parentId ? nodes.find((candidate) => candidate.id === node.parentId) : null;
         return { id: node.id, x: node.position.x + (parent?.position.x || 0), y: node.position.y + (parent?.position.y || 0), w: Number(node.style?.width || NODE_W), h: Number(node.style?.height || NODE_H) };

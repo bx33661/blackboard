@@ -1107,6 +1107,303 @@
         "truncated": false,
         "estimatedTokens": 241
       }
+    },
+    {
+      "board": "research",
+      "args": [
+        "context",
+        "--as-of",
+        "cp1",
+        "--cwd",
+        "<board>",
+        "--json"
+      ],
+      "exitCode": 0,
+      "output": {
+        "schema": "blackboard.context.v2",
+        "policy": {
+          "readOnly": true,
+          "prescriptive": false,
+          "nextStepSelection": "agent-controlled"
+        },
+        "board": {
+          "title": "Contract fixture: research",
+          "stats": {
+            "total": 7,
+            "edges": 5,
+            "activities": 0,
+            "checkpoints": 1,
+            "cursors": 1,
+            "byType": {
+              "goal": 1,
+              "intent": 1,
+              "fact": 2,
+              "vuln": 1,
+              "hint": 1,
+              "question": 1
+            },
+            "intents": {
+              "open": 1,
+              "active": 0,
+              "done": 0,
+              "blocked": 0,
+              "dead": 0
+            },
+            "vulns": {
+              "critical": 0,
+              "high": 1,
+              "medium": 0,
+              "low": 0,
+              "info": 0
+            },
+            "confidence": {
+              "suspected": 1,
+              "static-confirmed": 0,
+              "reproduced": 0,
+              "confirmed": 0,
+              "unspecified": 0
+            },
+            "frontier": 2,
+            "confirmed": 0,
+            "candidates": 1
+          }
+        },
+        "request": {
+          "agentId": "agent:primary",
+          "focus": "g1",
+          "requestedFocus": null,
+          "cursorReason": "start at the goal",
+          "cursorAt": 1767225780000,
+          "depth": 2,
+          "budgetTokens": 4000,
+          "since": null,
+          "sinceAt": null,
+          "sinceSource": null
+        },
+        "currentFocus": {
+          "id": "g1",
+          "type": "goal",
+          "title": "Map the login flow",
+          "status": null,
+          "severity": null,
+          "confidence": null,
+          "tags": [
+            "auth",
+            "web"
+          ],
+          "detail": "Find every step between the form and the session cookie.",
+          "author": "agent:primary",
+          "at": 1767225660000
+        },
+        "objectives": [
+          {
+            "id": "g1",
+            "type": "goal",
+            "title": "Map the login flow",
+            "status": null,
+            "severity": null,
+            "confidence": null,
+            "tags": [
+              "auth",
+              "web"
+            ],
+            "detail": "Find every step between the form and the session cookie.",
+            "author": "agent:primary",
+            "at": 1767225660000
+          }
+        ],
+        "neighborhood": [
+          {
+            "depth": 1,
+            "direction": "in",
+            "relation": "supports",
+            "node": {
+              "id": "i1",
+              "type": "intent",
+              "title": "Read the login handler first",
+              "status": "open",
+              "severity": null,
+              "confidence": null,
+              "author": "agent:primary",
+              "at": 1767225720000
+            }
+          },
+          {
+            "depth": 1,
+            "direction": "in",
+            "relation": "supports",
+            "node": {
+              "id": "f1",
+              "type": "fact",
+              "title": "Login posts to /api/session",
+              "status": null,
+              "severity": null,
+              "confidence": "confirmed",
+              "detail": "Observed in the form markup.",
+              "author": "agent:primary",
+              "at": 1767225840000
+            }
+          },
+          {
+            "depth": 1,
+            "direction": "in",
+            "relation": "related-to",
+            "node": {
+              "id": "f2",
+              "type": "fact",
+              "title": "Session cookie lacks SameSite",
+              "status": null,
+              "severity": null,
+              "confidence": "static-confirmed",
+              "author": "agent:primary",
+              "at": 1767225900000
+            }
+          },
+          {
+            "depth": 2,
+            "direction": "in",
+            "relation": "depends-on",
+            "node": {
+              "id": "v1",
+              "type": "vuln",
+              "title": "Session fixation on login",
+              "status": null,
+              "severity": "high",
+              "confidence": "suspected",
+              "detail": "The session id survives authentication.",
+              "author": "agent:primary",
+              "at": 1767225960000
+            }
+          }
+        ],
+        "openThreads": [
+          {
+            "id": "q1",
+            "type": "question",
+            "title": "Does SSO share the same handler?",
+            "status": "open",
+            "severity": null,
+            "confidence": null,
+            "tags": [
+              "sso"
+            ],
+            "author": "agent:primary",
+            "at": 1767226080000
+          },
+          {
+            "id": "i1",
+            "type": "intent",
+            "title": "Read the login handler first",
+            "status": "open",
+            "severity": null,
+            "confidence": null,
+            "author": "agent:primary",
+            "at": 1767225720000
+          }
+        ],
+        "findings": [
+          {
+            "id": "v1",
+            "type": "vuln",
+            "title": "Session fixation on login",
+            "status": null,
+            "severity": "high",
+            "confidence": "suspected",
+            "detail": "The session id survives authentication.",
+            "author": "agent:primary",
+            "at": 1767225960000
+          }
+        ],
+        "confirmedFacts": [
+          {
+            "id": "f2",
+            "type": "fact",
+            "title": "Session cookie lacks SameSite",
+            "status": null,
+            "severity": null,
+            "confidence": "static-confirmed",
+            "author": "agent:primary",
+            "at": 1767225900000
+          },
+          {
+            "id": "f1",
+            "type": "fact",
+            "title": "Login posts to /api/session",
+            "status": null,
+            "severity": null,
+            "confidence": "confirmed",
+            "detail": "Observed in the form markup.",
+            "author": "agent:primary",
+            "at": 1767225840000
+          }
+        ],
+        "retiredNodes": [],
+        "notes": [
+          {
+            "id": "h1",
+            "type": "hint",
+            "title": "Check whether logout rotates the id",
+            "status": null,
+            "severity": null,
+            "confidence": null,
+            "author": "agent:primary",
+            "at": 1767226020000
+          }
+        ],
+        "otherNodes": [],
+        "recentChanges": [],
+        "changes": [],
+        "checkpoints": [
+          {
+            "id": "cp1",
+            "at": 1767226140000,
+            "agentId": "agent:primary",
+            "cursorNodeId": "g1",
+            "summary": "Mapped the form and cookie; fixation suspected."
+          }
+        ],
+        "recentActivity": [],
+        "relations": [
+          {
+            "id": "h1->v1:related-to",
+            "from": "h1",
+            "to": "v1",
+            "kind": "related-to",
+            "label": null
+          },
+          {
+            "id": "v1->f2:depends-on",
+            "from": "v1",
+            "to": "f2",
+            "kind": "depends-on",
+            "label": null
+          },
+          {
+            "id": "f2->g1:related-to",
+            "from": "f2",
+            "to": "g1",
+            "kind": "related-to",
+            "label": null
+          },
+          {
+            "id": "f1->g1:supports",
+            "from": "f1",
+            "to": "g1",
+            "kind": "supports",
+            "label": null
+          },
+          {
+            "id": "i1->g1:supports",
+            "from": "i1",
+            "to": "g1",
+            "kind": "supports",
+            "label": null
+          }
+        ],
+        "omitted": {},
+        "truncated": false,
+        "estimatedTokens": 1038
+      }
     }
   ]
 }
