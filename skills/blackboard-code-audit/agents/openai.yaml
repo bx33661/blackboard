@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blackboard 代码审计"
+  short_description: "用具体假说、控制分析和验证反馈推进审计，并在黑板保留可恢复的调查。"
+  default_prompt: "使用 $blackboard-code-audit 审计指定范围，复用已有黑板；核对真实保证、竞争解释和区分性检查，记录证据与未知，交付可复核结论及覆盖限制。"

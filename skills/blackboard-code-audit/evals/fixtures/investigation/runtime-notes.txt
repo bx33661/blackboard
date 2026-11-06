@@ -1,0 +1,7 @@
+Synthetic historical note, supplied as scenario input; not an execution performed in this evaluation.
+Earlier attempt: frame-tool map --field=-1
+Exit: 78
+Message: optional module unavailable
+No breakpoint or observation inside legacy_map was obtained.
+The old tool copy has no preserved content fingerprint or build flag manifest.
+The actual delivery artifact and its ENABLE_LEGACY_MAP/NDEBUG settings are not supplied.

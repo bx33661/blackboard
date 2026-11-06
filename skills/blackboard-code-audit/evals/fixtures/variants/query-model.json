@@ -1,0 +1,15 @@
+{
+  "snapshot": "current",
+  "query": "request-to-db-exec",
+  "sources": [
+    "request.query.*"
+  ],
+  "sinks": [
+    "db.exec argument 0"
+  ],
+  "entrypoints": [
+    "current.mjs#recent"
+  ],
+  "summaries": [],
+  "results": []
+}
