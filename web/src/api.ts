@@ -66,6 +66,7 @@ export const SETTABLE_STATUSES = ['open', 'active', 'done', 'blocked', 'dead', '
 /** Read projections from this server only; static exports never call these. */
 export const getNodeHistory = (id: string) => send<import('./types').NodeHistory>('GET', `/api/history?node=${encodeURIComponent(id)}`);
 export const getCheckpointChanges = (id: string) => send<import('./types').CheckpointChanges>('GET', `/api/changes?since=${encodeURIComponent(id)}`);
+export const getViewerStatus = () => send<{ cwd: string }>('GET', '/api/status');
 /** The board as it stood right after checkpoint `ref`; never writable. */
 export async function getGraphAsOf(ref: string): Promise<GraphSnapshot> {
   const data = await send<unknown>('GET', `/api/graph?asOf=${encodeURIComponent(ref)}`);

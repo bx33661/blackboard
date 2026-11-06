@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { Check, ChevronDown, FileText, Focus, GitBranch, History, ListTree, Moon, PanelLeft, Plus, Search, Sun, Users } from 'lucide-react';
+import { Check, ChevronDown, FileText, Focus, GitBranch, History, ListTree, Moon, NotebookPen, PanelLeft, Plus, Search, Sun, Users } from 'lucide-react';
 import { Select } from 'radix-ui';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { Segmented, SegmentedItem } from '@/components/ui/segmented';
 import { IconButton } from '@/components/icon-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { BrandMark } from '../BrandMark';
+import { AboutDialog } from './AboutDialog';
 import { ActivityPopover } from './ActivityPopover';
 import type { Connection } from '../use-graph-stream';
 import type { Activity, BuildInfo, ViewMode } from '../types';
@@ -34,6 +34,8 @@ type Props = {
   activities: Activity[];
   activityTotal: number;
   timelineOpen: boolean;
+  notesOpen: boolean;
+  onNotes: () => void;
   /** Absent where there is no server to replay the log (offline HTML). */
   onTimeline?: () => void;
 };
@@ -45,14 +47,13 @@ const CONNECTION = {
 } as const;
 
 export function Topbar(props: Props) {
-  const { title, build, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal, timelineOpen, onTimeline } = props;
+  const { title, build, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal, timelineOpen, onTimeline, notesOpen, onNotes } = props;
   const status = isStatic ? { label: t('topbar.static'), dot: 'bg-strong' } : CONNECTION[connection];
   return (
     <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b bg-background px-3 py-2 lg:h-12 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-4 lg:py-0">
       <div className="flex min-w-0 items-center gap-2">
-        <IconButton label={sidebarOpen ? t('topbar.collapseNav') : t('topbar.expandNav')} aria-pressed={sidebarOpen} onClick={onToggleSidebar}><PanelLeft /></IconButton>
-        <BrandMark size={18} />
-        <span className="text-sm font-semibold tracking-[-0.01em] max-md:hidden">blackboard</span>
+        {!notesOpen && <IconButton label={sidebarOpen ? t('topbar.collapseNav') : t('topbar.expandNav')} aria-pressed={sidebarOpen} onClick={onToggleSidebar}><PanelLeft /></IconButton>}
+        <AboutDialog build={build} />
         {build && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -118,6 +119,7 @@ export function Topbar(props: Props) {
         </Button>
         <IconButton label={t('topbar.search')} className="md:hidden" onClick={onSearch}><Search /></IconButton>
         <ActivityPopover activities={activities} total={activityTotal} />
+        <Button size="sm" onClick={onNotes} aria-label={t('notes.open')} aria-pressed={notesOpen}><NotebookPen className="size-3.5" /><span className="max-sm:hidden">{t('notes.title')}</span></Button>
         {onTimeline && <IconButton label={timelineOpen ? t('timeline.close') : t('timeline.open')} aria-pressed={timelineOpen} onClick={onTimeline}><History /></IconButton>}
         {onNew && <Button size="sm" onClick={onNew} aria-label={t('topbar.newNode')}><Plus className="size-3.5" /><span className="max-sm:hidden">{t('topbar.new')}</span></Button>}
         <Button ref={digestRef} size="sm" onClick={onDigest} aria-label={t('topbar.digestLabel')}><FileText className="size-3.5" /><span className="max-sm:hidden">{t('topbar.digest')}</span></Button>

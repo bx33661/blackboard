@@ -21,6 +21,7 @@ import { NewNodeDialog } from './panels/EditPanel';
 import { Sidebar } from './panels/Sidebar';
 import { Topbar } from './panels/Topbar';
 import { TimelineBar } from './panels/TimelineBar';
+import { FieldNotesPanel } from './field-notes/FieldNotesPanel';
 import { locale, t } from './i18n';
 import { SessionDrafts } from './session-drafts';
 import { useWorkspaceData } from './workspace/use-workspace-data';
@@ -33,6 +34,7 @@ import { useWorkspaceFeedback } from './workspace/use-workspace-feedback';
 import { useWorkspaceScene } from './workspace/use-workspace-scene';
 import { useWorkspaceTimeline } from './workspace/use-workspace-timeline';
 import type { Scene3DProps } from './scene3d/shared';
+import type { ViewMode } from './types';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
 const edgeTypes = { routed: RoutedEdge };
@@ -56,7 +58,7 @@ const initialTheme = (): 'light' | 'dark' => {
 
 function Workspace() {
   const { snapshot: live, connection, syncedAt, isStatic, reload } = useGraphStream();
-  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
+  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, page, setPage, deepLink, pendingFocus } = useWorkspaceLocation();
   // A checkpoint view replaces what every panel reads; the live stream keeps running underneath.
   const timeline = useWorkspaceTimeline(live, asOf, setAsOf, isStatic);
   const snapshot = timeline.snapshot;
@@ -80,21 +82,28 @@ function Workspace() {
   const inspectorRef = useRef<HTMLElement>(null);
   const closeSidebar = useCallback(() => { setSidebarOpen(false); }, []);
 
-  const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter);
+  const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter, page === 'board');
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
   const { agentIds, digest, currentId, current, findings, openItems } = agent;
   // Stepping through checkpoints is not the Agent writing: only the live board pulses.
   const { fresh, notice, flash, linkCopied, copyNodeLink, copied, copyDigest, offlineShown } = useWorkspaceFeedback(timeline.active ? null : snapshot, allNodes, digest, agentId, connection, isStatic);
   const { nodes, edges, onNodesChange, layoutRevision, layoutMode, laying } = useWorkspaceLayout(projection, mode, direction);
-  const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision, mode, follow, currentId, selectedId });
+  const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision: page === 'board' ? layoutRevision : -1, mode, follow, currentId, selectedId });
   const { scene3d, sceneRef, openScene, closeScene, occlusion, exporting, exportImage } = useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode, flash });
   // Resolve selection against the requested checkpoint, never its loading fallback.
   const { selected, focusNode, clearSelection, switchMode, handleNodesChange, onNodeClick } = useWorkspaceSelection({
-    snapshot: timeline.active && !timeline.point ? null : snapshot,
+    snapshot: page === 'notes' || (timeline.active && !timeline.point) ? null : snapshot,
     byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId,
     deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d,
+    enabled: page === 'board',
   });
   const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, mode, edgeStyle, showChanges && timeline.active ? timeline.changeMap : null);
+  const continueExploring = () => {
+    pendingFocus.current = selectedId ?? currentId ?? null;
+    setPage('board');
+  };
+  const openNoteNode = (id: string) => { setPage('board'); focusNode(id); };
+  const changeView = (next: ViewMode) => { setPage('board'); switchMode(next); };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -107,14 +116,14 @@ function Workspace() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setPaletteOpen((open) => !open);
-      } else if (!event.metaKey && !event.ctrlKey && !event.altKey && !(event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]') && !document.querySelector('[role="dialog"]') && (event.key === '/' || event.key === '[' || event.key === '?')) {
+      } else if (page === 'board' && !event.metaKey && !event.ctrlKey && !event.altKey && !(event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]') && !document.querySelector('[role="dialog"]') && (event.key === '/' || event.key === '[' || event.key === '?')) {
         event.preventDefault();
         if (event.key === '/') setPaletteOpen(true); else if (event.key === '?') setShortcutsOpen(true); else setSidebarOpen((open) => !open);
-      } else if (event.key === 'Escape' && !document.querySelector('[role="dialog"], [role="menu"]')) clearSelection();
+      } else if (page === 'board' && event.key === 'Escape' && !document.querySelector('[role="dialog"], [role="menu"]')) clearSelection();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clearSelection]);
+  }, [clearSelection, page]);
 
 
   if (!snapshot) {
@@ -139,7 +148,7 @@ function Workspace() {
         title={snapshot.meta.title || t('app.untitledTask')}
         build={snapshot.meta.build}
         mode={mode}
-        onMode={switchMode}
+        onMode={changeView}
         agentId={agentId}
         agentIds={agentIds}
         onAgent={setAgentId}
@@ -151,17 +160,37 @@ function Workspace() {
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
         onSearch={() => setPaletteOpen(true)}
         onDigest={() => setDigestOpen(true)}
-        onNew={writable ? () => setNewOpen(true) : undefined}
+        onNew={writable && page === 'board' ? () => setNewOpen(true) : undefined}
         digestRef={digestTrigger}
         activities={activities}
         activityTotal={stats.activities || activities.length}
         timelineOpen={timelineOpen}
+        notesOpen={page === 'notes'}
+        onNotes={() => { timeline.pause(); if (page === 'notes') continueExploring(); else setPage('notes'); }}
         onTimeline={isStatic ? undefined : () => {
+          setPage('board');
           if (timelineOpen) { timeline.pause(); setAsOf(null); }
           setTimelineOpen(!timelineOpen);
         }}
       />
 
+      {page === 'notes' && timeline.active && !timeline.point ? (
+        <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+          <History className="size-5 text-muted-foreground" />
+          <p role={timeline.error ? 'alert' : 'status'} className="m-0 text-sm text-muted-foreground">{timeline.error || t('timeline.loading')}</p>
+          {timeline.error && <button type="button" className="rounded-md border px-3 py-2 text-sm" onClick={() => { timeline.pause(); setAsOf(null); }}>{t('timeline.backToNow')}</button>}
+        </main>
+      ) : page === 'notes' ? (
+        <FieldNotesPanel
+          key={`${live?.meta.session ?? ''}:${live?.meta.title ?? ''}`}
+          snapshot={snapshot}
+          theme={theme}
+          isStatic={isStatic}
+          onContinue={continueExploring}
+          onNode={openNoteNode}
+          onCheckpoint={isStatic ? undefined : (id) => { timeline.pause(); setAsOf(id); setTimelineOpen(true); setPage('board'); }}
+        />
+      ) : <>
       <div className="relative flex min-h-0 flex-1">
         {sidebarOpen && (
           <>
@@ -330,6 +359,7 @@ function Workspace() {
           onClose={() => { timeline.pause(); setAsOf(null); setTimelineOpen(false); }}
         />
       )}
+      </>}
 
       <CommandPalette
         open={paletteOpen}
@@ -337,16 +367,16 @@ function Workspace() {
         nodes={paletteNodes}
         theme={theme}
         copied={copied}
-        onSelect={focusNode}
-        onMode={switchMode}
+        onSelect={openNoteNode}
+        onMode={changeView}
         onTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         onCopyDigest={copyDigest}
-        onExport={nodes.length > 0 && !exporting ? exportImage : null}
+        onExport={page === 'board' && nodes.length > 0 && !exporting ? exportImage : null}
         onShortcuts={() => setShortcutsOpen(true)}
       />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       {writable && <NewNodeDialog open={newOpen} onOpenChange={setNewOpen} />}
-      <DigestDialog open={digestOpen} onOpenChange={setDigestOpen} digest={digest} copied={copied} onCopy={copyDigest} returnFocus={digestTrigger} byId={byId} onFocus={focusNode} agentId={agentId} checkpoints={snapshot?.checkpoints} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />
+      <DigestDialog open={digestOpen} onOpenChange={setDigestOpen} digest={digest} copied={copied} onCopy={copyDigest} returnFocus={digestTrigger} byId={byId} onFocus={openNoteNode} agentId={agentId} checkpoints={snapshot?.checkpoints} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />
     </div>
   );
 }
