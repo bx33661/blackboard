@@ -9,7 +9,7 @@ import { inlineRuns, leadingId, parseCheckpoint, parseDigest, parseNodeLine, par
 import { presentNode, typeLabel } from '../presentation';
 import type { BoardNode, GraphSnapshot } from '../types';
 import { CheckpointChangesSection, type HistoryAvailability } from './HistoryPanel';
-import { digestTerm, locale, t, tOptional } from '../i18n';
+import { digestTerm, t, tOptional } from '../i18n';
 
 type Props = HistoryAvailability & {
   checkpoints: GraphSnapshot['checkpoints'];
@@ -25,8 +25,10 @@ type Props = HistoryAvailability & {
   onFocus: (id: string) => void;
 };
 
-/** Keyed by the headings the digest is generated with, which are always Chinese. */
+/** Fixed headings from current digests and previously exported snapshots. */
 const SECTION_ICON: Record<string, typeof Crosshair> = {
+  'Current node': Crosshair, 'Around the current node': Share2, 'Recently active': Clock, Relations: GitBranch,
+  'Recent trail': Footprints, 'Open nodes': CircleDot, 'Recent checkpoints': Flag, 'Recent nodes': History,
   当前节点: Crosshair, 当前邻域: Share2, 最近活跃节点: Clock, 相关关系: GitBranch,
   最近轨迹: Footprints, 开放节点: CircleDot, 最近检查点: Flag, 最近逻辑节点: History,
 };
@@ -101,7 +103,7 @@ export function DigestDialog({ open, onOpenChange, digest, agentId, copied, onCo
         )}
 
         <footer className="flex items-center justify-between gap-3 border-t px-5 py-3">
-          <span className="text-xs text-muted-foreground">{locale === 'zh-CN' && parsed.footer ? parsed.footer : t('digest.footer')}</span>
+          <span className="text-xs text-muted-foreground">{t('digest.footer')}</span>
           <Button variant="outline" size="sm" onClick={onCopy}>{copied ? <Check /> : <Copy />}{copied ? t('common.copied') : t('digest.copy')}</Button>
         </footer>
       </DialogContent>
@@ -113,7 +115,7 @@ type Nav = { byId: Map<string, BoardNode>; onFocus: (id: string) => void };
 
 function Section({ section, byId, onFocus }: { section: DigestSection } & Nav) {
   const Icon = SECTION_ICON[section.title] || CircleDot;
-  const hero = section.title === '当前节点';
+  const hero = section.title === 'Current node' || section.title === '当前节点';
   return (
     <section className="mt-5">
       <h3 className="m-0 mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -151,7 +153,7 @@ function Item({ item, hero, byId, onFocus }: { item: DigestItem; hero?: boolean 
         {item.children.length > 0 && (
           <ul className="m-0 mt-1.5 flex list-none flex-col gap-1 p-0">
             {item.children.map((child, i) => {
-              const m = /^(\d\d-\d\d \d\d:\d\d)\s+→\s+(\S+?)：(.*)$/.exec(child);
+              const m = /^(\d\d-\d\d \d\d:\d\d)\s+→\s+(\S+?)(?:：|:\s)(.*)$/.exec(child);
               return (
                 <li key={i} className="flex items-baseline gap-2 text-xs leading-5 text-subtle">
                   {m ? <><span className="shrink-0 font-mono text-[11px] text-muted-foreground">{m[1]}</span><Ref id={m[2]} byId={byId} onFocus={onFocus} /><span className="min-w-0">{m[3]}</span></> : <Inline text={child} byId={byId} onFocus={onFocus} />}

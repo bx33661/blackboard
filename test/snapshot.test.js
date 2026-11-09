@@ -11,7 +11,7 @@ import { probeViewer } from '../lib/service.js';
 
 // Exercise both public consumers so changing one projection cannot silently fork them.
 test('live and offline snapshots agree on surviving focus and graph while offline tool material stays private', async (t) => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-snapshot-'));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-snapshot-'));
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   ensure(cwd);
   const node = addNode({ type: 'note', title: 'Synthetic surviving note' }, cwd).node;
@@ -32,7 +32,7 @@ test('live and offline snapshots agree on surviving focus and graph while offlin
     assert.equal(response.status, 200);
     const live = await response.json();
     const html = renderExport({ cwd });
-    const offline = JSON.parse(html.match(/window\.__BLACKBOARD_DATA__ = (.*);/)[1]);
+    const offline = JSON.parse(html.match(/window\.__PINWHY_DATA__ = (.*);/)[1]);
     const status = await (await fetch(`http://127.0.0.1:${server.address().port}/api/status`)).json();
     const probe = await probeViewer({ cwd, port: server.address().port });
     assert.deepEqual(status.build, buildInfo());
@@ -57,7 +57,7 @@ test('live and offline snapshots agree on surviving focus and graph while offlin
     assert.equal(offline.meta.focus, null, 'a missing cached focus must not survive in the offline projection');
     assert.equal(live.meta.writable, true);
     assert.equal(Object.hasOwn(offline.meta, 'writable'), false);
-    assert.equal(live.schema, 'blackboard.graph.v2');
+    assert.equal(live.schema, 'pinwhy.graph.v2');
     assert.equal(offline.schema, live.schema);
     for (const field of ['nodes', 'edges', 'cursors', 'cursorTrail', 'checkpoints', 'stats', 'digest', 'digests']) {
       assert.deepEqual(offline[field], live[field], field);

@@ -6,7 +6,7 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 
-const LOCAL_DIRS=new Set(['.blackboard','.agents','.claude','.codex','.zcode','.dsh']);
+const LOCAL_DIRS=new Set(['.pinwhy','.blackboard','.flow','.agents','.claude','.codex','.zcode','.dsh']);
 const PRIVATE_ROOTS=new Set(['trial','recon','report','reports','evidence','backups','artifacts','dist','artifact','coverage']);
 const PUBLIC_ENV=new Set(['.env.example','.env.template']);
 const CREDENTIAL_FILES=new Set(['.npmrc','.netrc','.pypirc','credentials.json']);

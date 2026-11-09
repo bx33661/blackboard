@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-scene3d-tests-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-scene3d-tests-'));
 after(() => fs.rmSync(dir, { recursive: true, force: true }));
 execFileSync(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '--target', 'ES2022', '--module', 'ESNext', '--moduleResolution', 'Bundler', '--skipLibCheck', '--outDir', dir, path.join(root, 'web/src/scene3d/model.ts')], { cwd: dir });
 // Keep the tests portable on Node 18+ without a TS execution loader.

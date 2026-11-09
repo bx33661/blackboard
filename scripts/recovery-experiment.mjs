@@ -13,7 +13,7 @@ import { readEvents } from '../lib/store.js';
 import { buildAgentContext, estimateTokensText } from '../lib/context.js';
 import { runExperiment } from './lib/recovery-runner.mjs';
 
-const SCHEMA = 'blackboard.recovery-experiment.v1';
+const SCHEMA = 'pinwhy.recovery-experiment.v1';
 const ARMS = ['A', 'B', 'C'];
 const SPECULATIVE_TYPES = new Set(['hypothesis', 'question']);
 // A refuted or confirmed hypothesis is a recorded outcome, not a guess.
@@ -141,8 +141,8 @@ export function prepare({ board, at, since = null, budget = 4000, agent = 'agent
   const summary = summaryFile
     ? fs.readFileSync(summaryFile, 'utf8').trim()
     : [
-      ...(sinceEnd === null ? [] : [`## 中断前（${since}）\n\n${checkpointSummary(events[sinceEnd - 1], '--since')}`]),
-      `${sinceEnd === null ? '' : `## 截至 ${at}\n\n`}${checkpointSummary(events[end - 1], '--at')}`,
+      ...(sinceEnd === null ? [] : [`## Before interruption (${since})\n\n${checkpointSummary(events[sinceEnd - 1], '--since')}`]),
+      `${sinceEnd === null ? '' : `## Through ${at}\n\n`}${checkpointSummary(events[end - 1], '--at')}`,
     ].join('\n\n');
   const graph = projectGraph(events, { sinceEnd, sinceRef: since, budgetTokens, agentId: agent });
   const materials = { B: nodesOnly(graph), C: graph };
@@ -258,21 +258,21 @@ export function check({ manifest, questions, answers }) {
 
 function renderCheck(result) {
   const rows = [
-    ['答对（人工判定）', (t) => `${t.correct}/${t.graded}`],
-    ['引用有效', (t) => `${t.citesValid}/${t.cites}`],
-    ['命中证据', (t) => `${t.evidenceHit}/${t.evidenceQuestions}`],
-    ['恰当回答未知', (t) => `${t.unknownHandled}/${t.unknownExpected}`],
-    ['漏答', (t) => String(t.missed)],
-    ['猜测说成事实', (t) => String(t.guessAsFact)],
-    ['无引用的确定回答', (t) => String(t.factWithoutCitation)],
+    ['Correct (human graded)', (t) => `${t.correct}/${t.graded}`],
+    ['Valid citations', (t) => `${t.citesValid}/${t.cites}`],
+    ['Evidence hits', (t) => `${t.evidenceHit}/${t.evidenceQuestions}`],
+    ['Unknowns acknowledged', (t) => `${t.unknownHandled}/${t.unknownExpected}`],
+    ['Unanswered', (t) => String(t.missed)],
+    ['Guesses stated as facts', (t) => String(t.guessAsFact)],
+    ['Uncited factual claims', (t) => String(t.factWithoutCitation)],
   ];
-  const lines = [`模式：${result.mode} · 题目：${result.questions}`, '', `| 指标 | ${ARMS.join(' | ')} |`, `| --- |${ARMS.map(() => ' --- |').join('')}`];
+  const lines = [`Mode: ${result.mode} · Questions: ${result.questions}`, '', `| Metric | ${ARMS.join(' | ')} |`, `| --- |${ARMS.map(() => ' --- |').join('')}`];
   for (const [label, cell] of rows) lines.push(`| ${label} | ${ARMS.map((arm) => cell(result.arms[arm])).join(' | ')} |`);
   for (const arm of ARMS) {
     const bad = result.arms[arm].citesUnknownAtCut;
-    if (bad.length) lines.push('', `${arm} 引用了截断时不存在的节点：${bad.join(', ')}`);
+    if (bad.length) lines.push('', `${arm} cited nodes absent at the selected checkpoint: ${bad.join(', ')}`);
   }
-  if (result.unanswered.length) lines.push('', `未作答：${result.unanswered.join(', ')}`);
+  if (result.unanswered.length) lines.push('', `Unanswered: ${result.unanswered.join(', ')}`);
   return lines.join('\n');
 }
 

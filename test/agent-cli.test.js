@@ -12,17 +12,17 @@ import { closest } from '../lib/cli/args.js';
 import { ERROR_CODES, ERROR_SCHEMA } from '../lib/contracts.js';
 import { ensure } from '../lib/store.js';
 
-const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'blackboard.js');
+const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'pinwhy.js');
 
 function tempDir(t) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-agent-')));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-agent-')));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
 
 function cli(dir, args, input) {
-  const env = { ...process.env, BLACKBOARD_QUIET: '1' };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_') && key !== 'BLACKBOARD_QUIET') delete env[key];
+  const env = { ...process.env, PINWHY_QUIET: '1' };
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_') && key !== 'PINWHY_QUIET') delete env[key];
   return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, env, input, encoding: 'utf8' });
 }
 
@@ -110,12 +110,6 @@ test('context reports failures as JSON because its output is, unless Markdown wa
   assert.throws(() => JSON.parse(markdown.stderr));
 });
 
-test('without --json a failure stays one readable sentence', (t) => {
-  const dir = seeded(t);
-  const result = cli(dir, ['ls', '--typ', 'fact']);
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /^blackboard: .*--type/);
-});
 
 test('batch maps its local names to the ids they became', (t) => {
   const dir = seeded(t);

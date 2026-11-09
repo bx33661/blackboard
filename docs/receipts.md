@@ -4,7 +4,7 @@
 
 ## 使用契约
 
-在核心 mutation 输入或选项中传入 `requestId`。它必须是 1–200 字符的字符串，没有首尾空白或控制字符。未传时维持普通写入行为。CLI 使用 `--request-id <id>`，查询使用 `blackboard receipt <id>`。
+在核心 mutation 输入或选项中传入 `requestId`。它必须是 1–200 字符的字符串，没有首尾空白或控制字符。未传时维持普通写入行为。CLI 使用 `--request-id <id>`，查询使用 `pinwhy receipt <id>`。
 
 同一个日志内，请求 ID 是跨命令的全局命名空间：
 

@@ -51,7 +51,7 @@ export function useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selected
         if (!sceneRef.current) { flash(t('scene3d.loading')); return; }
         await sceneRef.current.exportImage();
       } else {
-        await exportCanvasPng(getNodesBounds(getNodes()), `blackboard-${mode}-${new Date().toISOString().slice(0, 10)}.png`);
+        await exportCanvasPng(getNodesBounds(getNodes()), `pinwhy-${mode}-${new Date().toISOString().slice(0, 10)}.png`);
       }
       flash(t('app.exported'));
     } catch { flash(t('app.exportFailed')); }

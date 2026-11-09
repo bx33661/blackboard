@@ -7,7 +7,7 @@ import { reducedMotion, useInViewport } from '../shared.jsx';
 
 const CircuitScene = lazy(() => import('../scene/CircuitScene.jsx'));
 
-/* The real blackboard workspace, exported offline from a synthetic demo board (site/scripts/make-demo.mjs). */
+/* The real pinwhy workspace, exported offline from a synthetic demo board (site/scripts/make-demo.mjs). */
 const FRAME_W = 1280;
 const FRAME_H = 800;
 const TAB_IDS = ['context', 'logic', 'all', 'notes', 'board'];
@@ -17,8 +17,8 @@ const URLS = { context: 'view=context', logic: 'view=logic', all: 'view=all', no
 
 function prepareWorkspaceStorage(theme, locale) {
   try {
-    localStorage.setItem('blackboard-theme-v3', theme);
-    localStorage.setItem('blackboard-pref-locale', JSON.stringify(locale));
+    localStorage.setItem('pinwhy-theme-v3', theme);
+    localStorage.setItem('pinwhy-pref-locale', JSON.stringify(locale));
   } catch { /* the workspace falls back to the system theme and language */ }
 }
 

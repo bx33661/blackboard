@@ -55,6 +55,15 @@ export type BuildInfo = {
   };
 };
 
+export type UpdateCheck = {
+  schema: 'pinwhy.update-check.v1';
+  currentVersion: string;
+  latestVersion: string;
+  status: 'available' | 'current' | 'ahead';
+  source: string;
+  updateUrl: string;
+};
+
 /** Identifies the checkpoint a historical snapshot was cut at (`/api/graph?asOf=`, `export --as-of`). */
 export type CheckpointRef = { id: string; at?: number | null; agentId?: string | null; sessionId?: string | null; summary?: string; eventId?: string | null; [key: string]: unknown };
 

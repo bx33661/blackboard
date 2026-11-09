@@ -3,7 +3,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================ tokens
-   Light is paper; dark is the blackboard itself. */
+   Light is paper; dark is the workspace itself. */
 :root {
   --bg: #fbfaf6;
   --surface: #ffffff;
@@ -208,7 +208,6 @@ a { color: inherit; }
 }
 .wordmark .dot { position: relative; display: inline-block; width: .13em; height: .13em; border-radius: 50%; background: var(--accent); transform: translateY(-.62em); box-shadow: 0 0 0 0 var(--accent-soft); animation: cursorPulse 2.6s ease-in-out infinite; }
 @keyframes cursorPulse { 50% { box-shadow: 0 0 0 .1em var(--accent-soft); } }
-.wordmark .cjk { font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif; font-weight: 700; letter-spacing: 0; animation: wmIn 1s .75s var(--ease) both; }
 .hero-lead { text-wrap: pretty; margin: 34px 0 0; max-width: 880px; font-family: var(--serif); font-weight: 400; font-size: clamp(20px, 2vw, 27px); line-height: 1.6; color: var(--text); animation: wmIn 1s .9s var(--ease) both; }
 .hero-lead b { font-weight: 650; color: var(--ink); }
 .hero-lead em { font-style: normal; color: var(--ink); font-weight: 500; }

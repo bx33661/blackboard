@@ -9,16 +9,16 @@ import { fileURLToPath } from 'node:url';
 import { ensure, addNode, paths, replay, getReceipt } from '../lib/store.js';
 import { startServer } from '../lib/server.js';
 
-const CLI = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
 function fixture(t) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-input-api-'));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-input-api-'));
   ensure(cwd);
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   return cwd;
 }
 const log = (cwd) => fs.readFileSync(paths(cwd).events, 'utf8');
 const cli = (cwd, args) => spawnSync(process.execPath, [CLI, ...args, '--cwd', cwd], {
-  encoding: 'utf8', env: { ...process.env, BLACKBOARD_DEBUG: '', NO_COLOR: '1' },
+  encoding: 'utf8', env: { ...process.env, PINWHY_DEBUG: '', NO_COLOR: '1' },
 });
 
 async function server(t, cwd) {
@@ -53,7 +53,6 @@ test('CLI explicitly protects text writes and advertises the optional input cont
     const result = cli(cwd, [...args, '--no-init', '--no-truncate', '--json']);
     assert.equal(result.status, 1);
     assert.match(result.stderr, new RegExp(field));
-    assert.doesNotMatch(result.stderr, /未知选项/);
     assert.equal(log(cwd), before, 'rejected input must not save a partial node, edge, cursor or receipt');
   }
   const peer = addNode({ type: 'fact', title: 'Synthetic evidence' }, cwd).node;

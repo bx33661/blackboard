@@ -11,16 +11,16 @@ import { startServer } from '../lib/server.js';
 
 // Relation names are conventions: unknown ones are saved as written by every write path,
 // and the relation a node is created with can carry its label like `link` does.
-const CLI = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
 function fixture(t) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-relations-'));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-relations-'));
   ensure(cwd);
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   return cwd;
 }
 const log = (cwd) => fs.readFileSync(paths(cwd).events, 'utf8');
 const cli = (cwd, args) => spawnSync(process.execPath, [CLI, ...args, '--cwd', cwd, '--no-init'], {
-  encoding: 'utf8', env: { ...process.env, BLACKBOARD_DEBUG: '', BLACKBOARD_QUIET: '', NO_COLOR: '1' },
+  encoding: 'utf8', env: { ...process.env, PINWHY_DEBUG: '', PINWHY_QUIET: '', NO_COLOR: '1' },
 });
 
 async function server(t, cwd) {
@@ -75,7 +75,7 @@ test('node add --label writes the label on the relation it creates', (t) => {
 
   const text = cli(cwd, ['fact', 'Synthetic evidence', '--to', edge.from, '--rel', 'supports', '--label', 'same input, same loss']);
   assert.equal(text.status, 0, text.stderr);
-  assert.match(text.stdout, /（same input, same loss）/);
+  assert.ok(text.stdout.includes('same input, same loss'));
 
   const capabilities = spawnSync(process.execPath, [CLI, 'capabilities', '--json'], { encoding: 'utf8' });
   assert.equal(JSON.parse(capabilities.stdout).features.nodeEdgeLabel, true);

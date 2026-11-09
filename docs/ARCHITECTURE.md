@@ -2,18 +2,18 @@
 
 [文档目录](README.md) · [贡献指南](../CONTRIBUTING.md) · [工程原则](../AGENT.md) · [公开契约](CONTRACT.md)
 
-本文描述 `0.10.1` 的源码组织：CLI 支持代码、实时与离线图快照、实时推送与前端订阅、存储文件 I/O、HTTP 写入、批量写入和版本包发布各有明确边界，开发验证脚本复用公共辅助实现。模块路径是实现细节，宿主与脚本依赖的稳定接口只由[公开契约](CONTRACT.md)定义。
+本文描述 Pinwhy `0.11.0` 的源码组织：CLI 支持代码、实时与离线图快照、实时推送与前端订阅、存储文件 I/O、HTTP 写入、批量写入和版本包发布各有明确边界，开发验证脚本复用公共辅助实现。模块路径是实现细节，宿主与脚本依赖的稳定接口只由[公开契约](CONTRACT.md)定义。
 
 ## 数据如何流动
 
 ```mermaid
 flowchart TD
-    Agent[Agent / CLI 用户] --> CLI[bin/blackboard.js 与 lib/cli/]
+    Agent[Agent / CLI 用户] --> CLI[bin/pinwhy.js 与 lib/cli/]
     Host[可选 DSH 插件] --> CLI
     Edit[工作台显式编辑] --> Server[lib/server.js]
     CLI --> Store[lib/store.js：写锁与事件追加]
     Server --> Store
-    Store --> Events[.blackboard/events.jsonl]
+    Store --> Events[.pinwhy/events.jsonl]
     Events --> Replay[lib/model.js：事件回放]
     Replay --> Projection[上下文 / 搜索 / 历史 / 图快照]
     Projection --> Server
@@ -27,7 +27,7 @@ flowchart TD
 
 | 位置 | 维护职责与依赖边界 |
 | --- | --- |
-| `bin/blackboard.js` | 唯一 CLI 入口；组装命令、调用领域模块、处理进程错误与退出状态 |
+| `bin/pinwhy.js` | 唯一 CLI 入口；组装命令、调用领域模块、处理进程错误与退出状态 |
 | `lib/cli/args.js` | CLI 参数解析与选项约束 |
 | `lib/cli/help.js` | CLI 帮助文本 |
 | `lib/cli/format.js` | 终端颜色与人类可读的行格式；不决定 JSON schema |
@@ -43,13 +43,16 @@ flowchart TD
 | `lib/export*.js` | 离线 HTML、文本报告、筛选数据与格式序列化；不新增事实源 |
 | `lib/backup.js`、`lib/receipts.js` | 可校验备份恢复、从事件投影的写入回执 |
 | `lib/setup.js`、`lib/hooks.js`、`lib/release.js` | 接入安装、可选 Claude Hook、稳定版本与 current 切换；开发仓库不直接替代日常安装 |
+| `lib/doctor.js` | 只读聚合运行环境、构建身份、日志完整性、接入指向、服务注册与实际查看器状态；可分享报告隐藏本机路径 |
+| `lib/services/` | Linux systemd 用户服务与 Windows 用户计划任务的原生适配，共用配置替换、健康校验失败回滚与恢复文件保留；macOS launchd 由 setup 保留现有生命周期 |
 | `lib/release/` | `publication.js` 复制包文件、发布版本目录与 current 链接；强制替换失败时恢复原版本，回滚或清理失败时保留旧字节并报告恢复路径 |
+| `lib/release/update.js` | CLI `release check` 与 HTTP `/api/update` 共用的按需版本检测；比较官方 main 包版本，带网络超时，不写安装或黑板状态 |
 | `lib/build-info.js` | 固定运行进程的包内容指纹与来源；CLI、HTTP、SSE 和离线快照共用，不按请求重算 |
-| `skills/blackboard/` | 完整 Skill 的唯一发布源：入口、参考、方法、图标和宿主展示元信息一起分发 |
+| `skills/pinwhy/` | 完整 Skill 的唯一发布源：入口、参考、方法、图标和宿主展示元信息一起分发 |
 | `web/src/` | React 工作台，读取 API / SSE 或离线快照，保留显式编辑、冲突草稿和 Agent 阅读视角 |
 | `public/` | Vite 从 `web/` 生成的分发资产，随根包提供给服务与离线导出 |
-| `plugins/dsh-blackboard/` | 独立依赖、版本与测试的可选宿主适配；根包不导入插件或 Host SDK |
-| `scripts/`、`scripts/lib/` | 开发与验证入口；`environment.mjs` 隔离子进程的 BLACKBOARD 环境，`sarif-validator.mjs` 共用官方 SARIF schema 校验；不是运行时依赖，不能从 `lib/` / `bin/` 反向导入 |
+| `plugins/dsh-pinwhy/` | 独立依赖、版本与测试的可选宿主适配；根包不导入插件或 Host SDK |
+| `scripts/`、`scripts/lib/` | 开发与验证入口；`environment.mjs` 隔离子进程的 PINWHY 环境，`sarif-validator.mjs` 共用官方 SARIF schema 校验；不是运行时依赖，不能从 `lib/` / `bin/` 反向导入 |
 | `test/`、`test/fixtures/` | 根包行为测试、公开契约固定输出、合成事件与官方校验 schema；不进入运行时包 |
 
 新功能按数据责任放进已有层。不要为内部模块改名保留转发文件；迁移所有内部调用方。公开接口需要兼容，内部实现路径不需要成为宿主依赖。
@@ -86,20 +89,22 @@ Topbar 从快照的可选 `meta.build` 展示版本与构建来源；旧快照�
 
 ## 适配与发布边界
 
-DSH 的 CLI 桥每次显式传 `--cwd`、`--agent`，写入另加 `--no-init`；兼容性和写入目标读取 `capabilities`。它不依赖内核的锁或缓存文件名。完整 Skill 仍按发布包结构从 CLI 包的 `skills/blackboard/` 定位，这一处不是公开 CLI 契约；详见[插件说明](../plugins/dsh-blackboard/README.md)。
+DSH 的 CLI 桥每次显式传 `--cwd`、`--agent`，写入另加 `--no-init`；兼容性和写入目标读取 `capabilities`。它不依赖内核的锁或缓存文件名。完整 Skill 仍按发布包结构从 CLI 包的 `skills/pinwhy/` 定位，这一处不是公开 CLI 契约；详见[插件说明](../plugins/dsh-pinwhy/README.md)。
 
 根 npm 包按 `package.json.files` 分发 `bin/`、`lib/`、`skills/`、`public/` 与首页，零运行时依赖。前端及导出消费端验证依赖均为开发依赖；安装后的 Node 18 CLI 使用已构建产物。插件有自己的 npm 包和更高的宿主 Node 要求，根包安装不应拉入 Host SDK。
 
 日常启动器、Skill、Hook 与常驻服务指向独立安装的 `current`。开发时只写独立合成演示板；[本地启动与验证](../CONTRIBUTING.md#local-development)列出实际命令。
 
-开发验证子进程通过 `scripts/lib/environment.mjs` 的 `isolatedBlackboardEnv` 去掉继承的全部 `BLACKBOARD_*`，再显式加入该次验证的覆盖值，避免误选真实项目。`scripts/lib/sarif-validator.mjs` 读取测试目录中的固定 OASIS schema，以 Ajv 校验真实导出结果；Ajv、schema fixture 与这两个脚本都留在开发边界，运行时 SARIF 导出不依赖它们。
+Windows 启动器使用原生 `.cmd`，Claude Hook 显式使用 Git Bash；POSIX 启动器与 Hook 对可执行路径作 shell 转义。Windows current 使用无需管理员权限的 junction，替换失败恢复旧指向，成功后的清理失败另行报告；POSIX 继续原子替换符号链接。
+
+开发验证子进程通过 `scripts/lib/environment.mjs` 的 `isolatedPinwhyEnv` 去掉继承的全部 `PINWHY_*`，再显式加入该次验证的覆盖值，避免误选真实项目。`scripts/lib/sarif-validator.mjs` 读取测试目录中的固定 OASIS schema，以 Ajv 校验真实导出结果；Ajv、schema fixture 与这两个脚本都留在开发边界，运行时 SARIF 导出不依赖它们。
 
 
 ## 改动在哪里验证
 
 | 变更范围 | 主要行为证据 |
 | --- | --- |
-| CLI 参数、输出与 schema | `test/blackboard.test.js`、`test/contract-output.test.js`、`test/write-contract.test.js`、`test/node-json.test.js`；固定输出与 capabilities 同步 |
+| CLI 参数、输出与 schema | `test/pinwhy.test.js`、`test/contract-output.test.js`、`test/write-contract.test.js`、`test/node-json.test.js`；固定输出与 capabilities 同步 |
 | 批量写入 | `test/batch.test.js`：批内引用与作者、不移动游标、任一行出错整批不写、request-id 重试与中途中断后的补齐、上限与截断 |
 | 事件、写锁、身份、恢复 | `test/store-io.test.js` 的异常、短读与所有权回归，及 `test/recovery.test.js`、`test/receipts.test.js`、`test/backup.test.js`、`test/iteration.test.js` |
 | 上下文预算与历史 | `test/context-*.test.js`、`test/history.test.js`；`npm run evaluate:recovery` 验证合成投影，不替代真实模型恢复试验 |
@@ -111,6 +116,6 @@ DSH 的 CLI 桥每次显式传 `--cwd`、`--agent`，写入另加 `--no-init`；
 | 包边界、版本发布与 Node 运行时 | `test/packaging.test.js`、`test/release.test.js` 的发布失败回滚与清理、`npm run verify:package`；真实 tarball 的干净消费者安装 |
 | Skill、可选方法、公开内容 | `test/skill.test.js`、`test/methods.test.js`、`test/publication.test.js`、`npm run check:publish` |
 | 文档路径、图片与锚点 | `test/docs.test.js`、`npm run check:docs`；本地解析公开 Markdown，不探测外部站点 |
-| DSH 插件 | 插件自己的 `test/` 与 `npm run check`；真实 Host、设置页、profile 与模型检查按[插件文档](../plugins/dsh-blackboard/README.md#测试)分别执行 |
+| DSH 插件 | 插件自己的 `test/` 与 `npm run check`；真实 Host、设置页、profile 与模型检查按[插件文档](../plugins/dsh-pinwhy/README.md#测试)分别执行 |
 
 这些是验证入口与职责，不是本次执行记录。跨平台与运行时矩阵的覆盖、实际命令和未覆盖环境见 [CI 说明](ci.md)；性能测量见[性能基线](performance.md)。

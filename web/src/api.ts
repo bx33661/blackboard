@@ -1,5 +1,5 @@
 import { t } from './i18n';
-import type { CheckpointChanges, GraphSnapshot } from './types';
+import type { CheckpointChanges, GraphSnapshot, NodeHistory, UpdateCheck } from './types';
 import { isGraphSnapshot } from './workspace/graph-stream';
 
 /** Writes a person makes from the viewer. The server stamps them as human and checks where they came from. */
@@ -64,8 +64,8 @@ export const CREATABLE_TYPES = ['fact', 'observation', 'hypothesis', 'question',
 export const SETTABLE_STATUSES = ['open', 'active', 'done', 'blocked', 'dead', 'confirmed', 'refuted', 'deferred', 'superseded'] as const;
 
 /** Read projections from this server only; static exports never call these. */
-export const getNodeHistory = (id: string) => send<import('./types').NodeHistory>('GET', `/api/history?node=${encodeURIComponent(id)}`);
-export const getCheckpointChanges = (id: string) => send<import('./types').CheckpointChanges>('GET', `/api/changes?since=${encodeURIComponent(id)}`);
+export const getNodeHistory = (id: string) => send<NodeHistory>('GET', `/api/history?node=${encodeURIComponent(id)}`);
+export const getCheckpointChanges = (id: string) => send<CheckpointChanges>('GET', `/api/changes?since=${encodeURIComponent(id)}`);
 export const getViewerStatus = () => send<{ cwd: string }>('GET', '/api/status');
 /** The board as it stood right after checkpoint `ref`; never writable. */
 export async function getGraphAsOf(ref: string): Promise<GraphSnapshot> {
@@ -77,3 +77,13 @@ export async function getGraphAsOf(ref: string): Promise<GraphSnapshot> {
 export const getChangesBetween = (since: string, asOf: string) => send<CheckpointChanges>('GET', `/api/changes?since=${encodeURIComponent(since)}&asOf=${encodeURIComponent(asOf)}`);
 export const SETTABLE_SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const;
 export const SETTABLE_CONFIDENCES = ['suspected', 'static-confirmed', 'reproduced', 'confirmed'] as const;
+
+export async function getUpdateCheck(): Promise<UpdateCheck> {
+  const result = await send<UpdateCheck>('GET', '/api/update');
+  if (result.schema !== 'pinwhy.update-check.v1'
+    || !['available', 'current', 'ahead'].includes(result.status)
+    || typeof result.currentVersion !== 'string' || typeof result.latestVersion !== 'string') {
+    throw new Error(t('api.invalidResponse', { status: 200 }));
+  }
+  return result;
+}

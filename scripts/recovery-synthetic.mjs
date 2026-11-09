@@ -6,16 +6,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prepare, run } from './recovery-experiment.mjs';
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-recovery-synthetic-'));
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-recovery-synthetic-'));
 const board = path.join(root, 'synthetic-board');
-fs.mkdirSync(path.join(board, '.blackboard'), { recursive: true });
+fs.mkdirSync(path.join(board, '.pinwhy'), { recursive: true });
 const events = [
   { op: 'node', node: { id: 'H1', type: 'hypothesis', title: 'Synthetic cache hypothesis', status: 'open', confidence: 'suspected', ts: 1 } },
   { op: 'node', node: { id: 'F1', type: 'fact', title: 'Synthetic isolated observation', ts: 2 } },
   { op: 'edge', edge: { id: 'F1-supports-H1', from: 'F1', to: 'H1', kind: 'supports', ts: 3 } },
   { op: 'checkpoint', checkpoint: { id: 'synthetic-cut', agentId: 'agent:primary', at: 4, summary: 'Synthetic F1 supports H1; the cause remains unverified.' } },
 ].map((event, index) => ({ eventVersion: 1, eventId: `synthetic-${index}`, ...event }));
-fs.writeFileSync(path.join(board, '.blackboard/events.jsonl'), `${events.map((event) => JSON.stringify(event)).join('\n')}\n`);
+fs.writeFileSync(path.join(board, '.pinwhy/events.jsonl'), `${events.map((event) => JSON.stringify(event)).join('\n')}\n`);
 const corpus = path.join(root, 'prepared');
 prepare({ board, at: 'synthetic-cut', out: corpus });
 const questions = path.join(root, 'questions.json');

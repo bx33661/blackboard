@@ -3,11 +3,11 @@
 HTML 导出用于分享一个只读投影；备份用于保留完整、可继续写入的事件历史。两者不是同一种文件。
 
 ```sh
-blackboard backup --out /absolute/path/board-backup --json
-blackboard restore /absolute/path/board-backup --into /absolute/path/restored-project --json
+pinwhy backup --out /absolute/path/board-backup --json
+pinwhy restore /absolute/path/board-backup --into /absolute/path/restored-project --json
 ```
 
-`backup` 的源是当前选定项目；`restore --into` 明确指定目标项目，不隐式合并到当前黑板。目标可以是新目录，或者尚无 `.blackboard` 的现有项目目录。即使 `.blackboard` 为空，也不会覆盖。已有项目的其他文件保持原样。备份输出目录必须尚不存在，并且位于源 `.blackboard` 之外。恢复目标也必须位于源备份目录之外，不能通过恢复往备份内添加文件。
+`backup` 的源是当前选定项目；`restore --into` 明确指定目标项目，不隐式合并到当前黑板。目标可以是新目录，或者尚无 `.pinwhy` 的现有项目目录。即使 `.pinwhy` 为空，也不会覆盖。已有项目的其他文件保持原样。备份输出目录必须尚不存在，并且位于源 `.pinwhy` 之外。恢复目标也必须位于源备份目录之外，不能通过恢复往备份内添加文件。
 
 ## 备份内容
 
@@ -27,7 +27,7 @@ blackboard restore /absolute/path/board-backup --into /absolute/path/restored-pr
 
 源事件不会因备份被修改、修复或截断。输出先写入同级临时目录，完成后以目录重命名发布。失败时临时目录被清理。配置变更方也应使用同一写锁，才能与备份严格序列化；直接绕过锁修改日志或配置不属于这一并发协议。
 
-恢复先校验整个备份，再创建目标和临时黑板。事件、配置和重建缓存均就绪后，才将完整 `.blackboard` 发布到目标项目。失败不会留下半恢复的 `.blackboard`；恢复不覆盖、合并或改写其他黑板。
+恢复先校验整个备份，再创建目标和临时黑板。事件、配置和重建缓存均就绪后，才将完整 `.pinwhy` 发布到目标项目。失败不会留下半恢复的 `.pinwhy`；恢复不覆盖、合并或改写其他黑板。
 
 ## 完整性策略
 

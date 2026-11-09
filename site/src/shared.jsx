@@ -3,7 +3,7 @@ import { ArrowRight, Check, Copy, Menu, Monitor, Moon, Plus, Sun, X } from 'luci
 import { siGithub } from 'simple-icons';
 import { useT } from './i18n.jsx';
 
-export const REPO = 'https://github.com/Fruit-Guardians/blackboard';
+export const REPO = 'https://github.com/bx33661/pinwhy';
 export const DOCS = `${REPO}/blob/main/docs/USAGE.md`;
 
 

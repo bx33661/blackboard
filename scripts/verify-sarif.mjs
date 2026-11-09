@@ -7,12 +7,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { isolatedBlackboardEnv } from './lib/environment.mjs';
+import { isolatedPinwhyEnv } from './lib/environment.mjs';
 import { SARIF_SCHEMA_URL as SCHEMA, validateSarif as validate, sarifValidationErrors } from './lib/sarif-validator.mjs';
 
-const CLI = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-sarif-'));
-const env = isolatedBlackboardEnv();
+const CLI = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-sarif-'));
+const env = isolatedPinwhyEnv();
 let exportsChecked = 0;
 
 function cli(cwd, ...args) {
@@ -26,7 +26,7 @@ function cli(cwd, ...args) {
 
 function fixture(name, nodes = [], edges = []) {
   const cwd = path.join(root, name);
-  const board = path.join(cwd, '.blackboard');
+  const board = path.join(cwd, '.pinwhy');
   fs.mkdirSync(board, { recursive: true });
   const events = path.join(board, 'events.jsonl');
   const entries = [{ op: 'meta', set: { title: 'Synthetic SARIF consumer fixture' } },
@@ -39,7 +39,7 @@ function exportBoard(board) {
   const before = fs.readFileSync(board.events);
   const output = path.join(root, `report-${++exportsChecked}.sarif`);
   const response = cli(board.cwd, 'export', '--format', 'sarif', '--out', output);
-  assert.deepEqual(response, { schema: 'blackboard.export.v1', file: output, format: 'sarif' });
+  assert.deepEqual(response, { schema: 'pinwhy.export.v1', file: output, format: 'sarif' });
   assert.deepEqual(fs.readFileSync(board.events), before, 'Export changed event bytes');
   const log = JSON.parse(fs.readFileSync(output, 'utf8'));
   assert.ok(validate(log), sarifValidationErrors());
@@ -52,7 +52,7 @@ function exportBoard(board) {
   assert.equal(run.properties.coverage.selectedNodeCount, run.results.length + run.properties.skippedNodes.length);
   for (const result of run.results) {
     assert.equal(run.tool.driver.rules[result.ruleIndex].id, result.ruleId);
-    assert.match(result.partialFingerprints['blackboardNodeId/v1'], /^[a-f0-9]{64}$/);
+    assert.match(result.partialFingerprints['pinwhyNodeId/v1'], /^[a-f0-9]{64}$/);
     for (const key of ['baselineState', 'suppressions', 'taxa']) assert.equal(Object.hasOwn(result, key), false);
   }
   return run;
@@ -115,7 +115,7 @@ try {
   assert.equal(first.results.length, 6);
   assert.deepEqual(first.originalUriBaseIds, { '%SRCROOT%': { uri: `${pathToFileURL(locatedCwd).href}/` } });
   const result = results.get('stable');
-  assert.equal(result.ruleId, 'blackboard/vuln');
+  assert.equal(result.ruleId, 'pinwhy/vuln');
   assert.equal(result.level, 'error');
   assert.deepEqual(result.properties.node, stable);
   assert.equal(result.properties.status, 'refuted');
@@ -148,7 +148,7 @@ try {
   assert.equal(changed.level, 'note');
   assert.equal(changed.message.text, 'Reworded synthetic claim\n\nAuthored JSON {{"key": "value"}}.');
   const { schema: outputSchema, ...editedNode } = edited;
-  assert.equal(outputSchema, 'blackboard.node.v2');
+  assert.equal(outputSchema, 'pinwhy.node.v2');
   assert.deepEqual(changed.properties.node, editedNode);
   assert.deepEqual(changed.properties.node.authoredCustom, stable.authoredCustom);
   assert.equal(changed.properties.status, stable.status);

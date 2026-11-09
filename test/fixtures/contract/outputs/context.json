@@ -11,7 +11,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.context.v2",
+        "schema": "pinwhy.context.v2",
         "policy": {
           "readOnly": true,
           "prescriptive": false,
@@ -358,7 +358,7 @@
         ],
         "omitted": {},
         "truncated": false,
-        "estimatedTokens": 1279
+        "estimatedTokens": 1278
       }
     },
     {
@@ -373,7 +373,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.context.v2",
+        "schema": "pinwhy.context.v2",
         "policy": {
           "readOnly": true,
           "prescriptive": false,
@@ -844,7 +844,7 @@
         ],
         "omitted": {},
         "truncated": false,
-        "estimatedTokens": 1791
+        "estimatedTokens": 1790
       }
     },
     {
@@ -863,7 +863,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.context.v2",
+        "schema": "pinwhy.context.v2",
         "policy": {
           "readOnly": true,
           "prescriptive": false,
@@ -1023,7 +1023,7 @@
           "recentActivity": 1
         },
         "truncated": true,
-        "estimatedTokens": 599
+        "estimatedTokens": 598
       }
     },
     {
@@ -1036,7 +1036,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.context.v2",
+        "schema": "pinwhy.context.v2",
         "policy": {
           "readOnly": true,
           "prescriptive": false,
@@ -1105,7 +1105,7 @@
         "relations": [],
         "omitted": {},
         "truncated": false,
-        "estimatedTokens": 241
+        "estimatedTokens": 240
       }
     },
     {
@@ -1120,7 +1120,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.context.v2",
+        "schema": "pinwhy.context.v2",
         "policy": {
           "readOnly": true,
           "prescriptive": false,
@@ -1402,7 +1402,7 @@
         ],
         "omitted": {},
         "truncated": false,
-        "estimatedTokens": 1038
+        "estimatedTokens": 1037
       }
     }
   ]

@@ -48,7 +48,7 @@
   --shadow-float: 0 0 0 1px var(--line), 0 8px 24px -4px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
 }
 
-/* Blackboard — neutral surfaces, one monochrome accent, colour only where it carries meaning. */
+/* Pinwhy — neutral surfaces, one monochrome accent, colour only where it carries meaning. */
 :root {
   color-scheme: light;
   --bg: #fafafa;

@@ -11,7 +11,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.here.v2",
+        "schema": "pinwhy.here.v2",
         "agentId": "agent:primary",
         "cursor": "v1",
         "node": {
@@ -135,7 +135,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.here.v2",
+        "schema": "pinwhy.here.v2",
         "agentId": "agent:reviewer",
         "cursor": null,
         "node": null,

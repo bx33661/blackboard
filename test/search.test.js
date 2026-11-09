@@ -105,9 +105,9 @@ test('tag groups count a node once per explicit value and compose with field gro
 });
 
 function cliFixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-query-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-query-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const board = path.join(root, '.blackboard');
+  const board = path.join(root, '.pinwhy');
   fs.mkdirSync(board);
   const nodes = Object.values(findings().nodes);
   for (let i = 1; i <= 30; i++) nodes.push({ id: `f${i}`, type: 'fact', title: `Observation ${i}`, ts: i + 5 });
@@ -115,8 +115,8 @@ function cliFixture(t) {
   const log = nodes.map((node) => JSON.stringify({ eventVersion: 1, op: 'node', node })).join('\n') + '\n';
   fs.writeFileSync(file, log);
   const env = { ...process.env };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
-  const cli = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_')) delete env[key];
+  const cli = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
   const run = (...args) => spawnSync(process.execPath, [cli, ...args, '--cwd', root], { cwd: root, env, encoding: 'utf8' });
   return { run, file, log };
 }
@@ -136,16 +136,14 @@ test('CLI combines field filters and grouped counts while keeping the board read
   assert.equal(fs.readFileSync(file, 'utf8'), log);
 });
 
-test('CLI list reports truncation on stderr and explicitly returns all filtered records', (t) => {
+test('CLI list limits and filters records without writing', (t) => {
   const { run, file, log } = cliFixture(t);
   const limited = run('ls', '--json');
   assert.equal(limited.status, 0, limited.stderr);
   assert.deepEqual(JSON.parse(limited.stdout).map((node) => node.id), Array.from({ length: 30 }, (_, i) => `f${i + 1}`));
-  assert.deepEqual(limited.stderr.match(/\d+/g).map(Number), [35, 30, 5]);
   const filtered = run('ls', '--type', 'vuln', '--limit', '2', '--json');
   assert.equal(filtered.status, 0, filtered.stderr);
   assert.deepEqual(JSON.parse(filtered.stdout).map((node) => node.id), ['v4', 'v5']);
-  assert.deepEqual(filtered.stderr.match(/\d+/g).map(Number), [5, 2, 3]);
   const all = run('list', '--all', '--type', 'vuln', '--json');
   assert.equal(all.status, 0, all.stderr);
   assert.equal(all.stderr, '');

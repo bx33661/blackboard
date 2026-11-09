@@ -1,4 +1,4 @@
-# AGENT.md — blackboard 项目要义
+# AGENT.md — Pinwhy 项目要义
 
 一句话：**把 Agent 的思考过程变成外置的、可回放的数据，而不夺取 Agent 的任何决策权。**
 
@@ -6,7 +6,7 @@
 
 ## 定位
 
-blackboard 是**与宿主无关的 Agent 外置记忆**：一个小而稳的内核（事件日志 + CLI），各宿主通过薄适配接入，查看器只负责把记录呈现出来。
+Pinwhy 是**与宿主无关的 Agent 外置记忆**：一个小而稳的内核（事件日志 + CLI），各宿主通过薄适配接入，查看器只负责把记录呈现出来。
 
 它是：
 
@@ -23,7 +23,7 @@ blackboard 是**与宿主无关的 Agent 外置记忆**：一个小而稳的内�
 
 Agent 会话的上下文天然易失：压缩、断线、换会话后思考现场就没了。
 
-- `.blackboard/events.jsonl` 是**唯一事实源**：append-only、可完整回放、事件溯源。
+- `.pinwhy/events.jsonl` 是**唯一事实源**：append-only、可完整回放、事件溯源。
 - `state.json` 只是可丢弃的缓存，损坏时必须能从事件日志恢复。
 - Digest / `context` / server snapshot / 前端视图全部是这个日志之上的**投影**，不是权威数据。任何新功能都不得制造第二事实源。
 - 可靠性优先于功能：跨进程文件锁不抢占存活持有者；回放跳过坏行但必须计数并在 `lint` 报告，绝不静默丢弃；`state.json` 写失败不能让已记录的事件报错。
@@ -38,7 +38,7 @@ Agent 会话的上下文天然易失：压缩、断线、换会话后思考现�
 
 ## 3. 不干预（贯穿全部设计的哲学约束）
 
-blackboard 不是行动前置条件，不替 Agent 决定下一步。具体体现，改动时必须保持：
+Pinwhy 不是行动前置条件，不替 Agent 决定下一步。具体体现，改动时必须保持：
 
 - `lint` 永远以退出状态 0 返回——只报告，不阻断。
 - `context` 返回包必须保留 `readOnly: true`、`prescriptive: false`、`nextStepSelection: "agent-controlled"`。
@@ -54,10 +54,10 @@ blackboard 不是行动前置条件，不替 Agent 决定下一步。具体体�
 
 | 层 | 范围 | 规矩 |
 | --- | --- | --- |
-| 事件日志 | `.blackboard/events.jsonl` | 唯一事实源，只追加 |
-| 内核 | `lib/`、`bin/blackboard.js` | 唯一写入路径，变化慢 |
+| 事件日志 | `.pinwhy/events.jsonl` | 唯一事实源，只追加 |
+| 内核 | `lib/`、`bin/pinwhy.js` | 唯一写入路径，变化慢 |
 | 契约 | CLI 参数与 `--json` 输出、`EVENT_VERSION`、Skill 包 | 有版本，变更有纪律 |
-| 适配 | Claude Code 的 Skill 与 Hook、Codex Skill、`plugins/dsh-blackboard` | 薄、可选、可移除 |
+| 适配 | Claude Code 的 Skill 与 Hook、Codex Skill、`plugins/dsh-pinwhy` | 薄、可选、可移除 |
 | 呈现 | `web/`、server 页面、离线导出 | 只读投影，只展示记录过的东西 |
 
 ### 内核
@@ -77,7 +77,7 @@ blackboard 不是行动前置条件，不替 Agent 决定下一步。具体体�
 
 - 适配只把宿主的生命周期翻译成 CLI 调用，是可选的薄层：不复制内核，不复制 Skill，调用已安装的 CLI，读取已安装的 Skill。
 - 每次调用显式传项目根和身份（如 `dsh:<sessionId>`），不靠进程 cwd 或继承的环境去猜。
-- 项目需要显式启用：不因存在 `.blackboard/` 就自动接入，不替用户初始化黑板。
+- 项目需要显式启用：不因存在 `.pinwhy/` 就自动接入，不替用户初始化黑板。
 - 尊重宿主的沙箱与权限策略；宿主拒绝写入时如实报告，不绕过。
 - 宿主的会话记录、缓存和云端同步都不是黑板数据，不得成为第二事实源。
 - 适配出错时只降级、如实报告，宿主照常工作，Agent 的下一步不受影响。
@@ -89,21 +89,21 @@ blackboard 不是行动前置条件，不替 Agent 决定下一步。具体体�
 - 查看器、server snapshot、离线导出和将来的回放都只读事件日志的投影。
 - 只展示记录过的东西：不推断路径、不补全关系、不给节点打分或排序推荐。可读性改进（缩放、高亮、图例、线型）只改变看法，不改变数据。
 - 页面唯一的写入是用户显式编辑，受写接口防护约束（见"安全与隐私"）；选视角、拖时间轴、聚焦节点都不写事件、不移动游标。
-- 受众分开：CLI 和 `--json` 优先服务 Agent，讲究省 token、可恢复、字段稳定；`tui` 和网页服务人，讲究好读。给人的便利不进 `--json`，交互不进已有命令。`tui` 只读，没有 TTY 时立即失败，绝不等待输入。
+- 受众分开：CLI 和 `--json` 优先服务 Agent，讲究省 token、可恢复、字段稳定；CLI 人读输出通过静态面板、列表和差异提高可读性，网页提供交互浏览。给人的便利不进 `--json`，已有命令不接管键盘、不等待交互输入。
 
 ### Skill
 
 - Skill 教 Agent 怎么记录，不教 Agent 怎么做任务。
 - 入口保持聚焦；参考资料是可选视角，按需加载，约束记录的含义，不规定研究或构建步骤（审计、威胁建模同理）。
-- 研究方式（例如按问题、候选、证据、裁定、排除来记录）只作为可选参考提供，不强制：用不用、用哪种由 Agent 决定，不用也是完整、正常的记录。内核不依赖任何研究方式，也不为它加投影分段、预算优先级或 `lint` 规则；它需要的关系名用约定，内核按未知关系照常保存。这类方法放在 `skills/blackboard/methods/`，由 Agent 从目录里自选；内核代码不读取这个目录。方法包的格式、检查与扩展规则见 [方法框架](docs/METHODS.md)。
+- 研究方式（例如按问题、候选、证据、裁定、排除来记录）只作为可选参考提供，不强制：用不用、用哪种由 Agent 决定，不用也是完整、正常的记录。内核不依赖任何研究方式，也不为它加投影分段、预算优先级或 `lint` 规则；它需要的关系名用约定，内核按未知关系照常保存。这类方法放在 `skills/pinwhy/methods/`，由 Agent 从目录里自选；内核代码不读取这个目录。方法包的格式、检查与扩展规则见 [方法框架](docs/METHODS.md)。
 - 启用需要用户同意：可以一句话建议并说明开销，被拒绝后不重复打扰。
 
 ## 安全与隐私
 
 黑板记录的是思考原文，可能含密钥、内部地址和未公开的漏洞细节，默认按敏感数据对待。
 
-- 新建 `.blackboard/` 自带 `.gitignore`（内容 `*`）：黑板可能含敏感原文，默认不进版本库。
-- 真实任务、研究日志、请求/响应、恢复语料和本机接入配置只留本地：`trial/`、`recon/`、`report/` 等目录及 `.claude/`、`.agents/` 等安装副本不进入 Git。标准 Skill 的发布源仍为 `skills/blackboard/`。公开测试只用明确的合成数据，不嵌入真实目标、个人绝对路径或凭据。
+- 新建 `.pinwhy/` 自带 `.gitignore`（内容 `*`）：黑板可能含敏感原文，默认不进版本库。
+- 真实任务、研究日志、请求/响应、恢复语料和本机接入配置只留本地：`trial/`、`recon/`、`report/` 等目录及 `.claude/`、`.agents/` 等安装副本不进入 Git。标准 Skill 的发布源仍为 `skills/pinwhy/`。公开测试只用明确的合成数据，不嵌入真实目标、个人绝对路径或凭据。
 - 提交/推送前执行 `npm run check:publish`；仓库提供 `.githooks/` 检查暂存快照和待推送提交，包括中间提交。真实目标的匹配词只存于本地 Git 的 `info/publication-deny.json`，不写进扫描器、测试或 CI。检查输出只列路径与规则，不回显命中内容。历史发现不通过自动推送、强推或重写来处理。
 - 写接口（server 页面编辑）必须维持三道防护：loopback Host 校验（防 DNS 重绑定）、同 Origin + `application/json`、256KB 请求体上限；`--read-only` 与离线导出永远只读。
 - 原始活动采集默认关闭，开启时脱敏默认开（见第 3 条）。
@@ -135,13 +135,13 @@ blackboard 不是行动前置条件，不替 Agent 决定下一步。具体体�
 - `lib/model.js` 必须保持无 Node-only API：被 CLI、server 和浏览器共用。
 - `lib/contracts.js` 是 CLI、服务和导出的共享契约常量；`lib/cli/` 只放参数解析、帮助和终端格式，命令调度仍在唯一入口。实时与离线图快照共用 `lib/snapshot.js`，实时推送在 `lib/http/graph-stream.js`；版本包发布在 `lib/release/`。前端工作台派生数据、URL 状态与实时订阅在 `web/src/workspace/`。这些是内部路径，不向适配器承诺稳定性。
 - `scripts/lib/` 只共享开发验证辅助实现；运行时 `lib/` / `bin/` 不依赖 `scripts/`、`test/` 或插件。开发与测试职责见 [架构说明](docs/ARCHITECTURE.md)，具体命令与生成产物规则见 [贡献指南](CONTRIBUTING.md)。
-- 命名已完成 breaking cutover：唯一 CLI 是 `blackboard`（`bin/blackboard.js`），环境变量只用 `BLACKBOARD_*`，数据目录只用 `.blackboard/`。不保留 `flow` 入口、`FLOW_*` 读取或 `.flow/` 回退，不新增自动迁移/别名；其他项目按 README 手动重命名目录、重装 Skill/Hook，事件原文不改写。
-- Skill 的唯一源是完整的 `skills/blackboard/` 包：`SKILL.md` 保持聚焦，参考资料按需加载，`agents/openai.yaml` 与 `assets/` 承载展示信息。安装和发布必须包含完整目录，不恢复内嵌副本，也不只复制入口而遗漏资源。
+- Pinwhy `0.11.0`（DSH 插件 `0.3.0`）完成 breaking cutover：唯一 CLI 为 `pinwhy`（`bin/pinwhy.js`），只读取 `PINWHY_*` 与 `.pinwhy/`。不保留原 `blackboard` / `BLACKBOARD_*` / `.blackboard/` 或更早 `flow` / `FLOW_*` / `.flow/` 的入口、回退、别名或自动迁移。机器 schema 使用 `pinwhy.*`，形状及 v1/v2 后缀不变，`EVENT_VERSION = 1`。用户按[手动迁移说明](docs/USAGE.md#upgrade)停止写入、备份，仅在目标不存在时改名并退役旧接入；不覆盖或拼接共存数据，不改写事件正文、作者或回执。开发 Agent 不操作真实本地数据、宿主配置、全局安装或服务。
+- Skill 的唯一源是完整的 `skills/pinwhy/` 包：`SKILL.md` 保持聚焦，参考资料按需加载，`agents/openai.yaml` 与 `assets/` 承载展示信息。安装和发布必须包含完整目录，不恢复内嵌副本，也不只复制入口而遗漏资源。
 - 页面协作编辑只提交实际修改字段，并在事件写锁内核对字段基准；冲突保留草稿，不自动覆盖或合并。选择 Agent 阅读视角不写事件、不移动任何人的游标；实时与离线投影须保持同一身份语义。
-- 开发仓库与日常使用隔离：启动器、Skill、Hook 和常驻服务只指向 `<data>/blackboard/current`，由 `release install|use` 切换，已安装版本不可变。从 `current` 运行时 CLI 路径必须记录为 `current` 而不是具体版本；刷新接入只能由 current 指向的版本自己执行。开发中的代码只写演示黑板，不写真实项目的 `.blackboard/`。
+- 开发仓库与日常使用隔离：启动器、Skill、Hook 和常驻服务只指向 `<data>/pinwhy/current`，由 `release install|use` 切换，已安装版本不可变。必须安装真正的 Pinwhy 包，不把原 blackboard/flow 的不可变版本搬入新目录冒充新包。从 `current` 运行时 CLI 路径必须记录为 `current` 而不是具体版本；刷新接入只能由 current 指向的版本自己执行。开发中的代码只写演示黑板，不写真实项目数据。
 - 事件格式跨版本兼容：新字段、新操作保持 `EVENT_VERSION` 不变，旧版本忽略不认识的操作并在 `lint` 报告；只有旧版本按旧逻辑回放会得到错误投影时才提升 `EVENT_VERSION`。遇到更高版本的事件，回放跳过并报告，写入在锁内拒绝（防止 ID 冲突），读取不受影响。
 - 可选适配放在 `plugins/` 下，自带 `package.json` 与测试；`lib/`、`bin/` 不引用适配代码，内核测试不需要任何宿主在场。
 
 ## 相关文档
 
-[README](README.md) · [文档目录](docs/README.md) · [贡献指南](CONTRIBUTING.md) · [当前架构](docs/ARCHITECTURE.md) · [公开契约](docs/CONTRACT.md) · [发展方向](docs/ROADMAP.md) · [历史设计](docs/BLACKBOARD_DESIGN.md) · [DSH 插件](plugins/dsh-blackboard/README.md) · [界面规范](design/UI_SYSTEM.md)
+[README](README.md) · [文档目录](docs/README.md) · [贡献指南](CONTRIBUTING.md) · [当前架构](docs/ARCHITECTURE.md) · [公开契约](docs/CONTRACT.md) · [发展方向](docs/ROADMAP.md) · [历史设计](docs/PINWHY_DESIGN.md) · [DSH 插件](plugins/dsh-pinwhy/README.md) · [界面规范](design/UI_SYSTEM.md)

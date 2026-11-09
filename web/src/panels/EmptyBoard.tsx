@@ -3,7 +3,7 @@ import { Check, Copy, ListTree, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { t } from '../i18n';
 
-const EXAMPLE = `blackboard node add goal "${t('empty.example')}" --enter`;
+const EXAMPLE = `pinwhy node add goal "${t('empty.example')}" --enter`;
 
 type Props = {
   /** The board has nodes, but none belong to the current view. */

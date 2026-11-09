@@ -13,7 +13,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.export.v1",
+        "schema": "pinwhy.export.v1",
         "file": "<root>/out.html",
         "format": "html"
       }
@@ -36,7 +36,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.export.v1",
+        "schema": "pinwhy.export.v1",
         "file": "<root>/out.md",
         "format": "markdown"
       }
@@ -57,7 +57,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.export.v1",
+        "schema": "pinwhy.export.v1",
         "file": "<root>/out.mmd",
         "format": "mermaid"
       }
@@ -76,7 +76,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.export.v1",
+        "schema": "pinwhy.export.v1",
         "file": "<root>/out.sarif",
         "format": "sarif"
       }
@@ -97,7 +97,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.export.v1",
+        "schema": "pinwhy.export.v1",
         "file": "<root>/out-cp1.md",
         "format": "markdown"
       }

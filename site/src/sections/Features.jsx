@@ -20,7 +20,7 @@ function Local({ T }) {
       <div className="tree">
         <div className="hl">your-project/</div>
         <div className="i1">├─ src/</div>
-        <div className="i1 hl">└─ .blackboard/</div>
+        <div className="i1 hl">└─ .pinwhy/</div>
         <div className="i2 hl2">└─ events.jsonl<em>{T.tree}</em></div>
       </div>
       <div className="lo"><i />{T.loopback}</div>

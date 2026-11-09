@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { isolatedBlackboardEnv } from './lib/environment.mjs';
+import { isolatedPinwhyEnv } from './lib/environment.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SELF), '..');
@@ -73,7 +73,7 @@ function positive(value, fallback, name) {
   return result;
 }
 const sha = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
-const logPath = (board) => path.join(board, '.blackboard', 'events.jsonl');
+const logPath = (board) => path.join(board, '.pinwhy', 'events.jsonl');
 const fingerprint = (graph) => sha(JSON.stringify(graph));
 function sourceFingerprint(source) {
   const hash = crypto.createHash('sha256');
@@ -95,7 +95,7 @@ function sourceFingerprint(source) {
   return hash.digest('hex');
 }
 function isolatedEnv() {
-  return isolatedBlackboardEnv({ BLACKBOARD_LOCK_TIMEOUT_MS: '120000', BLACKBOARD_QUIET: '1' });
+  return isolatedPinwhyEnv({ PINWHY_LOCK_TIMEOUT_MS: '120000', PINWHY_QUIET: '1' });
 }
 async function modules(source) {
   const store = await import(pathToFileURL(path.join(source, 'lib/store.js')).href);
@@ -144,7 +144,7 @@ async function worker(opts) {
 
 /** Explicit local budgets are independent of the CI observation-only baseline. */
 export function checkPerformanceBudget(report, budget) {
-  assert.equal(budget?.schema, 'blackboard.performance-budget.v1', 'unsupported performance budget schema');
+  assert.equal(budget?.schema, 'pinwhy.performance-budget.v1', 'unsupported performance budget schema');
   assert.ok(Array.isArray(budget.limits) && budget.limits.length > 0, 'budget needs nonempty limits');
   const checks = budget.limits.map((limit) => {
     assert.ok(Number.isSafeInteger(limit.nodes) && limit.nodes > 0 && Number.isSafeInteger(limit.events) && limit.events > 0, 'budget needs positive node and event counts');
@@ -167,7 +167,7 @@ export async function runBenchmark(options = {}) {
   const runs = positive(options.runs, full ? 5 : 3, 'runs');
   const sizes = options.nodes ? [positive(options.nodes, 0, 'nodes')] : full ? [1000, 10000] : [1000];
   const eventCount = positive(options.events, full ? 100000 : 10000, 'events');
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-benchmark-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-benchmark-'));
   const results = [];
   try {
     for (const nodes of sizes) {

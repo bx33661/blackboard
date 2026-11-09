@@ -31,7 +31,6 @@ body { width: 1200px; height: 630px; overflow: hidden; background: #fbfaf6; colo
 .brand img { width: 34px; height: 34px; }
 h1 { margin-top: 60px; display: flex; align-items: baseline; gap: 12px; white-space: nowrap; font: 600 92px/1 Serif, "Songti SC", serif; letter-spacing: -4px; font-variation-settings: "opsz" 60; }
 h1 .dot { flex: none; width: 13px; height: 13px; border-radius: 50%; background: #147453; transform: translateY(-56px); box-shadow: 0 0 0 7px rgba(20,116,83,.12); }
-h1 .cjk { font-family: "Songti SC", "Noto Serif SC", serif; font-weight: 900; letter-spacing: 0; }
 .tag { margin-top: 28px; font: 600 28px/1.35 Serif, "Songti SC", serif; color: #2c2f2b; }
 .sub { margin-top: 14px; font: 400 21px/1.55 Sans, "PingFang SC", sans-serif; color: #61645c; max-width: 600px; }
 .meta { position: absolute; left: 72px; bottom: 56px; display: flex; gap: 10px; }
@@ -45,8 +44,8 @@ h1 .cjk { font-family: "Songti SC", "Noto Serif SC", serif; font-weight: 900; le
 <div class="grid"></div><div class="glow"></div>
 <div class="shot"><div class="bar"><i></i><i></i><i></i></div><img src="${pub(`shots/stage-context-${lang}-light.webp`)}"></div>
 <div class="copy">
-  <div class="brand"><img src="${pub('mark.svg')}">blackboard</div>
-  <h1><span>blackboard</span><span class="dot"></span>${lang === 'zh' ? '<span class="cjk">黑板</span>' : ''}</h1>
+  <div class="brand"><img src="${pub('mark.svg')}">Pinwhy</div>
+  <h1><span>Pinwhy</span><span class="dot"></span></h1>
   <p class="tag">${COPY[lang].tag}</p>
   <p class="sub">${COPY[lang].sub}</p>
 </div>

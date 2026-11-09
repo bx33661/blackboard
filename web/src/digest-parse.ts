@@ -45,9 +45,9 @@ export function parseDigest(markdown: string): ParsedDigest {
   return result;
 }
 
-/** `[id] 类型 · 状态 · 可信度：标题 @path:line`, as written by the digest's nodeText. */
+/** `[id] Type · status · Confidence: title @path:line`; older snapshots use a full-width colon. */
 export function parseNodeLine(text: string): DigestNode | null {
-  const m = /^\[([^\]\s]+)\]\s+([^：]+)：(.*)$/.exec(text.trim());
+  const m = /^\[([^\]\s]+)\]\s+(.+?)(?:：|:\s)(.*)$/.exec(text.trim());
   if (!m) return null;
   const at = /\s@(\S+)$/.exec(m[3]);
   return {

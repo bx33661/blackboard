@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { INDEX_FILE, METHODS_DIR, parseFrontmatter, readMethods, relationsOf, renderIndex } from '../scripts/method-index.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const SKILL = path.join(ROOT, 'skills/blackboard/SKILL.md');
+const SKILL = path.join(ROOT, 'skills/pinwhy/SKILL.md');
 const SPEC_FIELDS = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools']);
 // Wording that turns a recording method into a procedure the Agent must follow.
 const PRESCRIPTIVE = /下一步(?:应当|应该|要|是)|必经|完成标准|必须先|应当先|第一步/;

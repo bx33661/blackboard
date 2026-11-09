@@ -43,7 +43,7 @@ function assertSemantics(run) {
   for (const result of run.results) {
     assert.equal(run.tool.driver.rules[result.ruleIndex].id, result.ruleId);
     if (result.level === 'none') assert.equal(result.kind, 'review');
-    assert.match(result.partialFingerprints['blackboardNodeId/v1'], /^[a-f0-9]{64}$/);
+    assert.match(result.partialFingerprints['pinwhyNodeId/v1'], /^[a-f0-9]{64}$/);
     const artifact = physical(result).artifactLocation;
     assert.doesNotMatch(artifact.uri, /[\s<>"\\#?]/);
     const base = artifact.uriBaseId ? run.originalUriBaseIds[artifact.uriBaseId].uri : undefined;
@@ -74,7 +74,7 @@ test('SARIF uses authored legacy and object locations with full messages and ind
   const run = render(data);
   assert.equal(run.tool.driver.semanticVersion, '1.2.3');
   assert.deepEqual(run.results.map((result) => result.properties.nodeId), ['legacy', 'object']);
-  assert.deepEqual(run.results.map((result) => result.ruleId), ['blackboard/finding', 'blackboard/vuln']);
+  assert.deepEqual(run.results.map((result) => result.ruleId), ['pinwhy/finding', 'pinwhy/vuln']);
   assert.equal(run.results[0].message.text, 'Synthetic finding\n\nRecorded explanation.');
   assert.deepEqual(run.results[0].properties.node, nodes[0]);
   assert.equal(run.results[0].properties.status, 'refuted');

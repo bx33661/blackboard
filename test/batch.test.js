@@ -10,18 +10,18 @@ import { fileURLToPath } from 'node:url';
 
 import { ensure, readEvents, replay } from '../lib/store.js';
 
-const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'blackboard.js');
+const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'pinwhy.js');
 
 function board(t) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-batch-')));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-batch-')));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   ensure(dir);
   return dir;
 }
 
 function run(dir, args, input) {
-  const env = { ...process.env, BLACKBOARD_QUIET: '1' };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_') && key !== 'BLACKBOARD_QUIET') delete env[key];
+  const env = { ...process.env, PINWHY_QUIET: '1' };
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_') && key !== 'PINWHY_QUIET') delete env[key];
   return spawnSync(process.execPath, [CLI, ...args, '--cwd', dir], { env, input, encoding: 'utf8' });
 }
 
@@ -32,7 +32,7 @@ function ok(dir, args, input) {
 }
 
 const jsonl = (...lines) => lines.map((line) => JSON.stringify(line)).join('\n') + '\n';
-const log = (dir) => fs.readFileSync(path.join(dir, '.blackboard', 'events.jsonl'));
+const log = (dir) => fs.readFileSync(path.join(dir, '.pinwhy', 'events.jsonl'));
 
 function seeded(t) {
   const dir = board(t);
@@ -51,7 +51,7 @@ test('one batch writes nodes, relations and edits with batch-local references an
     { op: 'edit', id: 'hy1', status: 'refuted', agent: 'audit-a2' },
   ));
 
-  assert.equal(out.schema, 'blackboard.batch.v1');
+  assert.equal(out.schema, 'pinwhy.batch.v1');
   assert.equal(out.requestId, 'wave-1');
   assert.deepEqual(out.counts, { nodes: 2, edges: 4, edits: 1 });
   assert.deepEqual(out.results.map((result) => [result.line, result.op]), [[1, 'node'], [2, 'node'], [3, 'link'], [4, 'edit']]);
@@ -89,36 +89,44 @@ test('any invalid line rejects the whole batch, names the line, and leaves the l
   const dir = seeded(t);
   const valid = { op: 'node', type: 'note', title: 'Fine' };
   const cases = [
-    ['{not json', /第 2 行/],
-    [JSON.stringify({ op: 'node', type: 'note', title: 'Bad', to: 'nope' }), /第 2 行.*nope/],
-    [JSON.stringify({ op: 'node', type: 'note', title: 'Typo', confidance: 'suspected' }), /第 2 行.*confidance/],
-    [JSON.stringify({ op: 'node', type: 'note', title: 'Forward', to: '$later' }), /第 2 行.*\$later/],
-    [JSON.stringify({ op: 'node', type: 'note', title: 'Bad state', status: 'needs_validation' }), /第 2 行/],
-    [JSON.stringify({ op: 'node', type: 'note', title: '' }), /第 2 行/],
-    [JSON.stringify({ op: 'remove', id: 'hy1' }), /第 2 行.*remove/],
-    [JSON.stringify({ op: 'node', type: 'note', title: 'Enter', enter: true }), /第 2 行.*enter/],
-    [JSON.stringify({ op: 'edit', id: 'hy1' }), /第 2 行/],
-    [JSON.stringify({ op: 'toString' }), /第 2 行.*toString/],
-    [JSON.stringify({ op: 'edit', id: 'hy1', status: '' }), /第 2 行.*status/],
-    [JSON.stringify({ op: 'edit', id: 'hy1', tags: [] }), /第 2 行.*tags/],
-    [JSON.stringify({ op: 'node', type: 'note', title: 'No target', rel: 'supports' }), /第 2 行.*rel/],
+    '{not json',
+    JSON.stringify({ op: 'node', type: 'note', title: 'Bad', to: 'nope' }),
+    JSON.stringify({ op: 'node', type: 'note', title: 'Typo', confidance: 'suspected' }),
+    JSON.stringify({ op: 'node', type: 'note', title: 'Forward', to: '$later' }),
+    JSON.stringify({ op: 'node', type: 'note', title: 'Bad state', status: 'needs_validation' }),
+    JSON.stringify({ op: 'node', type: 'note', title: '' }),
+    JSON.stringify({ op: 'remove', id: 'hy1' }),
+    JSON.stringify({ op: 'node', type: 'note', title: 'Enter', enter: true }),
+    JSON.stringify({ op: 'edit', id: 'hy1' }),
+    JSON.stringify({ op: 'toString' }),
+    JSON.stringify({ op: 'edit', id: 'hy1', status: '' }),
+    ...['title', 'detail', 'tags', 'id', 'agent'].map((key) => JSON.stringify({ op: 'edit', id: 'hy1', title: 'Changed', [key]: null })),
+    ...['id', 'title', 'detail', 'status', 'severity', 'confidence', 'agent'].flatMap((key) =>
+      [1, false, [], {}].map((value) => JSON.stringify({ op: 'edit', id: 'hy1', title: 'Changed', [key]: value }))),
+    ...[{ title: '' }, { title: ' ' }, { detail: ' ' }, { tags: [''] }, { tags: [' '] }, { tags: [null] }, { tags: 'tag' }]
+      .map((fields) => JSON.stringify({ op: 'edit', id: 'hy1', ...fields })),
+    JSON.stringify({ op: 'node', type: 'note', title: 'No tags', tags: [] }),
+    JSON.stringify({ op: 'node', type: 'note', title: 'No detail', detail: '' }),
+    JSON.stringify({ op: 'node', type: 'note', title: 'Null state', status: null }),
+    JSON.stringify({ op: 'link', from: 'hy1', to: 'g1', label: '' }),
+    JSON.stringify({ op: 'node', type: 'note', title: 'No target', rel: 'supports' }),
   ];
-  for (const [index, [line, message]] of cases.entries()) {
+  for (const [index, line] of cases.entries()) {
     const before = log(dir);
-    const r = run(dir, ['batch', '--request-id', `bad-${index}`], `${JSON.stringify(valid)}\n${line}\n`);
+    const r = run(dir, ['batch', '--request-id', `bad-${index}`, '--json'], `${JSON.stringify(valid)}\n${line}\n`);
     assert.equal(r.status, 1, line);
     assert.equal(r.stdout, '', 'failures print nothing on stdout');
-    assert.match(r.stderr, message, line);
+    assert.equal(JSON.parse(r.stderr).line, 2);
     assert.deepEqual(log(dir), before, `${line} must not write the earlier valid line`);
   }
 
   const before = log(dir);
-  const duplicate = run(dir, ['batch', '--request-id', 'dup'], jsonl(
+  const duplicate = run(dir, ['batch', '--request-id', 'dup', '--json'], jsonl(
     { op: 'node', ref: 'x', type: 'note', title: 'One' },
     { op: 'node', ref: 'x', type: 'note', title: 'Two' },
   ));
   assert.equal(duplicate.status, 1);
-  assert.match(duplicate.stderr, /第 2 行.*x/);
+  assert.equal(JSON.parse(duplicate.stderr).line, 2);
   assert.deepEqual(log(dir), before);
 });
 
@@ -136,6 +144,55 @@ test('a later edit in the same batch never rewrites the node event or result wri
   const node = events.find((event) => event.op === 'node' && event.node.id === created.node.id).node;
   assert.deepEqual([node.title, node.status, node.tags, 'updated' in node], ['As first written', 'open', ['x'], false]);
   assert.deepEqual([replay(dir).nodes[created.node.id].title, replay(dir).nodes[created.node.id].status], ['Revised', 'refuted']);
+});
+
+test('batch edit clears survive event-only recovery and request-id retries while preserving other fields', (t) => {
+  const dir = seeded(t);
+  const created = ok(dir, ['batch', '--request-id', 'clear-seed', '--json'], jsonl({
+    op: 'node', type: 'hypothesis', title: 'Keep this title', detail: 'Remove this detail',
+    tags: ['keep-until-cleared'], status: 'open', severity: 'high', confidence: 'suspected', at: 'src/handler.js:12',
+  })).results[0].node;
+  const fields = { detail: '', tags: [], status: null, severity: null, confidence: null };
+  const before = readEvents(dir).events.length;
+  for (const [field, value] of Object.entries(fields)) {
+    const previous = replay(dir).nodes[created.id];
+    const input = jsonl({ op: 'edit', id: created.id, [field]: value });
+    const args = ['batch', '--request-id', `clear-${field}`, '--json'];
+    const first = ok(dir, args, input);
+    const edited = first.results[0].node;
+    assert.deepEqual(edited[field], value);
+    for (const key of Object.keys(previous)) {
+      if (![field, 'updated', 'updatedBy'].includes(key)) assert.deepEqual(edited[key], previous[key], `${field} clear preserves ${key}`);
+    }
+    const committed = log(dir);
+    fs.rmSync(path.join(dir, '.pinwhy', 'state.json'), { force: true });
+    assert.deepEqual(replay(dir).nodes[created.id], edited, 'events alone restore the cleared value');
+    assert.deepEqual(ok(dir, args, input), first);
+    assert.deepEqual(log(dir), committed, 'retrying a clear appends nothing');
+  }
+  const final = replay(dir).nodes[created.id];
+  for (const [field, value] of Object.entries(fields)) assert.deepEqual(final[field], value);
+  assert.equal(final.title, created.title);
+  assert.deepEqual(final.loc, created.loc);
+  assert.deepEqual(readEvents(dir).events.slice(before).map((event) => event.op),
+    Object.keys(fields).flatMap(() => ['patch', 'receipt']));
+});
+
+test('a later invalid field rejects the entire batch including earlier clears', (t) => {
+  const dir = seeded(t);
+  ok(dir, ['batch', '--request-id', 'clear-atomic-seed', '--json'], jsonl({
+    op: 'edit', id: 'hy1', detail: 'Keep detail', tags: ['keep'], severity: 'high', confidence: 'suspected',
+  }));
+  const before = log(dir);
+  const node = replay(dir).nodes.hy1;
+  const result = run(dir, ['batch', '--request-id', 'clear-atomic', '--json'], jsonl(
+    { op: 'edit', id: 'hy1', detail: '', tags: [], status: null, severity: null, confidence: null },
+    { op: 'edit', id: 'hy1', detail: null },
+  ));
+  assert.equal(result.status, 1);
+  assert.equal(JSON.parse(result.stderr).line, 2);
+  assert.deepEqual(log(dir), before);
+  assert.deepEqual(replay(dir).nodes.hy1, node);
 });
 
 test('a batch requires a request id, and the same id replays the original result without writing', (t) => {
@@ -164,13 +221,13 @@ test('a batch interrupted mid-append is completed exactly by retrying the same r
     { op: 'node', ref: 'h', type: 'hypothesis', title: 'Interrupted claim', to: 'g1' },
     { op: 'node', type: 'observation', title: 'Interrupted evidence', to: '$h', rel: 'supports' },
   );
-  const file = path.join(dir, '.blackboard', 'events.jsonl');
+  const file = path.join(dir, '.pinwhy', 'events.jsonl');
   const before = fs.readFileSync(file, 'utf8');
   const complete = ok(dir, ['batch', '--request-id', 'wave-crash', '--json'], input);
   const appended = fs.readFileSync(file, 'utf8').slice(before.length).split('\n').filter(Boolean);
   // Keep only the first two complete lines: the request plan is on disk, its receipt marker is not.
   fs.writeFileSync(file, before + appended.slice(0, 2).join('\n') + '\n');
-  fs.rmSync(path.join(dir, '.blackboard', 'state.json'), { force: true });
+  fs.rmSync(path.join(dir, '.pinwhy', 'state.json'), { force: true });
 
   const blocked = run(dir, ['node', 'add', 'note', 'Unrelated']);
   assert.equal(blocked.status, 1, 'a half-written batch blocks new writes until it is resolved');
@@ -225,9 +282,10 @@ test('a broken line reports its column without echoing the input', (t) => {
   const dir = seeded(t);
   const before = log(dir);
   const first = JSON.stringify({ op: 'node', type: 'note', title: 'synthetic-private-text' });
-  const r = run(dir, ['batch', '--request-id', 'glued'], `${first}${JSON.stringify({ op: 'link', from: 'g1', to: 'hy1' })}\n`);
+  const r = run(dir, ['batch', '--request-id', 'glued', '--json'], `${first}${JSON.stringify({ op: 'link', from: 'g1', to: 'hy1' })}\n`);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, new RegExp(`第 1 行.*column ${first.length + 1}`));
+  assert.equal(JSON.parse(r.stderr).line, 1);
+  assert.equal(JSON.parse(r.stderr).column, first.length + 1);
   assert.doesNotMatch(r.stderr, /synthetic-private-text/);
   assert.deepEqual(log(dir), before);
 });
@@ -246,10 +304,10 @@ test('--check resolves against the current board, predicts the ids and writes no
   assert.deepEqual(checked.counts, { nodes: 1, edges: 1, edits: 2 });
   assert.deepEqual(log(dir), before);
 
-  const dangling = run(dir, ['batch', '--check'], jsonl({ op: 'link', from: 'nope', to: 'g1' }));
+  const dangling = run(dir, ['batch', '--check', '--json'], jsonl({ op: 'link', from: 'nope', to: 'g1' }));
   assert.equal(dangling.status, 1);
   assert.equal(dangling.stdout, '');
-  assert.match(dangling.stderr, /第 1 行.*nope/);
+  assert.equal(JSON.parse(dangling.stderr).line, 1);
   assert.deepEqual(log(dir), before);
 
   const written = ok(dir, ['batch', '--request-id', 'after-check', '--json'], input);
@@ -257,7 +315,7 @@ test('--check resolves against the current board, predicts the ids and writes no
 });
 
 test('--check never creates a board', (t) => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-batch-')));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-batch-')));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const r = run(dir, ['batch', '--check'], jsonl({ op: 'node', type: 'note', title: 'x' }));
   assert.equal(r.status, 1);
@@ -267,7 +325,7 @@ test('--check never creates a board', (t) => {
 test('capabilities advertise batch with its output schema and limits', () => {
   const caps = JSON.parse(spawnSync(process.execPath, [CLI, 'capabilities', '--json'], { encoding: 'utf8' }).stdout);
   assert.equal(caps.features.batch, true);
-  assert.deepEqual(caps.outputs.batch, { shape: 'object', schema: 'blackboard.batch.v1' });
+  assert.deepEqual(caps.outputs.batch, { shape: 'object', schema: 'pinwhy.batch.v1' });
   assert.ok(Number.isInteger(caps.limits.batchMaxOps) && caps.limits.batchMaxOps > 0);
   assert.ok(Number.isInteger(caps.limits.batchMaxBytes) && caps.limits.batchMaxBytes > 0);
   assert.ok(caps.commands.includes('batch'));

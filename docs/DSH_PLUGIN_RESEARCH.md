@@ -1,10 +1,12 @@
-# blackboard 接入 DSH 的调研
+# Pinwhy 接入 DSH 的调研
+
+> 历史归属：本文的旧版本、命令、包名、数据路径与方案属于原 blackboard 项目；这些旧发布并未改名为 Pinwhy。当前 Pinwhy 0.11.0 / DSH 插件 0.3.0 使用新名称，现行安装与手动迁移见[使用参考](USAGE.md#upgrade)。
 
 调研日期：2026-10-22。本文中的 DSH 指 DeepSeek Harness。
 
-> 历史调研：下文保留 2026-10-22 的版本、宿主快照、建议顺序与测试数量，不代表当前插件功能或本轮验证。当前实现、契约要求与验证入口以[插件说明](../plugins/dsh-blackboard/README.md)和[架构说明](ARCHITECTURE.md)为准。
+> 历史调研：下文保留 2026-10-22 的版本、宿主快照、建议顺序与测试数量，不代表当前插件功能或本轮验证。当前实现、契约要求与验证入口以[插件说明](../plugins/dsh-pinwhy/README.md)和[架构说明](ARCHITECTURE.md)为准。
 
-落地更新：适配器采用**同仓库、独立子包**，位于 `plugins/dsh-blackboard/`。隔离依赖与运行边界，不拆分 Git 仓库。实现和当前验收入口见[插件说明](../plugins/dsh-blackboard/README.md)；下文的测试基线保留为调研时记录。
+落地更新：适配器采用**同仓库、独立子包**，位于 `plugins/dsh-pinwhy/`。隔离依赖与运行边界，不拆分 Git 仓库。实现和当前验收入口见[插件说明](../plugins/dsh-pinwhy/README.md)；下文的测试基线保留为调研时记录。
 
 ## 结论
 
@@ -70,7 +72,7 @@ DSH 默认的文件 Skill provider 支持项目 `.dsh/skills`、`.agents/skills`
 实际采用本仓库中的独立插件子包，不增加根包 workspace 或 DSH 依赖：
 
 ```text
-plugins/dsh-blackboard/
+plugins/dsh-pinwhy/
 ├── package.json
 ├── cordis.patch.yml
 ├── src/

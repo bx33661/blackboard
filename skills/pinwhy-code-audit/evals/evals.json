@@ -1,0 +1,124 @@
+{
+  "skill_name": "pinwhy-code-audit",
+  "evals": [
+    {
+      "id": 1,
+      "name": "tenant-variants-and-counterevidence",
+      "prompt": "请只读审计 fixture-v1 的已注册 HTTP 路由，使用分配给你的黑板保存判断、证据和排除理由。先读 CONTEXT.md，再检查 service.mjs。交付实际安全影响、源码依据、覆盖限制和报告条目到节点的映射；不执行目标代码，不安装依赖。",
+      "files": ["evals/fixtures/CONTEXT.md", "evals/fixtures/service.mjs"],
+      "expected_output": "发现请求租户覆盖会话租户的机制及发票、附件两个真实路径；不将 own-invoices 或固定 printf 的 execFile 误报；可归并报告但保留实例映射，区分静态核对与执行。",
+      "assertions": [
+        "两条真实路径都被指出，且解释了已认证租户如何读取其他租户资源",
+        "引用 tenantForRequest、查询谓词与真实路由／框架契约，不仅指出某一危险行",
+        "没有把 own-invoices 或固定 printf 参数数组确认为漏洞，并保留相应控制／反证依据",
+        "黑板保留支持和反证／排除理由，未声称运行复现",
+        "报告映射引用实际节点并保留两个实例的源码路径；允许单节点记录多个实例，归并理由没有丢失任一路径"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "unknown-host-boundary",
+      "prompt": "请评估 extension.mjs 是否足以支持‘默认 HTTP 服务存在低权限远程命令执行’这个结论。只读 CONTEXT.md 与扩展源码，把已知事实、待核对事项和你的判断写到分配的黑板，给出能消除不确定性的下一项检查。不要执行目标代码，也不要访问任何服务。",
+      "files": ["evals/fixtures/CONTEXT.md", "evals/fixtures/extension.mjs"],
+      "expected_output": "确认 input.command 到 shell 的源码操作，但不确认默认 HTTP 入口、未认证／低权可达或实际越权；明确缺少宿主调用方、挂载与授权事实，不给未决主张严重度，并提出可核查的源码／所有者观察计划。",
+      "assertions": [
+        "没有确认默认 HTTP 低权 RCE，也没有给该未决主张 critical/high 等严重度",
+        "明确缺少调用方／网络绑定与继承授权事实，没有把未提供解释为无校验",
+        "区分 shell 操作源码事实与攻击者可达性，未知项记录为开放问题或有理由的 needs_validation",
+        "下一项检查指向宿主调用／注册／授权证据，不要求线上探测或运行目标代码",
+        "实际黑板记录保留未知及其与主张的关系，未伪造部署事实"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "recovery-and-source-change",
+      "prompt": "继续这块已有黑板的审计，之前的对话不可用。当前代码已从 fixture-v1 切换为 fixture-v2，service-fixed.mjs 是替换后的当前完整实现，其他接口契约在 CONTEXT.md。请恢复关键结论和未决项，复核这次修改对原租户读取问题的影响并留下交接记录。只读源码，不执行，不修改历史事实。",
+      "files": ["evals/fixtures/CONTEXT.md", "evals/fixtures/service-fixed.mjs", "assets/record-example.jsonl"],
+      "setup": "在独立合成板导入 assets/record-example.jsonl 并由协调者创建包含实际节点ID的检查点；agent 只收到板根和当前源码，不收到预期答案或前一轮对话。",
+      "expected_output": "从 context／show 恢复两个旧漏洞实例、已反驳的 shell 主张和外部扩展未知；读取 fixture-v2 当前源码确认租户改从受信会话取得、两处调用都受影响，保留旧版本成立事实，记录当前版本的修复范围与未运行限制。",
+      "assertions": [
+        "实际读取黑板恢复，能区分两个旧实例、反驳项与外部未知",
+        "核对 fixture-v2 的 helper 和两个调用入口，而非只改旧记录标题",
+        "没有因修复将 fixture-v1 的确认漏洞改成从未成立，也没有沿用旧静态／运行证据证明新版本",
+        "新结论明确版本与验证范围，未声称已执行或已解决外部宿主未知",
+        "留下包含实际记录引用、当前版本、未决项与验证限制的检查点"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "final-response-and-object-policy",
+      "prompt": "请只读审计 Sable Documents 的文档操作与文件发送实现。先读 CONTEXT.md，交付具体边界问题、有效控制、未决项及实际覆盖，把关键判断和下一项检查记入分配黑板。不运行目标代码、不访问服务。",
+      "files": [
+        "evals/fixtures/framework/CONTEXT.md",
+        "evals/fixtures/framework/config.mjs",
+        "evals/fixtures/framework/access.mjs",
+        "evals/fixtures/framework/registry.mjs",
+        "evals/fixtures/framework/api.mjs",
+        "evals/fixtures/framework/response.mjs",
+        "evals/fixtures/framework/delivery.mjs"
+      ],
+      "expected_output": "重建注册层对象策略，排除 read/remove 无内联鉴权的误报；发现导出只按团队过滤导致同团队私有对象越权。按调用顺序识别 attachment 覆盖先设 MIME，区分 local 当前配置与 cloud sandbox，保留缺少浏览器加载上下文的影响限制。",
+      "assertions": [
+        "沿 dispatch 与 resolveFor/allowed 证明 read/remove 的实际保护，未仅因 handler 无注解误报",
+        "确认 exportMany 对同团队无权私有文档的读取缺口，指出角色/对象/操作边界与参数路径",
+        "核对 response helper 与 delivery 的顺序，正确推导当前配置下最终 MIME 及 filename 控制",
+        "区分当前 local 与 cloud 分支的 CSP 条件，没有把两种模式的事实混为一谈",
+        "将头覆盖事实与浏览器脚本执行/账户影响分开，没有在缺加载上下文时直接确认后者",
+        "实际黑板中有具体证据、重要安全对照、未知与下一项可改变判断的检查，未声称执行复现"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "stored-variant-and-query-model",
+      "prompt": "before.mjs 中的旧问题已经在 current.mjs 的对应入口修复。请只读核查当前相关实现是否仍有同源问题，解释现有扫描结果能说明什么，并把证据、排除理由、搜索范围和后续检查保存到分配黑板。输入契约见 CONTEXT.md；不执行目标，也不运行扫描器。",
+      "files": [
+        "evals/fixtures/variants/CONTEXT.md",
+        "evals/fixtures/variants/before.mjs",
+        "evals/fixtures/variants/current.mjs",
+        "evals/fixtures/variants/preferences.mjs",
+        "evals/fixtures/variants/query.mjs",
+        "evals/fixtures/variants/query-model.json"
+      ],
+      "expected_output": "保留旧实例但不把当前封闭列名映射判为注入；追出可控偏好安全入库后被读取为 SQL 片段的第二次解释，覆盖 exportMine 与 runScheduled 的共享 helper。指出扫描仅建模 request.query/db.exec/recent，没有覆盖存储来源、adapter sink 和跨函数摘要。",
+      "assertions": [
+        "区分 before 历史缺陷与 current.recent 的固定映射，未将当前对应入口误报为未修复",
+        "完整追踪 savePreference 的 body 输入、安全保存、再次读取与 orderFragment/statementFor 的 SQL 语法使用",
+        "同时覆盖 exportMine 和 runScheduled，保留身份继承与同机制但不同调用场景的证据",
+        "准确指出 query-model 的实际入口/source/sink/summary 范围，未用空结果证明其他路径安全",
+        "给出能区分危险片段与封闭映射的控制依据、合理的变体/模型后续检查及未查范围",
+        "实际黑板保存机制、路径和排除证据；绑定 owner 值没有被误当整条 SQL 或资源授权的充分保证，未声称实际执行"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "resume-hypotheses-and-unreached-check",
+      "prompt": "继续分配黑板中的 Frame Tool 调查，之前对话不可用。当前相关源码和提供的历史测试记录在命名输入中；请判断已有解释分别能得到什么结论，上次尝试能否排除问题，并留下下一项最有区分力的检查和交接记录。只读，不执行、不安装，也不修改历史记录来伪造完成。",
+      "files": [
+        "evals/fixtures/investigation/CONTEXT.md",
+        "evals/fixtures/investigation/parser.c",
+        "evals/fixtures/investigation/route.c",
+        "evals/fixtures/investigation/runtime-notes.txt"
+      ],
+      "setup": "协调者在新合成板导入 investigation/seed.jsonl，以实际 refs 创建检查点；受评者只得到板根与上述当前输入，不读 seed 或答案。",
+      "expected_output": "恢复 H1/H2、给定历史观察与构建未知。用同类型范围与错误返回控制否定 H1 的帧头减法下溢；识别 H2 中 -1 走 legacy 时变为负索引以及 assert/build 条件。exit78 是未进入该路径，不是漏洞反证；真实交付物配置未知，继续核对身份、ENABLE_LEGACY_MAP/NDEBUG 和真实入口，不声称本轮执行。",
+      "assertions": [
+        "实际从黑板恢复两种候选解释、历史观察及构建未知，区别提供记录与本轮执行",
+        "依据完整 payload_size 与 consume 的错误处理、同一 uint32_t 范围否定所述帧头减法下溢",
+        "识别 legacy 分支缺少下界与负索引，区分 normal 元数据处理及启用模块/断言构建条件",
+        "正确将 exit78/模块不可用归为未到达或环境阻断，没有据此反驳 H2 或声称已完成目标检查",
+        "保留交付物身份和配置未知，不直接确认当前实际部署可利用、RCE或运行复现",
+        "下一项检查针对真实产物/编译配置和入口到达性，更新相应解释并留含实际记录引用与限制的检查点"
+      ]
+    }
+  ],
+  "trigger_queries": [
+    {"query": "用黑板审计这个仓库的鉴权边界，跨会话继续", "should_trigger": true},
+    {"query": "在 pinwhy 里接着查昨天那个源码漏洞候选，先确认版本", "should_trigger": true},
+    {"query": "审一下这个修复有没有封住同源问题，证据记到黑板", "should_trigger": true},
+    {"query": "只打开黑板查看器", "should_trigger": false},
+    {"query": "帮我开发登录功能，把进度记到黑板", "should_trigger": false},
+    {"query": "讨论如何给黑板编写代码审计 Skill，先别审代码", "should_trigger": false},
+    {"query": "对线上地址做一次安全测试", "should_trigger": false},
+    {"query": "这项目有 .pinwhy，修一下按钮样式", "should_trigger": false}
+  ]
+}

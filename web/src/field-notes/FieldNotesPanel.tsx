@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { ArrowLeft, Download, ImageUp, Palette, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import defaultLogo from '../../../design/blackboard-logo/blackboard-mark-mint.svg?inline';
+import defaultLogo from '../../../design/pinwhy-logo/pinwhy-mark-mint.svg?inline';
 import { getViewerStatus } from '../api';
 import { locale, t } from '../i18n';
 import type { GraphSnapshot } from '../types';
@@ -55,7 +55,7 @@ export function FieldNotesPanel({ snapshot, theme, isStatic, onContinue, onNode,
       try {
         const identity = isStatic ? `file:${location.pathname}` : (await getViewerStatus()).cwd;
         if (typeof identity !== 'string' || !identity) throw new Error('Missing project identity');
-        const key = `blackboard-pref-field-notes:${identity}`;
+        const key = `pinwhy-pref-field-notes:${identity}`;
         const saved = readCover(localStorage.getItem(key), initialCover());
         if (!cancelled) { setCover(saved); setStorageKey(key); }
       } catch { if (!cancelled) setSessionOnly(true); }

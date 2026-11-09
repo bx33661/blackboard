@@ -1,5 +1,7 @@
 # 发布候选验证
 
+> 历史归属：本文带日期的旧版本、测量和验收记录属于原 blackboard，不是 Pinwhy 0.11.0 的验证结果；现行命令与资源路径使用 Pinwhy 名称。
+
 `.github/workflows/verify.yml` 是验证流程，不会发布 npm 包、创建 release、安装全局启动器、接入个人宿主或调用付费模型。
 
 当前源码边界见[架构说明](ARCHITECTURE.md)，本地开发与检查清单见[贡献指南](../CONTRIBUTING.md)。`0.10.1` 在 0.8.0 公开契约上做兼容新增；本文描述验证器与 workflow 的覆盖，不为该版本预先记通过结果。
@@ -9,12 +11,13 @@
 1. **构建一次**：Ubuntu / Node 24 先检查 publication hygiene，再执行 `npm ci`、`npm run check:types`、`npm run check:docs`、测试及前端 build；安装 Playwright Chromium 后，执行真实查看器交互与 3D 降级验证，再用真实 CLI 生成合成报告，在浏览器中渲染 Markdown/Mermaid，并用随库固定的 OASIS schema 校验 SARIF；收集 quick 合成性能报告，再 `npm pack --ignore-scripts`。本地 `npm run check` 合并类型、文档和 publication 检查，CI 将三项分开执行以明确失败位置。
 2. **同包多运行时验证**：将同一个 tarball 交给 Linux、macOS、Windows 的 Node 18 / 22 / 24 矩阵；不执行源码目录的 `npm ci`。
 3. **插件独立验证**：DSH 单元测试与静态 manifest/syntax 检查单独运行在插件声明支持的 Node 22.19 / 24；不把 Host SDK 加到根包，不假装这就是实际 DSH 端到端运行。
+4. **原生启动器与服务边界**：Linux / macOS / Windows 的 Node 24 单独运行 doctor、启动器、Bash Hook、版本切换与服务回滚测试。启动器和参数解析在实际平台执行；服务管理器使用隔离的模拟适配，不注册真实用户任务。该 job 不需要安装开发依赖。
 
 Vite 8 的构建依赖要求 Node `^20.19.0 || >=22.12.0`。核心运行时仍是 Node ≥18；Node 18 只消费已构建的 public 产物，不承担前端构建。
 
-`blackboard-release-candidate` artifact 保存 tarball、npm pack 清单、合成导出的渲染截图与带机器信息的 quick 基线，保留 14 天。性能报告是观测，不是跨共享 runner 的毫秒级门禁。任何完整性断言失败仍会使任务失败。
+`pinwhy-release-candidate` artifact 保存 tarball、npm pack 清单、合成导出的渲染截图与带机器信息的 quick 基线，保留 14 天。性能报告是观测，不是跨共享 runner 的毫秒级门禁。任何完整性断言失败仍会使任务失败。
 
-`blackboard-viewer-verification` 单独保存查看器截图、离线合成 HTML 与 `VERIFICATION.json`，保留 14 天。只要查看器步骤执行，后续上传步骤即使在验证失败时也会运行；失败报告记录已完成的检查、错误和浏览器诊断，能够截图的页面会额外保存失败现场。
+`pinwhy-viewer-verification` 单独保存查看器截图、离线合成 HTML 与 `VERIFICATION.json`，保留 14 天。只要查看器步骤执行，后续上传步骤即使在验证失败时也会运行；失败报告记录已完成的检查、错误和浏览器诊断，能够截图的页面会额外保存失败现场。
 
 ## tarball smoke 的实际覆盖
 
@@ -23,21 +26,21 @@ Vite 8 的构建依赖要求 Node `^20.19.0 || >=22.12.0`。核心运行时仍�
 node scripts/verify-package.mjs
 
 # 已有候选 tarball，CI 矩阵使用这个入口
-node scripts/verify-package.mjs --tarball /absolute/path/to/blackboard-0.10.1.tgz
+node scripts/verify-package.mjs --tarball /absolute/path/to/pinwhy-0.10.1.tgz
 
 # 用同一验证器测试另一个源码目录
 node scripts/verify-package.mjs --source /absolute/path/to/baseline
 ```
 
-验证器使用临时 HOME / USERPROFILE、独立 npm cache、独立 BLACKBOARD_CWD，并在结束时删除临时目录。它检查：
+验证器使用临时 HOME / USERPROFILE / AppData / XDG 目录、独立 npm cache、独立 PINWHY_CWD，并在结束时删除临时目录。它检查：
 
-- 根包没有 runtime / peer 依赖，干净消费者只有 blackboard 一个包；
+- 根包没有 runtime / peer 依赖，干净消费者只有 pinwhy 一个包；
 - runtime 包不包含 plugins、web 源码、test、node_modules 或黑板数据；
 - 完整单源 Skill 的目录与文件字节一致，不只是入口文件；
 - public 的 JS / CSS 存在，HTML 引用的本地资源实际存在；
-- **安装后的 CLI** 能显示版本、初始化、写节点、输出 JSON / Markdown context、只报告 lint，导出离线 HTML、Markdown、Mermaid 和带代码位置的 SARIF；运行时不依赖导出验证所需的开发依赖。
+- **安装后的 CLI** 能显示版本、初始化、写节点、输出 JSON / Markdown context、只读 doctor 与 lint，导出离线 HTML、Markdown、Mermaid 和带代码位置的 SARIF；运行时不依赖导出验证所需的开发依赖。
 - context 保持只读 / non-prescriptive / Agent 决定下一步的契约；
-- context、lint、export 前后事件日志字节不变。
+- context、doctor、lint、export 前后事件日志字节不变；doctor 分享报告不包含临时消费者路径。
 
 它不启动服务，不修改真实项目，不执行 release install/setup/hooks，不验证 OS 专属常驻服务。矩阵通过也不应被描述成所有平台服务功能都已测过。
 
@@ -53,7 +56,7 @@ npm ci
 npx playwright install chromium
 npm run verify:exports
 # 需要保留合成报告的视觉证据时：
-npm run verify:exports:text -- --out-dir /tmp/blackboard-export-consumers
+npm run verify:exports:text -- --out-dir /tmp/pinwhy-export-consumers
 ```
 
 验证器只创建临时合成黑板。Markdown 检查浏览器中显示的作者原文、章节与关系链接，并检查恶意输入没有生成可执行元素；Mermaid 使用本地官方 bundle 在 Chromium 中生成 SVG，覆盖普通图、长标题、特殊字符、分组和空图。SARIF 使用固定的官方 2.1.0 schema 校验真实 CLI 的结果，并检查有位置、缺位置和重复导出的身份语义。验证前后检查事件日志不变；不写真实项目，不依赖网络或模型账号。
@@ -67,12 +70,12 @@ npm ci
 npm run build
 npx playwright install chromium
 # Linux 缺少浏览器系统库时，使用 npx playwright install --with-deps chromium
-BLACKBOARD_VIEWER_OUTPUT=dist/viewer-verification npm run verify:viewer
+PINWHY_VIEWER_OUTPUT=dist/viewer-verification npm run verify:viewer
 ```
 
 入口为 `web/scripts/verify-viewer.mjs`，默认使用项目已安装的 Playwright 开发依赖与其 Chromium，无需外部模块路径。构建工具的 Node 要求同上，建议 Node 24。每次先构建当前前端；验证器不会替你构建。可选 `PLAYWRIGHT_MODULE=/absolute/path/to/playwright-core/index.mjs` 与 `CHROMIUM_EXECUTABLE=/absolute/path/to/chromium` 仅用于已有外部安装。未安装依赖、浏览器缺失或正常 3D 无法渲染都会失败，不会跳过。
 
-验证器在临时目录创建明确的合成事件，使用隔离的 HOME / USERPROFILE 和 BLACKBOARD 环境，通过本地临时端口服务已构建的产物。正常 3D 显式使用 ANGLE / SwiftShader，供 CI 软件渲染；另起禁用 WebGL 的 Chromium 验证能力缺失路径。检查主体上限四分钟，单项等待、失败截图与清理也各有超时；结束时关闭浏览器、服务并删除临时数据。`BLACKBOARD_VIEWER_OUTPUT` 仅指定保留的证据目录，未指定时打印独立临时输出目录。
+验证器在临时目录创建明确的合成事件，使用隔离的 HOME / USERPROFILE 和 PINWHY 环境，通过本地临时端口服务已构建的产物。正常 3D 显式使用 ANGLE / SwiftShader，供 CI 软件渲染；另起禁用 WebGL 的 Chromium 验证能力缺失路径。检查主体上限四分钟，单项等待、失败截图与清理也各有超时；结束时关闭浏览器、服务并删除临时数据。`PINWHY_VIEWER_OUTPUT` 仅指定保留的证据目录，未指定时打印独立临时输出目录。
 
 检查通过可见控件、实际网络行为、Canvas 像素与事件日志字节观察行为，不读取 React 私有状态或断言源码结构：
 

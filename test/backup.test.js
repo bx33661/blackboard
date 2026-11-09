@@ -17,7 +17,7 @@ const STORE_URL = new URL('../lib/store.js', import.meta.url).href;
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-backup-test-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-backup-test-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const source = path.join(root, 'source');
   fs.mkdirSync(source);
@@ -84,19 +84,19 @@ test('empty board and absent config restore from source log without requiring a 
   assert.deepEqual(JSON.parse(fs.readFileSync(paths(target).config)), {});
 });
 
-test('restore permits unrelated project files but never overwrites any .blackboard entry', (t) => {
+test('restore permits unrelated project files but never overwrites any .pinwhy entry', (t) => {
   const { root, source, backup, target } = fixture(t);
   backupBoard(source, backup);
   fs.mkdirSync(target);
   fs.writeFileSync(path.join(target, 'README.md'), 'project');
   restoreBoard(backup, target);
   const raw = fs.readFileSync(paths(target).events);
-  assert.throws(() => restoreBoard(backup, target), /already has .blackboard/);
+  assert.throws(() => restoreBoard(backup, target), /already has .pinwhy/);
   assert.deepEqual(fs.readFileSync(paths(target).events), raw);
   assert.equal(fs.readFileSync(path.join(target, 'README.md'), 'utf8'), 'project');
   const empty = path.join(root, 'empty-project');
   fs.mkdirSync(paths(empty).root, { recursive: true });
-  assert.throws(() => restoreBoard(backup, empty), /already has .blackboard/);
+  assert.throws(() => restoreBoard(backup, empty), /already has .pinwhy/);
 });
 
 test('backup refuses overwrite, symlink sources and destinations inside source data', (t) => {
@@ -238,7 +238,7 @@ test('restore cleans staging data after cache-write failure and leaves the backu
   const rename = fs.renameSync;
   try {
     fs.renameSync = (from, to) => {
-      if (String(to).endsWith(`${path.sep}.blackboard${path.sep}state.json`)) throw new Error('injected cache-write failure');
+      if (String(to).endsWith(`${path.sep}.pinwhy${path.sep}state.json`)) throw new Error('injected cache-write failure');
       return rename(from, to);
     };
     assert.throws(() => restoreBoard(backup, target), /injected cache-write failure/);

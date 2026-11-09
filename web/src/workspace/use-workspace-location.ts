@@ -8,8 +8,8 @@ export function useWorkspaceLocation() {
     const view = params.get('view');
     const mode: ViewMode = view === 'logic' || view === 'all' ? view : 'context';
     // An offline export has no server to ask for another checkpoint; its own snapshot is all there is.
-    const asOf = window.__BLACKBOARD_DATA__ === undefined ? params.get('asOf') || null : null;
-    const page = params.get('page') === 'notes' || (window.__BLACKBOARD_DATA__ === undefined && !params.has('page') && !params.has('view') && !params.has('node') && !params.has('asOf')) ? 'notes' : 'board';
+    const asOf = window.__PINWHY_DATA__ === undefined ? params.get('asOf') || null : null;
+    const page = params.get('page') === 'notes' || (window.__PINWHY_DATA__ === undefined && !params.has('page') && !params.has('view') && !params.has('node') && !params.has('asOf')) ? 'notes' : 'board';
     return { agentId: params.get('agent') || 'agent:primary', mode, node: params.get('node'), asOf, page };
   });
   const [agentId, setAgentId] = useState(initial.agentId);
@@ -37,7 +37,7 @@ export function useWorkspaceLocation() {
   }, [selectedId]);
 
   useEffect(() => {
-    if (window.__BLACKBOARD_DATA__ !== undefined) return;
+    if (window.__PINWHY_DATA__ !== undefined) return;
     const url = new URL(location.href);
     if (asOf) url.searchParams.set('asOf', asOf); else url.searchParams.delete('asOf');
     history.replaceState(null, '', url);

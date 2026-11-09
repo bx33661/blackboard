@@ -46,7 +46,7 @@ const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
     return <></>;
   },
 })));
-const THEME_KEY = 'blackboard-theme-v3';
+const THEME_KEY = 'pinwhy-theme-v3';
 
 const initialTheme = (): 'light' | 'dark' => {
   try {
@@ -130,7 +130,7 @@ function Workspace() {
     return (
       <main className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
         <BrandMark size={32} />
-        <strong className="text-sm font-semibold text-foreground">blackboard</strong>
+        <strong className="text-sm font-semibold text-foreground">Pinwhy</strong>
         <span className="text-xs">{connection === 'offline' ? t('app.waitingService') : t('app.restoring')}</span>
       </main>
     );

@@ -7,11 +7,11 @@
 | 需要了解 | 文档 |
 | --- | --- |
 | 手动安装、CLI 示例、上下文预算、多 Agent、配置与服务管理 | [使用参考](USAGE.md) |
-| 按 Claude Code、Codex 或其他宿主安装、恢复、打开 | [完整 Skill 的接入参考](../skills/blackboard/references/setup.md) |
-| 节点、关系方向、风险、状态、可信度与检查点 | [记录语义](../skills/blackboard/references/recording.md) |
-| 并行身份、项目归属与交接 | [并行 Agent](../skills/blackboard/references/parallel-agents.md) |
-| 可选研究、审计与威胁建模记录方式 | [方法目录](../skills/blackboard/methods/INDEX.md) |
-| DeepSeek Harness 配置、工具与独立测试 | [DSH 插件说明](../plugins/dsh-blackboard/README.md) |
+| 按 Claude Code、Codex 或其他宿主安装、恢复、打开 | [完整 Skill 的接入参考](../skills/pinwhy/references/setup.md) |
+| 节点、关系方向、风险、状态、可信度与检查点 | [记录语义](../skills/pinwhy/references/recording.md) |
+| 并行身份、项目归属与交接 | [并行 Agent](../skills/pinwhy/references/parallel-agents.md) |
+| 可选研究、审计与威胁建模记录方式 | [方法目录](../skills/pinwhy/methods/INDEX.md) |
+| DeepSeek Harness 配置、工具与独立测试 | [DSH 插件说明](../plugins/dsh-pinwhy/README.md) |
 
 ## 当前实现与贡献
 
@@ -26,9 +26,9 @@
 | 显式重试、回执、部分提交与恢复 | [写入回执](receipts.md) |
 | Skill 中可选方法的格式、生成目录与扩展方式 | [方法框架](METHODS.md) |
 | 批量写入的设计取舍（规则以契约为准） | [batch 设计](BATCH.md) |
-| 工作台样式与品牌素材 | [界面规范](../design/UI_SYSTEM.md) · [品牌素材](../design/blackboard-logo/README.md) |
+| 工作台样式与品牌素材 | [界面规范](../design/UI_SYSTEM.md) · [品牌素材](../design/pinwhy-logo/README.md) |
 
-`0.10.1` 在 `0.8.0` 契约上做兼容新增，事件格式不变。源码职责看架构，外部接口看契约；使用参考不另行定义一份 JSON schema。
+Pinwhy `0.11.0` 从原 blackboard 切换命令、路径、环境变量与 schema 命名空间；对象形状及 v1/v2 后缀不变，`EVENT_VERSION = 1`，DSH 插件为 `0.3.0`。原 `0.8.0`–`0.10.1` 是 blackboard 发布历史；迁移必须[手动进行](USAGE.md#upgrade)，不提供旧名别名或自动搬迁。源码职责看架构，外部接口看契约；使用参考不另行定义一份 JSON schema。
 
 ## 验证入口与证据
 
@@ -45,7 +45,7 @@
 
 这些文档保留当时的问题、建议与结果，用于解释决策；当前模块结构以[架构说明](ARCHITECTURE.md)、当前外部行为以[公开契约](CONTRACT.md)为准。
 
-- [初期完整设计](BLACKBOARD_DESIGN.md)：Draft 2 / 0.3.0 历史设计基线，不是当前实现清单。
+- [初期完整设计](PINWHY_DESIGN.md)：Draft 2 / 0.3.0 历史设计基线，不是当前实现清单。
 - [DSH 接入调研](DSH_PLUGIN_RESEARCH.md)：2026-10-22 的宿主快照、备选路线与测试基线；已实现的插件另见其说明。
 - [从记录到可信交接](ITERATION.md)：历史迭代范围、验收线与当轮交接记录，保留当时执行边界。
 - [研究记录方式](INQUIRY.md)：2026-10-27 的设计裁定与撤回说明；可选方式的现行文本在 Skill 方法包中。

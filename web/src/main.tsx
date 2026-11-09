@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './styles.css';
 import ELK from 'elkjs/lib/elk-api.js';
 import elkWorkerUrl from 'elkjs/lib/elk-worker.min.js?url';
-import appIcon from '../../design/blackboard-logo/blackboard-mark-mint.svg?inline';
+import appIcon from '../../design/pinwhy-logo/pinwhy-mark-mint.svg?inline';
 import { App } from './App';
 import { configureElk } from './graph';
 import { locale, t } from './i18n';

@@ -11,7 +11,7 @@ import { ensure, addNode, paths } from '../lib/store.js';
 import { buildAgentContext, renderAgentContext, estimateTokensText } from '../lib/context.js';
 import { startServer } from '../lib/server.js';
 
-const CLI = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
 const POLICY = { readOnly: true, prescriptive: false, nextStepSelection: 'agent-controlled' };
 const LIMITATION = '\n\n  条件：仅观察到配置，实际服务状态尚未验证；这不是端到端复现。\n';
 const detail = '已保存的原始观察。\t'.repeat(85) + LIMITATION;
@@ -29,7 +29,7 @@ test('context retains authored node text, formatting, tags and independent field
   graph.nodes.v1 = node;
   const before = JSON.stringify(graph);
   const packet = buildAgentContext(graph, { focus: 'v1', budgetTokens: 64000 });
-  assert.equal(packet.schema, 'blackboard.context.v2');
+  assert.equal(packet.schema, 'pinwhy.context.v2');
   assert.deepEqual(packet.policy, POLICY);
   assert.equal(packet.truncated, false);
   for (const projected of bodyNodes(packet)) {
@@ -109,7 +109,7 @@ test('an oversized focus remains an explicit ID reference, not a partial asserti
   const markdown = renderAgentContext(packet);
   assert.match(markdown, /Focus: v1/);
   assert.match(markdown, /Focus body omitted/);
-  assert.match(markdown, /blackboard show v1 --json/);
+  assert.match(markdown, /pinwhy show v1 --json/);
   assert.equal(markdown.includes('Conditional claim'),false);
   assert.deepEqual(packet.policy,POLICY);
   assert.equal(JSON.stringify(graph),before);
@@ -168,13 +168,13 @@ test('removing an oversized record does not fabricate a relation, status or conf
 });
 
 test('CLI JSON/Markdown and HTTP context preserve full limitations without changing the event source', async (t) => {
-  const cwd=fs.mkdtempSync(path.join(os.tmpdir(),'blackboard-whole-records-'));
+  const cwd=fs.mkdtempSync(path.join(os.tmpdir(),'pinwhy-whole-records-'));
   t.after(()=>fs.rmSync(cwd,{recursive:true,force:true}));
   ensure(cwd);
   const node=addNode({type:'vuln',title:'Conditional claim',detail,confidence:'static-confirmed',enter:true},cwd).node;
   const before=hash(paths(cwd).events);
   const env={...process.env};
-  for(const key of Object.keys(env)) if(key.startsWith('BLACKBOARD_')) delete env[key];
+  for(const key of Object.keys(env)) if(key.startsWith('PINWHY_')) delete env[key];
   for(const format of ['--json','--markdown']) {
     const result=spawnSync(process.execPath,[CLI,'context','--cwd',cwd,'--budget','64000',format],{env,encoding:'utf8'});
     assert.equal(result.status,0,result.stderr);

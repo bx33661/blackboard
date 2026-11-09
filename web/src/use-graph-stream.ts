@@ -5,7 +5,7 @@ export type { Connection } from './workspace/graph-stream';
 
 /** Live snapshot over SSE, or the embedded snapshot of a static export. */
 export function useGraphStream() {
-  const embedded = window.__BLACKBOARD_DATA__;
+  const embedded = window.__PINWHY_DATA__;
   const [state, setState] = useState(() => initialGraphStreamState(embedded));
   const subscription = useRef<GraphSubscription | null>(null);
   const reload = useCallback(async () => {

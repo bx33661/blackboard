@@ -10,7 +10,7 @@ import {
 import { requestFingerprint, withoutRequestId } from '../lib/receipts.js';
 
 function fixture(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-input-integrity-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-input-integrity-'));
   ensure(dir);
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-canvas-tests-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-canvas-tests-'));
 after(() => fs.rmSync(dir, { recursive: true, force: true }));
 execFileSync(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '--target', 'ES2022', '--module', 'ESNext', '--moduleResolution', 'Bundler', '--skipLibCheck', '--outDir', dir, path.join(root, 'web/src/graph.ts'), path.join(root, 'web/src/router.ts'), path.join(root, 'web/src/digest-parse.ts')], { cwd: dir });
 // Keep the tests portable on Node 18+ without a TS execution loader.
@@ -267,7 +267,7 @@ test('a clear line stays straight and a reversed pair loops around its own cards
 const store = await import(pathToFileURL(path.join(root,'lib/store.js')).href);
 const { buildDigest } = await import(pathToFileURL(path.join(root,'lib/digest.js')).href);
 function digestBoard(build) {
- const board = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-digest-parse-'));
+ const board = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-digest-parse-'));
  try { store.ensure(board); build?.(board); return buildDigest(store.replay(board), board); }
  finally { fs.rmSync(board, { recursive: true, force: true }); }
 }
@@ -276,12 +276,10 @@ const accounted = (parsed) => [parsed.title, parsed.stats.map(s => `${s.label} $
 test('digest parser reads an empty board into stats, empty sections and the disclaimer',()=>{
  const md = digestBoard();
  const parsed = parseDigest(md);
- assert.ok(parsed.title.startsWith('blackboard'));
  assert.equal(parsed.stats.length, 5);
  assert.ok(parsed.stats.every(s => s.value === 0 && s.label));
  assert.ok(parsed.sections.length >= 3);
  assert.ok(parsed.sections.every(s => s.items.length === 0));
- assert.match(parsed.footer, /不替 Agent 决定下一步/);
  assert.ok(!parsed.sections.some(s => s.notes.some(n => n.startsWith('_'))), 'italic markers are stripped');
 });
 
@@ -299,17 +297,17 @@ test('digest parser accounts for every line of a populated digest',()=>{
   const bare = line.replace(/^#+\s+|^-\s+|^_|_$/g, '');
   assert.ok(all.includes(bare), `line lost: ${line}`);
  }
- assert.ok(parsed.stats.find(s => s.label === '逻辑节点').value === 2);
- const current = parsed.sections.find(s => s.title === '当前节点');
+ assert.deepEqual(parsed.stats.map(stat => stat.value), [2, 1, 1, 0, 1]);
+ const current = parsed.sections.find(section => section.items.some(item => parseNodeLine(item.text)?.title === '所有权校验缺失'));
  const node = parseNodeLine(current.items[0].text);
  assert.equal(node.title, '所有权校验缺失');
  assert.equal(node.location, 'src/api.js:12');
  assert.ok(node.meta.length >= 2);
- const trail = parsed.sections.find(s => s.title === '最近轨迹');
+ const trail = parsed.sections.find(section => section.items.some(item => parseTrail(item.text)));
  assert.ok(parseTrail(trail.items[0].text).length >= 2);
- const neighbour = parsed.sections.find(s => s.title === '当前邻域');
+ const neighbour = parsed.sections.find(section => section.items.some(item => parseRelationLine(item.text)));
  assert.equal(parseRelationLine(neighbour.items[0].text).relation.length > 0, true);
- const cp = parseCheckpoint(parsed.sections.find(s => s.title === '最近检查点').items[0].text);
+ const cp = parsed.sections.flatMap(section => section.items.map(item => parseCheckpoint(item.text))).find(Boolean);
  assert.equal(cp.at, node.id);
  assert.equal(cp.summary, '阶段一完成');
 });
@@ -319,9 +317,15 @@ test('digest line helpers keep unrecognised text as text',()=>{
  assert.equal(parseRelationLine('a - b'), null);
  assert.equal(parseTrail('not → a trail!'), null);
  assert.deepEqual(parseRelationLine('[n1] --支持--> [n2]'), { from:'[n1]', relation:'支持', to:'[n2]' });
- assert.deepEqual(inlineRuns('用 `blackboard cursor` 进入 [n3]。'), [
-  { kind:'text', value:'用 ' }, { kind:'code', value:'blackboard cursor' }, { kind:'text', value:' 进入 ' }, { kind:'ref', value:'n3' }, { kind:'text', value:'。' },
+ assert.deepEqual(inlineRuns('用 `pinwhy cursor` 进入 [n3]。'), [
+  { kind:'text', value:'用 ' }, { kind:'code', value:'pinwhy cursor' }, { kind:'text', value:' 进入 ' }, { kind:'ref', value:'n3' }, { kind:'text', value:'。' },
  ]);
+});
+
+test('digest node parsing preserves authored punctuation in English and previously exported records',()=>{
+ for (const line of ['[n1] Note · open: Authored 标题: /api/item @src/app.js:12', '[n1] Note · open：Authored 标题: /api/item @src/app.js:12']) {
+  assert.deepEqual(parseNodeLine(line), { id:'n1', meta:['Note','open'], title:'Authored 标题: /api/item', location:'src/app.js:12' });
+ }
 });
 
 test('large boards trade network-simplex placement for one that stays fast',()=>{

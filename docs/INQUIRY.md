@@ -1,12 +1,14 @@
 # 研究记录方式：作为可选的 Skill 参考
 
+> 历史归属：本文带日期的旧版本、测量和验收记录属于原 blackboard，不是 Pinwhy 0.11.0 的验证结果；现行命令与资源路径使用 Pinwhy 名称。
+
 状态：定稿（2026-10-27）。本文取代此前同名文件里的内核设计，那一版已撤回。
 
-> 这是该日期的设计裁定与撤回记录。下文核对时的读取缺口、试验计划与旧资源名称保留其历史上下文；当前可选方法见 [`methods/inquiry.md`](../skills/blackboard/methods/inquiry.md)，当前行为与目录见[公开契约](CONTRACT.md)和[架构说明](ARCHITECTURE.md)。
+> 这是该日期的设计裁定与撤回记录。下文核对时的读取缺口、试验计划与旧资源名称保留其历史上下文；当前可选方法见 [`methods/inquiry.md`](../skills/pinwhy/methods/inquiry.md)，当前行为与目录见[公开契约](CONTRACT.md)和[架构说明](ARCHITECTURE.md)。
 
 ## 一句话
 
-按“问题 → 候选 → 证据 → 裁定 → 排除与覆盖”来记录研究，是一种可选的记录方式，放在 Skill 的方法包 [`methods/inquiry.md`](../skills/blackboard/methods/inquiry.md) 里。内核不认识它，也不为它改变任何投影、预算或 `lint`。Agent 用不用、用哪种方式，都由它自己决定。
+按“问题 → 候选 → 证据 → 裁定 → 排除与覆盖”来记录研究，是一种可选的记录方式，放在 Skill 的方法包 [`methods/inquiry.md`](../skills/pinwhy/methods/inquiry.md) 里。内核不认识它，也不为它改变任何投影、预算或 `lint`。Agent 用不用、用哪种方式，都由它自己决定。
 
 ## 背景
 
@@ -32,7 +34,7 @@ exp1 暴露的几处失误都和研究的骨架有关：
 
 ## 做了什么
 
-- 新增 [`skills/blackboard/references/inquiry.md`](../skills/blackboard/methods/inquiry.md)。开头说明它是可选的，不用也是正常记录；内容只讲怎么记，不讲先做什么：
+- 新增 [`skills/pinwhy/references/inquiry.md`](../skills/pinwhy/methods/inquiry.md)。开头说明它是可选的，不用也是正常记录；内容只讲怎么记，不讲先做什么：
   - 五个要素对应的节点、状态和关系；
   - 约定关系名 `answers`（候选 answers 问题），内核按未知关系照常保存；
   - 裁定只由 Agent 写，证据多少不等于已裁定；

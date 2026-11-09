@@ -29,8 +29,8 @@ async function open(lang, theme, query) {
   await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 2 });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: theme }, { name: 'prefers-reduced-motion', value: 'reduce' }]);
   await page.evaluateOnNewDocument((t, l) => {
-    localStorage.setItem('blackboard-theme-v3', t);
-    localStorage.setItem('blackboard-pref-locale', JSON.stringify(l));
+    localStorage.setItem('pinwhy-theme-v3', t);
+    localStorage.setItem('pinwhy-pref-locale', JSON.stringify(l));
   }, theme, lang === 'zh' ? 'zh-CN' : 'en');
   await page.goto(`${BASE}/demo/board-${lang}.html?${query}`, { waitUntil: 'networkidle0' });
   // Wait for the layout worker to finish and entrance animations to settle.

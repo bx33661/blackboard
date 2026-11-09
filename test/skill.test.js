@@ -7,8 +7,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const CLI = path.join(ROOT, 'bin/blackboard.js');
-const SOURCE = path.join(ROOT, 'skills/blackboard');
+const CLI = path.join(ROOT, 'bin/pinwhy.js');
+const SOURCE = path.join(ROOT, 'skills/pinwhy');
 const THREAT_MODEL = 'methods/threat-model.md';
 
 function files(dir, prefix = '') {
@@ -43,16 +43,16 @@ test('the optional threat-model reference is reachable inside the self-contained
 for (const agent of ['claude', 'codex']) {
   for (const scope of ['project', 'user']) {
     test(`${agent}/${scope} installs the complete optional reference without initializing a board or hooks`, (t) => {
-      const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard skill package '));
+      const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy skill package '));
       t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
       const project = path.join(temp, 'project');
       const home = path.join(temp, 'home');
       fs.mkdirSync(project); fs.mkdirSync(home);
       const base = scope === 'user' ? home : project;
-      const destination = path.join(base, agent === 'codex' ? '.agents' : '.claude', 'skills', 'blackboard');
+      const destination = path.join(base, agent === 'codex' ? '.agents' : '.claude', 'skills', 'pinwhy');
       fs.mkdirSync(destination, { recursive: true });
       fs.writeFileSync(path.join(destination, 'personal-note.md'), 'keep my note\n');
-      const env = { PATH: process.env.PATH, HOME: home, TMPDIR: os.tmpdir(), BLACKBOARD_CWD: project };
+      const env = { PATH: process.env.PATH, HOME: home, TMPDIR: os.tmpdir(), PINWHY_CWD: project };
       const result = spawnSync(process.execPath, [CLI, 'skill', 'install', `--${scope}`, ...(agent === 'codex' ? ['--codex'] : [])], {
         cwd: project, env, encoding: 'utf8', timeout: 10000,
       });
@@ -60,13 +60,13 @@ for (const agent of ['claude', 'codex']) {
       for (const relative of files(SOURCE)) {
         const original = fs.readFileSync(path.join(SOURCE, relative));
         const expected = relative.endsWith('.md')
-          ? Buffer.from(original.toString().replaceAll('__BLACKBOARD_CLI__', CLI)) : original;
+          ? Buffer.from(original.toString().replaceAll('__PINWHY_CLI__', CLI)) : original;
         assert.deepEqual(fs.readFileSync(path.join(destination, relative)), expected, relative);
       }
       assert.equal(fs.readFileSync(path.join(destination, 'personal-note.md'), 'utf8'), 'keep my note\n');
       checkReferences(destination);
       for (const dir of [home, project]) {
-        for (const relative of ['.blackboard', '.claude/settings.json', '.claude/settings.local.json', '.local']) {
+        for (const relative of ['.pinwhy', '.claude/settings.json', '.claude/settings.local.json', '.local']) {
           assert.equal(fs.existsSync(path.join(dir, relative)), false, relative);
         }
       }

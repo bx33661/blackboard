@@ -15,7 +15,7 @@ const DIST = path.join(SITE, 'dist');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const SITE_URL = (process.env.SITE_URL || '').replace(/\/+$/, '');
 const VERSION = JSON.parse(fs.readFileSync(path.join(SITE, '..', 'package.json'), 'utf8')).version;
-const REPO = 'https://github.com/Fruit-Guardians/blackboard';
+const REPO = 'https://github.com/bx33661/pinwhy';
 
 if (!SITE_URL) console.warn('⚠ SITE_URL is not set: canonical, hreflang and og:url fall back to relative paths and no sitemap is written.');
 const abs = (p) => (SITE_URL ? SITE_URL + p : p);
@@ -23,13 +23,13 @@ const abs = (p) => (SITE_URL ? SITE_URL + p : p);
 const PAGES = {
   zh: {
     path: '/', htmlLang: 'zh-CN', ogLocale: 'zh_CN', image: '/og-zh.png',
-    title: 'blackboard 黑板 — Agent 的外置记忆与可视化工作台',
-    desc: 'blackboard 把 Agent 的判断、证据和当前位置记在项目本地。上下文压缩、断线或换会话之后，从同一份现场继续。零运行时依赖，MIT 开源。',
+    title: 'Pinwhy — Agent 的外置记忆与可视化工作台',
+    desc: 'Pinwhy 把 Agent 的判断、证据和当前位置记在项目本地。上下文压缩、断线或换会话之后，从同一份现场继续。零运行时依赖，MIT 开源。',
   },
   en: {
     path: '/en/', htmlLang: 'en', ogLocale: 'en_US', image: '/og-en.png',
-    title: 'blackboard — external memory and a visual workspace for AI agents',
-    desc: 'blackboard keeps an agent’s judgments, evidence and current position in your project, so work resumes from the same place after compaction, a dropped connection or a new session. Zero runtime dependencies, MIT licensed.',
+    title: 'Pinwhy — external memory and a visual workspace for AI agents',
+    desc: 'Pinwhy keeps an agent’s judgments, evidence and current position in your project, so work resumes from the same place after compaction, a dropped connection or a new session. Zero runtime dependencies, MIT licensed.',
   },
 };
 
@@ -41,8 +41,7 @@ function head(lang) {
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'blackboard',
-    alternateName: '黑板',
+    name: 'Pinwhy',
     description: p.desc,
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'macOS, Windows, Linux',
@@ -63,7 +62,7 @@ function head(lang) {
     `<link rel="alternate" hreflang="x-default" href="${abs(PAGES.zh.path)}" />`,
     `<link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt" />`,
     `<meta property="og:type" content="website" />`,
-    `<meta property="og:site_name" content="blackboard" />`,
+    `<meta property="og:site_name" content="Pinwhy" />`,
     `<meta property="og:title" content="${esc(p.title)}" />`,
     `<meta property="og:description" content="${esc(p.desc)}" />`,
     `<meta property="og:url" content="${abs(p.path)}" />`,
@@ -92,7 +91,7 @@ try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }, { name: 'prefers-color-scheme', value: 'light' }]);
-    await page.evaluateOnNewDocument(() => { try { localStorage.setItem('bb-site-theme', 'system'); } catch { /* ignore */ } });
+    await page.evaluateOnNewDocument(() => { try { localStorage.setItem('pinwhy-site-theme', 'system'); } catch { /* ignore */ } });
     await page.goto(base + p.path, { waitUntil: 'networkidle0' });
     await page.waitForSelector('#hero-title');
     await page.evaluate(() => document.fonts.ready);

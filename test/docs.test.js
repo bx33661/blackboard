@@ -9,7 +9,7 @@ import {checkDocs} from '../scripts/check-docs.mjs';
 
 const checker=fileURLToPath(new URL('../scripts/check-docs.mjs',import.meta.url));
 function fixture(t) {
-  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'blackboard-docs-')));
+  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'pinwhy-docs-')));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   return root;
 }
@@ -147,6 +147,14 @@ test('Git discovery includes tracked and unignored public Markdown while excludi
   write(root,'plugins/example/test/fixtures/example.md','[broken](missing.md)');
   git(root,['add','README.md','trial/private.md']);
   assert.deepEqual(checkDocs(root),{checked:2,findings:[]});
+  write(root,'docs/original.md','# Renamed');
+  git(root,['add','docs/original.md']);
+  fs.renameSync(path.join(root,'docs/original.md'),path.join(root,'docs/renamed.md'));
+  write(root,'README.md','[Moved document](docs/renamed.md)');
+  assert.deepEqual(checkDocs(root),{checked:3,findings:[]});
+  write(root,'README.md','[Stale link](docs/original.md)');
+  assert.deepEqual(checkDocs(root).findings,[{path:'README.md',line:1,reason:'missing-target'}]);
+  assert.deepEqual(checkDocs(root,{files:['docs/original.md']}).findings,[{path:'docs/original.md',line:1,reason:'unreadable-document'}]);
 });
 
 test('CLI rejects broken links with redacted source diagnostics and succeeds without networking',(t)=>{

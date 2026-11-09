@@ -1,0 +1,242 @@
+{
+  "command": "doctor",
+  "cases": [
+    {
+      "board": null,
+      "args": [
+        "doctor",
+        "--share",
+        "--cwd",
+        "<board>",
+        "--json"
+      ],
+      "exitCode": 0,
+      "output": {
+        "schema": "pinwhy.doctor.v1",
+        "readOnly": true,
+        "cwd": "<project>",
+        "status": "warning",
+        "checks": [
+          {
+            "id": "runtime",
+            "status": "ok",
+            "message": "<human-text>",
+            "details": {
+              "nodeVersion": "<node-version>",
+              "platform": "doctor-fixture",
+              "arch": "<arch>"
+            },
+            "remedy": null
+          },
+          {
+            "id": "cli",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "cli": "<path>",
+              "version": "<package-version>",
+              "buildId": "<build-id>",
+              "origin": "checkout",
+              "active": null
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "launcher.path",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "file": null
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "board.log",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "code": "ENOENT"
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "integrations",
+            "status": "unknown",
+            "message": "<human-text>",
+            "details": null,
+            "remedy": null
+          },
+          {
+            "id": "integrations.loaded",
+            "status": "unknown",
+            "message": "<human-text>",
+            "details": null,
+            "remedy": null
+          },
+          {
+            "id": "service",
+            "status": "unknown",
+            "message": "<human-text>",
+            "details": {
+              "mode": "unsupported",
+              "state": "unavailable",
+              "managed": false,
+              "loaded": false,
+              "running": false,
+              "cwd": null,
+              "port": null,
+              "file": null,
+              "cli": null
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "viewer",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "state": "offline",
+              "port": "<port>",
+              "cwd": null,
+              "readOnly": null
+            },
+            "remedy": "<human-text>"
+          }
+        ]
+      }
+    },
+    {
+      "board": "integrity",
+      "args": [
+        "doctor",
+        "--share",
+        "--cwd",
+        "<board>",
+        "--json"
+      ],
+      "exitCode": 0,
+      "output": {
+        "schema": "pinwhy.doctor.v1",
+        "readOnly": true,
+        "cwd": "<project>",
+        "status": "error",
+        "checks": [
+          {
+            "id": "runtime",
+            "status": "ok",
+            "message": "<human-text>",
+            "details": {
+              "nodeVersion": "<node-version>",
+              "platform": "doctor-fixture",
+              "arch": "<arch>"
+            },
+            "remedy": null
+          },
+          {
+            "id": "cli",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "cli": "<path>",
+              "version": "<package-version>",
+              "buildId": "<build-id>",
+              "origin": "checkout",
+              "active": null
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "launcher.path",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "file": null
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "board.log",
+            "status": "error",
+            "message": "<human-text>",
+            "details": {
+              "corruptLines": 1,
+              "futureEvents": 1,
+              "rejected": 0,
+              "unknownOps": 1,
+              "incompleteTailBytes": 0
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "board.access",
+            "status": "ok",
+            "message": "<human-text>",
+            "details": null,
+            "remedy": null
+          },
+          {
+            "id": "board.config",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "code": "ENOENT"
+            },
+            "remedy": null
+          },
+          {
+            "id": "board.cache",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "code": "ENOENT"
+            },
+            "remedy": null
+          },
+          {
+            "id": "integrations",
+            "status": "unknown",
+            "message": "<human-text>",
+            "details": null,
+            "remedy": null
+          },
+          {
+            "id": "integrations.loaded",
+            "status": "unknown",
+            "message": "<human-text>",
+            "details": null,
+            "remedy": null
+          },
+          {
+            "id": "service",
+            "status": "unknown",
+            "message": "<human-text>",
+            "details": {
+              "mode": "unsupported",
+              "state": "unavailable",
+              "managed": false,
+              "loaded": false,
+              "running": false,
+              "cwd": null,
+              "port": null,
+              "file": null,
+              "cli": null
+            },
+            "remedy": "<human-text>"
+          },
+          {
+            "id": "viewer",
+            "status": "warning",
+            "message": "<human-text>",
+            "details": {
+              "state": "offline",
+              "port": "<port>",
+              "cwd": null,
+              "readOnly": null
+            },
+            "remedy": "<human-text>"
+          }
+        ]
+      }
+    }
+  ]
+}

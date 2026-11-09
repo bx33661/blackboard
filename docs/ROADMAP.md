@@ -1,6 +1,7 @@
-# blackboard 发展方向
+# Pinwhy 发展方向
 
-> 更新：2026-10-30 · 当前版本：`0.10.1`；最初方向基线：`main` 8c9a52c（0.6.1）。
+> 当前命名版本：Pinwhy `0.11.0`（DSH 插件 `0.3.0`）。原方向更新：2026-10-30，原 blackboard `0.10.1`；最初方向基线：原 blackboard `main` 8c9a52c（0.6.1）。
+> 下文已发布的 `0.6.x`–`0.10.1` 里程碑均属于原 blackboard 的历史，并未追溯改名；现行路径与命令示例已更新为 Pinwhy。
 > 本文是方向建议，不是承诺清单；每一阶段以“完成标准”收口，再决定下一步。
 > 上一版（2026-10-23，基线 8ccc06d）的 5 个方向已并入下面的阶段，进展见“已完成”。
 
@@ -26,7 +27,7 @@
 - exp1（首次接手、中断续接各三组）完成，结果见下一节。
 - 阶段 1 契约成文（#11–#13），见下文“阶段 1”。
 - 研究方式不进内核（#14–#16）：先写了内核方案，核对后撤回。[工程约定](../AGENT.md) 加入“投影也会干预”，并写明研究方式只作为可选参考；[研究记录方式](INQUIRY.md) 改为可选的 Skill 参考。
-- [方法框架](METHODS.md)（#18）：可选方法放进 `skills/blackboard/methods/`，目录由脚本生成，CI 做宪章检查；审计、研究、威胁建模都迁成方法包。
+- [方法框架](METHODS.md)（#18）：可选方法放进 `skills/pinwhy/methods/`，目录由脚本生成，CI 做宪章检查；审计、研究、威胁建模都迁成方法包。
 - `show` 的文本输出显示关系名，并列出上游（#17）。
 - 查看器服务端与 CLI 一致，非空的未知关系原样保存；`node add` 接受 `--label`，`capabilities` 以 `nodeEdgeLabel` 声明（#19）。
 - 查询与统计（0.7.0）：`search` 增加独立的严重度/可信度筛选和基于全部匹配的组合分组；`tag:site` 读取显式站点标签，缺省值单列为 `null`。`ls --all` 支持完整读取，截断在 stderr 说明数量；Skill 补齐查询与重复标签示例。
@@ -39,7 +40,7 @@
 - 批量写入（0.10.0）：`batch` 从 JSONL 一次写入一组节点、关系和修改，批内引用、逐行作者、整批原子提交、必填 request-id 与中断后补齐；只产生普通事件，不移动游标。子 Agent 可以把记录写进自己的输出文件，由协调者每波导入，不需要在内核里另设暂存层。设计取舍见 [batch 设计](BATCH.md)。
 - 批量写入与 Hook 修复（0.10.1）：同一批先建后改不再改写日志中的创建事件；批量输入收紧空值与悬空关系校验；活动脱敏改为线性时间，Hook 异步读取 stdin，大段工具输出不再卡住宿主会话或被丢弃。
 - CLI 发现性（未发布）：一次真实审计反馈暴露的查找成本。每个命令有独立 `--help`，列出选项、示例和 `--json` 形状；`batch` 语法错误报列号，`batch --check` 只校验不写入；`stop` 只关闭当前项目的查看器，端口被其他项目占用时 `status` 提示改用空闲端口。终端输出修正 ANSI 对齐、按严重度着色并支持 `NO_COLOR`。没有采纳自动补边、严重度与可信度组合校验和内置领域模板：前者违反“不替 Agent 连边”，后两者违反维度正交和“研究方式不进内核”。
-- 人和 Agent 分开（未发布）：只读的 `tui` 给人看，CLI 专注 Agent。`--json` 改为单行紧凑输出，实测 `context` 缩小 34%，并与 `estimatedTokens` 的计算口径一致；带 `--json` 失败时 stderr 输出 `blackboard.error.v1`，含稳定 `code`、`suggestion`、`candidates` 与批量行列号；`batch` 输出 `refs`。没有改已有字段的形状，所以不升 schema。
+- 人和 Agent 的输出分开（未发布）：终端以静态面板、列表和字段差异服务人，网页负责交互浏览。`--json` 保持单行紧凑输出，实测 `context` 缩小 34%，并与 `estimatedTokens` 的计算口径一致；带 `--json` 失败时 stderr 输出 `pinwhy.error.v1`，含稳定 `code`、`suggestion`、`candidates` 与批量行列号；`batch` 输出 `refs`。没有改已有字段的形状，所以不升 schema。
 
 ### exp1 告诉了我们什么
 
@@ -86,10 +87,10 @@
 
 进度：前三项已完成；DSH 插件通过公开 capabilities 契约检测能力，当前节点与 context 输出要求对应 v2 schema；完整 Skill 定位仍依赖发布包结构。自动恢复与压缩生命周期接入尚未完成。
 
-- [x] DSH 插件改为显式传 `--cwd`/`--agent`/`--no-init`，不再设置 `BLACKBOARD_CWD`、`BLACKBOARD_AGENT`，也不把继承来的这两个变量传给子进程。
+- [x] DSH 插件改为显式传 `--cwd`/`--agent`/`--no-init`，不再设置 `PINWHY_CWD`、`PINWHY_AGENT`，也不把继承来的这两个变量传给子进程。
 - [x] 用 `capabilities` 做特性检测，去掉对运行时 `package.json` 路径和 0.6.x 的硬编码。
 - [x] 写入授权改读 `capabilities` 声明的写入目标，去掉写死的 `lock`、`state.json.tmp`。
-- Skill 仍按发布包结构从 CLI 所在包的 `skills/blackboard/` 读取。`skill` 命令不在契约内，等有第二个宿主需要时再决定是否把位置放进 `capabilities`。
+- Skill 仍按发布包结构从 CLI 所在包的 `skills/pinwhy/` 读取。`skill` 命令不在契约内，等有第二个宿主需要时再决定是否把位置放进 `capabilities`。
 - DSH 第二阶段（沿用上一版）：自动刷新恢复上下文，在上下文压缩前后保存检查点。DSH 不保证等待写入完成后才压缩，保存时机必须如实说明。
 - MCP 的取舍规则不变：现在不做 MCP Server；出现第四个宿主时做一个通用 MCP 适配，而不是第四个专用适配。
 
@@ -215,7 +216,7 @@
 
 **跨 worktree 合并：**
 
-- 场景：`.blackboard/` 不进版本库，每个 worktree 各有一块黑板；分支合流时，记录也要合流。
+- 场景：`.pinwhy/` 不进版本库，每个 worktree 各有一块黑板；分支合流时，记录也要合流。
 - `merge <另一块黑板的项目根>`：在本黑板的写锁内追加对方有、本方没有的事件，按事件 ID 去重；重复执行不产生变化。只读对方，不改对方的日志。
 - 两边都新建了同一个 ID（如 `g3`）时，按阶段 1 的规则处理。合并后，两边原有的引用（检查点、交接回执、正文里的 ID）仍然能解析到原来的节点。
 - 两边都改了同一节点的同一字段时，不另造合并规则：两次修改都留在历史里，投影照事件顺序；合并回显和 `lint` 列出这些字段，由 Agent 或人决定。
@@ -235,7 +236,7 @@
 
 - 让 LLM 推断或建议关系、建议下一步（违反不干预原则）。阶段 4、5 只陈述记录里的事实。
 - 按某种研究方式组织投影，或提示“还缺哪一环”“状态未跟上证据”。投影也会干预，见 [工程约定](../AGENT.md) 和 [研究记录方式](INQUIRY.md)。
-- 把 blackboard 变成 Agent 行动的前置条件，或把节点类型变成状态机。
+- 把 pinwhy 变成 Agent 行动的前置条件，或把节点类型变成状态机。
 - 为了让图“更丰富”增加关系种类或自动连边。关系是否值得进恢复材料由阶段 3 的证据决定。
 - 让宿主的会话记录或云端同步成为事实源，制造第二事实源。
 - 为每个宿主维护一份内核或 Skill 副本。
@@ -249,4 +250,4 @@
 
 ## 相关文档
 
-[设计文档](BLACKBOARD_DESIGN.md) · [研究记录方式（可选 Skill 参考）](INQUIRY.md) · [方法框架](METHODS.md) · [恢复对照试验方案](RECOVERY_EXPERIMENT.md) · [DSH 接入调研](DSH_PLUGIN_RESEARCH.md) · [性能](performance.md) · [CI](ci.md) · [工程约定](../AGENT.md)
+[设计文档](PINWHY_DESIGN.md) · [研究记录方式（可选 Skill 参考）](INQUIRY.md) · [方法框架](METHODS.md) · [恢复对照试验方案](RECOVERY_EXPERIMENT.md) · [DSH 接入调研](DSH_PLUGIN_RESEARCH.md) · [性能](performance.md) · [CI](ci.md) · [工程约定](../AGENT.md)

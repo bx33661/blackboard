@@ -89,7 +89,7 @@ function Nav() {
     <header className={`nav${scrolled ? ' scrolled' : ''}`}>
       <div className="nav-pill">
         <a className="nav-brand" href="#top" onClick={go('top')}>
-          <img src="/mark.svg" alt="" /><b>blackboard</b><span className="ver">v0.10</span>
+          <img src="/mark.svg" alt="" /><b>Pinwhy</b><span className="ver">v0.11.0</span>
         </a>
         <nav className="nav-links" aria-label="primary">
           {t.nav.links.map(([id, label]) => <a key={id} href={`#${id}`} onClick={go(id)}>{label}</a>)}
