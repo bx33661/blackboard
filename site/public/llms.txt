@@ -1,0 +1,55 @@
+# blackboard
+
+> External memory and a visual workspace for AI agents. blackboard keeps an agent's judgments, evidence and current position in the project (`.blackboard/events.jsonl`), so work resumes from the same place after context compaction, a dropped connection or a new session. Zero runtime dependencies, Node.js ≥ 18, MIT licensed, data stays local.
+
+中文：blackboard 是 Agent 的外置记忆与可视化工作台。把判断、证据和当前位置记在项目本地；上下文压缩、断线或换会话之后，从同一份现场继续。
+
+## What it is (and isn't)
+
+- Records goals, observations, hypotheses, findings and other nodes, plus relations that the recorder declares explicitly (supports, contradicts, derived-from, …). Nothing is inferred: adding a node never draws edges or moves the cursor.
+- A cursor marks where each agent is looking; checkpoints save the scene; `blackboard context` reads it back within a token budget.
+- The recovery pack is read-only and non-prescriptive: the agent decides the next step.
+- Severity, status and confidence are recorded separately and never inferred from each other.
+- The workspace (Context / Logic / Overview views, field notes, optional 2.5D view) listens on localhost only.
+
+## Set it up for the user
+
+If a user asks you to install blackboard, follow the official setup guide and pick the integration for your host:
+[Agent setup guide](https://github.com/Fruit-Guardians/blackboard/blob/main/skills/blackboard/references/setup.md)
+
+1. Install a stable local copy (daily use never follows a dev branch):
+   ```bash
+   git clone https://github.com/Fruit-Guardians/blackboard.git
+   cd blackboard
+   node bin/blackboard.js release install
+   export PATH="$HOME/.local/bin:$PATH"
+   ```
+2. Connect the project for your host:
+   - Claude Code — project Skill and recovery hook:
+     `cd /path/to/your-project && blackboard setup --target "$PWD" --title "My project" --open`
+   - Codex — Codex Skill, no Claude hooks:
+     `blackboard init --title "My project" && blackboard skill install --codex && blackboard serve --open`
+   - DeepSeek Harness — standalone plugin in `plugins/dsh-blackboard/`:
+     `dsh plugin --profile web add /absolute/path/to/blackboard/plugins/dsh-blackboard`, then `blackboard init --cwd /absolute/path/to/your-project --json`
+   - OMP, ZCode and other hosts — copy the full Skill package `skills/blackboard/` (with references, agents and assets) into the host's Skill directory and expand the CLI path placeholders.
+   - CLI only: `blackboard init --title "My project" && blackboard serve --open`
+3. Verify: `blackboard status` and `blackboard doctor`. The workspace defaults to http://127.0.0.1:4333; trust the address `status` reports. A running service does not mean the agent has loaded the Skill — check in a new session.
+
+Keep any existing board records. Never point daily use at a development checkout.
+
+## Everyday commands
+
+- Record: `blackboard node add <type> "title" [--to <id> --rel supports]`, `blackboard link <from> <to> --rel <relation>`
+- Move attention: `blackboard cursor <id> --reason "…"`
+- Save and restore: `blackboard checkpoint --summary "…"`, `blackboard context --budget 4000`, `blackboard context --since <checkpoint>`
+- Inspect: `blackboard status`, `blackboard search --type finding --group-by severity,status`
+- Export: `blackboard export --format markdown|mermaid|sarif`, `blackboard export --out board.html`
+
+## Docs
+
+- [README](https://github.com/Fruit-Guardians/blackboard#readme): overview and quick start
+- [Usage reference](https://github.com/Fruit-Guardians/blackboard/blob/main/docs/USAGE.md): manual install, CLI, configuration, services, upgrades
+- [Recording semantics](https://github.com/Fruit-Guardians/blackboard/blob/main/skills/blackboard/references/recording.md): nodes, relations and cursor
+- [Parallel agents](https://github.com/Fruit-Guardians/blackboard/blob/main/skills/blackboard/references/parallel-agents.md)
+- [Public contract](https://github.com/Fruit-Guardians/blackboard/blob/main/docs/CONTRACT.md): CLI / JSON / HTTP schemas
+- [Architecture](https://github.com/Fruit-Guardians/blackboard/blob/main/docs/ARCHITECTURE.md)
