@@ -127,9 +127,8 @@ test('Claude bash hooks preserve CLI paths, project environment, and stdin on th
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { args: ['hook', 'SessionStart'], cwd: WINDOWS ? project.replaceAll('\\', '/') : project, stdin: '{"synthetic":true}' });
   delete env.CLAUDE_PROJECT_DIR;
-  const fallback = spawnSync(bashBinary(), ['-xc', handler.command], { cwd: project, env, encoding: 'utf8', input: '{}' });
+  const fallback = spawnSync(bashBinary(), ['-c', handler.command], { cwd: project, env, encoding: 'utf8', input: '{}' });
   assert.equal(fallback.status, 0, fallback.stderr);
-  assert.notEqual(fallback.stdout.trim(), '', `Hook did not run from the process working directory. Bash trace:\n${fallback.stderr}`);
   assert.deepEqual(JSON.parse(fallback.stdout).args, ['hook', 'SessionStart']);
   const absent = spawnSync(bashBinary(), ['-c', handler.command], { cwd: root, env, encoding: 'utf8', input: '{}' });
   assert.equal(absent.status, 0, absent.stderr);
