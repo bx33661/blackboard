@@ -10,6 +10,7 @@ const test = (name, run) => nodeTest(name, { skip: process.platform === 'win32' 
 
 function fixture(t, { installed = true, loaded = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-launchd-fixture-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const project = path.join(root, 'project');
   const home = path.join(root, 'home');
   const fakeBin = path.join(root, 'fake-bin');
@@ -51,6 +52,13 @@ if (args[0] === 'print') {
     BLACKBOARD_TEST_LAUNCHD_STATE: process.env.BLACKBOARD_TEST_LAUNCHD_STATE };
   const fetch = globalThis.fetch;
   const requests = [];
+  t.after(() => {
+    Object.defineProperty(process, 'platform', platform);
+    for (const [key, value] of Object.entries(env)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+    globalThis.fetch = fetch;
+  });
   Object.defineProperty(process, 'platform', { ...platform, value: 'darwin' });
   process.env.HOME = home;
   process.env.PATH = `${fakeBin}${path.delimiter}${env.PATH}`;
@@ -61,14 +69,6 @@ if (args[0] === 'print') {
     if (String(url).endsWith('/api/status')) return Response.json({ cwd: fs.realpathSync(project), readOnly: false });
     return state().failHealth ? new Response('synthetic health failure', { status: 503 }) : Response.json({ nodes: {} });
   };
-  t.after(() => {
-    Object.defineProperty(process, 'platform', platform);
-    for (const [key, value] of Object.entries(env)) {
-      if (value === undefined) delete process.env[key]; else process.env[key] = value;
-    }
-    globalThis.fetch = fetch;
-    fs.rmSync(root, { recursive: true, force: true });
-  });
   return { project, file, cli, oldCli, original, state, save, requests };
 }
 

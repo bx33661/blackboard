@@ -73,6 +73,7 @@ test('overview preserves every real node and edge exactly once',()=>{
 });
 test('overview children follow their frames and remain inside them',()=>{
  const layout=layoutOverview(project(snapshot,'all','').nodes,[]);
+ assert.equal(layout.nodes.filter(n=>!n.data.group).length,items.length);
  for(const node of layout.nodes.filter(n=>!n.data.group)){
   const parent=layout.nodes.find(n=>n.id===node.parentId);
   assert.ok(parent && parent.data.group);
@@ -85,6 +86,7 @@ test('large overview layout has no overlapping children within a group',()=>{
  const nodes=Array.from({length:150},(_,i)=>({id:`n${i}`,type:'note',title:`Record ${i}`}));
  const layout=layoutOverview(project({meta:{},nodes,edges:[]},'all','').nodes,[]);
  const cells=layout.nodes.filter(n=>!n.data.group);
+ assert.equal(cells.length,nodes.length);
  for(let i=0;i<cells.length;i++)for(let j=i+1;j<cells.length;j++){
   const a=cells[i],b=cells[j];
   assert.ok(Math.abs(a.position.x-b.position.x)>=240 || Math.abs(a.position.y-b.position.y)>=112);
@@ -102,6 +104,7 @@ test('regular layout keeps correct direction and no display-only parents',async(
 test('narrow overview stacks frames vertically without overlaps',()=>{
  const p=project(snapshot,'all','');const layout=layoutOverview(p.nodes,p.edges,1);
  const frames=layout.nodes.filter(n=>n.data.group);
+ assert.equal(frames.length,4);
  assert.ok(frames.every(n=>n.position.x===0));
  for(let i=1;i<frames.length;i++) assert.ok(frames[i].position.y>=frames[i-1].position.y+frames[i-1].style.height);
 });
@@ -156,6 +159,7 @@ test('layout stores the ELK route of every edge and reuses it only while nodes s
  const nodes=['a','b','c','d'].map(id=>({id,type:'fact',title:id}));
  const edges=[['a','b'],['b','c'],['c','d'],['a','d']].map(([from,to],i)=>({id:`e${i}`,from,to,kind:'proves'}));
  const p=project({meta:{},nodes,edges},'all',''); const laid=await layoutGraph(p.nodes,p.edges,'RIGHT');
+ assert.deepEqual(laid.edges.map(e=>e.id).sort(),edges.map(e=>e.id).sort());
  for(const edge of laid.edges){
   const route=edge.data.route; assert.ok(route.points.length>=2,edge.id);
   const s=laid.nodes.find(n=>n.id===edge.source).position, t=laid.nodes.find(n=>n.id===edge.target).position;
@@ -184,7 +188,10 @@ const segmentsOf=(laid)=>laid.edges.flatMap(e=>e.data.route.points.slice(1).map(
 test('routes never pass through a card and unrelated relations never share a line',async()=>{
  const p=project(hubBoard(),'logic',''); const laid=await layoutGraph(p.nodes,p.edges,'RIGHT');
  const boxes=laid.nodes.map(n=>({id:n.id,x:n.position.x,y:n.position.y,w:n.style.width,h:n.style.height}));
+ assert.equal(boxes.length,p.nodes.length);
+ assert.deepEqual(laid.edges.map(e=>e.id).sort(),p.edges.map(e=>e.id).sort());
  const segs=segmentsOf(laid);
+ assert.ok(segs.length>=laid.edges.length,'each relation has a route');
  for(const {e,a,b} of segs) for(const r of boxes){
   if(r.id===e.source||r.id===e.target) continue;
   for(let k=0;k<=20;k++){const x=a.x+(b.x-a.x)*k/20,y=a.y+(b.y-a.y)*k/20;
@@ -235,6 +242,7 @@ test('weak relations wait for a selection unless they are a card\'s only tie to 
 test('a dragged edge goes around every card, orthogonally, from handle to handle',()=>{
  // Deterministic pseudo-random scatter of cards between two ends.
  let seed=7; const rand=()=>(seed=(seed*16807)%2147483647)/2147483647;
+ let routed=0;
  for(let round=0;round<40;round++){
   const cards=[{x:0,y:200,width:288,height:128},{x:1200,y:260,width:288,height:128}];
   for(let k=0;k<12;k++) cards.push({x:340+rand()*700,y:rand()*600,width:288*.6,height:128});
@@ -243,6 +251,7 @@ test('a dragged edge goes around every card, orthogonally, from handle to handle
   const start={x:288,y:264}, end={x:1200,y:324};
   const pts=routeAround(start,'right',end,'left',all);
   if(!pts) continue;
+  routed++;
   assert.deepEqual(pts[0],start); assert.deepEqual(pts.at(-1),end);
   for(let i=1;i<pts.length;i++){
    const p=pts[i-1],q=pts[i];
@@ -254,6 +263,7 @@ test('a dragged edge goes around every card, orthogonally, from handle to handle
    }
   }
  }
+ assert.ok(routed>0,'at least one scattered board must produce a route');
 });
 test('a clear line stays straight and a reversed pair loops around its own cards',()=>{
  const left={x:0,y:0,width:288,height:128}, right={x:500,y:0,width:288,height:128};

@@ -52,7 +52,9 @@ for (const agent of ['claude', 'codex']) {
       const destination = path.join(base, agent === 'codex' ? '.agents' : '.claude', 'skills', 'blackboard');
       fs.mkdirSync(destination, { recursive: true });
       fs.writeFileSync(path.join(destination, 'personal-note.md'), 'keep my note\n');
-      const env = { PATH: process.env.PATH, HOME: home, TMPDIR: os.tmpdir(), BLACKBOARD_CWD: project };
+      const env = { PATH: process.env.PATH, HOME: home, USERPROFILE: home, TMPDIR: os.tmpdir(),
+        XDG_DATA_HOME: path.join(home, '.local', 'share'), XDG_CONFIG_HOME: path.join(home, '.config'),
+        XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.local', 'state'), BLACKBOARD_CWD: project };
       const result = spawnSync(process.execPath, [CLI, 'skill', 'install', `--${scope}`, ...(agent === 'codex' ? ['--codex'] : [])], {
         cwd: project, env, encoding: 'utf8', timeout: 10000,
       });

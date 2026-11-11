@@ -29,9 +29,12 @@ function board(t) {
 function run(t, args, { cwd, env = {} } = {}) {
   const base = { ...process.env };
   for (const key of Object.keys(base)) if (key.startsWith('BLACKBOARD_')) delete base[key];
+  const home = tmp(t, 'blackboard-home-');
   return spawnSync(process.execPath, [CLI, ...args], {
     cwd: cwd || tmp(t, 'blackboard-elsewhere-'),
-    env: { ...base, HOME: tmp(t, 'blackboard-home-'), BLACKBOARD_QUIET: '1', ...env },
+    env: { ...base, HOME: home, USERPROFILE: home, XDG_DATA_HOME: path.join(home, '.local', 'share'),
+      XDG_CONFIG_HOME: path.join(home, '.config'), XDG_CACHE_HOME: path.join(home, '.cache'),
+      XDG_STATE_HOME: path.join(home, '.local', 'state'), BLACKBOARD_QUIET: '1', ...env },
     encoding: 'utf8',
   });
 }

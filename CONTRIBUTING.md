@@ -54,6 +54,8 @@ npm run verify:package
 
 `npm test` 使用 Node 内置 test runner，覆盖根包行为和固定契约；部分前端纯模块测试会用本地 TypeScript 编译器，因此需要开发依赖。`evaluate:recovery` 测合成投影正确性，`verify:recovery` 验证隔离合成材料的模型适配协议，两者都不证明真实任务恢复效果。真实模型实验通过 `npm run experiment:recovery -- run ...` 显式执行，协议与前置条件见[恢复试验](docs/RECOVERY_EXPERIMENT.md)。`verify:package` 在隔离消费者安装实际 tarball，不启动真实服务、不切换 `current`。
 
+普通 `npm test` 拒绝继承 `UPDATE_CONTRACT=1`，避免测试运行时覆盖契约基线。需要更新基线时，按[公开契约](docs/CONTRACT.md)中的独立命令运行并审查差异。
+
 改动导出逻辑或生成资产时，另行运行：
 
 ```bash

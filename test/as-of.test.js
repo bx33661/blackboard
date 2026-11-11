@@ -49,10 +49,10 @@ function board(t, lines) {
 }
 
 function cli(cwd, args) {
-  const env = { ...process.env, TZ: 'UTC', HOME: cwd };
+  const env = { ...process.env, TZ: 'UTC', HOME: cwd, USERPROFILE: cwd, XDG_DATA_HOME: path.join(cwd, '.local', 'share') };
   for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
   const r = spawnSync(process.execPath, [CLI, ...args, '--cwd', cwd], { cwd, env, encoding: 'utf8' });
-  return { status: r.status, stdout: r.stdout };
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
 function files(dir) {
@@ -78,10 +78,23 @@ for (const { asOf, line, reads } of CASES) {
     const cut = board(t, LINES.slice(0, line));
     const before = files(full);
     for (const args of reads) {
-      // history has no --as-of: it is the one read whose cut copy alone is compared.
-      const actual = args[0] === 'history' ? null : cli(full, [...args, '--as-of', asOf]);
       const expected = cli(cut, args);
-      if (actual) assert.deepEqual(actual, expected, args.join(' '));
+      const missing = args[0] === 'show' && (args[1] === 'n1' || (asOf === 'cp1' && args[1] === 'h1'));
+      assert.equal(expected.status, missing ? 1 : 0, `${args.join(' ')}: ${expected.stderr}`);
+      if (args[0] === 'history') {
+        const history = JSON.parse(expected.stdout);
+        assert.equal(history.schema, 'blackboard.history.v2');
+        assert.equal(history.nodeId, 'h1');
+        assert.ok(history.entries.some((entry) => entry.changes.status?.after === 'refuted'));
+      } else {
+        const actual = cli(full, [...args, '--as-of', asOf]);
+        assert.equal(actual.status, missing ? 1 : 0, `${args.join(' ')}: ${actual.stderr}`);
+        if (missing) {
+          assert.equal(JSON.parse(expected.stderr).code, 'not_found');
+          assert.equal(JSON.parse(actual.stderr).code, 'not_found');
+        }
+        assert.equal(actual.stdout, expected.stdout, args.join(' '));
+      }
     }
     assert.deepEqual(files(full), before, 'an as-of read writes nothing');
   });

@@ -68,8 +68,12 @@ test('short event reads preserve complete UTF-8 events, integrity counts and byt
   const expected = readEvents(dir);
   const expectedTail = readEvents(dir, fromByte);
   const opened = observeOpen(t, paths(dir).events, 'r');
+  let shortReads = 0;
   replace(t, 'readSync', (original) => function(fd, buffer, offset, length, position) {
-    return original.call(this, fd, buffer, offset, fd === opened() ? Math.min(5, length) : length, position);
+    const limit = fd === opened() ? Math.min(5, length) : length;
+    const count = original.call(this, fd, buffer, offset, limit, position);
+    if (fd === opened() && count > 0 && count < length) shortReads++;
+    return count;
   });
   const log = readEvents(dir);
   assert.deepEqual(log, expected);
@@ -81,6 +85,7 @@ test('short event reads preserve complete UTF-8 events, integrity counts and byt
   assert.deepEqual(Object.values(replay(dir).nodes).map((node) => node.title), [
     'Synthetic 中文 event', 'Second synthetic event',
   ]);
+  assert.ok(shortReads > 1, 'multiple event reads were actually shortened');
 });
 
 test('event reads stop at EOF if the observed file size exceeds the available bytes', (t) => {
@@ -88,12 +93,24 @@ test('event reads stop at EOF if the observed file size exceeds the available by
   addNode({ title: 'Available event' }, dir);
   const expected = readEvents(dir);
   const opened = observeOpen(t, paths(dir).events, 'r');
+  let inflatedStats = 0;
+  let eofReads = 0;
   replace(t, 'fstatSync', (original) => function(fd, ...args) {
     const stat = original.call(this, fd, ...args);
-    if (fd === opened()) stat.size += 20;
+    if (fd === opened()) {
+      stat.size += 20;
+      inflatedStats++;
+    }
     return stat;
   });
+  replace(t, 'readSync', (original) => function(fd, ...args) {
+    const count = original.call(this, fd, ...args);
+    if (fd === opened() && count === 0) eofReads++;
+    return count;
+  });
   assert.deepEqual(readEvents(dir), expected);
+  assert.equal(inflatedStats, 1);
+  assert.equal(eofReads, 1, 'the read loop reached EOF before the observed size');
 });
 
 for (const partial of [false, true]) {
@@ -219,10 +236,15 @@ test('an interrupted large batch preserves earlier records when repair reads are
   fs.writeFileSync(file, complete.subarray(0, firstLineEnd - 17));
   fs.unlinkSync(paths(dir).state);
   const opened = observeOpen(t, file, 'r+');
+  let shortReads = 0;
   replace(t, 'readSync', (original) => function(fd, buffer, offset, length, position) {
-    return original.call(this, fd, buffer, offset, fd === opened() ? Math.min(4096, length) : length, position);
+    const limit = fd === opened() ? Math.min(4096, length) : length;
+    const count = original.call(this, fd, buffer, offset, limit, position);
+    if (fd === opened() && count > 0 && count < length) shortReads++;
+    return count;
   });
   const { node: next } = addNode({ title: 'Committed after interruption' }, dir);
+  assert.ok(shortReads > 1, 'tail repair actually encountered multiple short reads');
   const graph = replay(dir);
   assert.deepEqual(fs.readFileSync(file).subarray(0, prefix.length), prefix);
   assert.equal(graph.nodes[retained.id].title, 'Already committed 中文 evidence');
@@ -259,8 +281,10 @@ for (const failure of ['error', 'eof']) {
     fs.appendFileSync(file, '{"unfinished":"' + 'x'.repeat(128 * 1024));
     const before = fs.readFileSync(file);
     const opened = observeOpen(t, file, 'r+');
+    let injected = 0;
     const restore = replace(t, 'readSync', (original) => function(fd, buffer, offset, length, position) {
       if (fd === opened() && length > 1) {
+        injected++;
         if (failure === 'eof') return 0;
         throw Object.assign(new Error('synthetic scan failure'), { code: 'EIO' });
       }
@@ -268,6 +292,7 @@ for (const failure of ['error', 'eof']) {
     });
     try {
       assert.throws(() => addNode({ title: 'Must wait for repair' }, dir), { code: 'EIO' });
+      assert.equal(injected, 1, 'the repair scan encountered the injected failure');
       assert.deepEqual(fs.readFileSync(file), before);
       assert.equal(fs.existsSync(paths(dir).lock), false);
     } finally {

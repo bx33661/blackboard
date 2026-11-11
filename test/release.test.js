@@ -23,9 +23,14 @@ function tmp(t, prefix = 'blackboard-release-') {
 /** A fake HOME: releases, launcher, Skill and settings all land inside it. */
 function homeEnv(t) {
   const home = tmp(t, 'blackboard-home-');
-  const env = { ...process.env, HOME: home, BLACKBOARD_QUIET: '1' };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_') && key !== 'BLACKBOARD_QUIET') delete env[key];
+  const env = { ...process.env, HOME: home, USERPROFILE: home, BLACKBOARD_QUIET: '1' };
+  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
+  env.BLACKBOARD_QUIET = '1';
   delete env.XDG_DATA_HOME;
+  env.XDG_CONFIG_HOME = path.join(home, '.config');
+  env.XDG_CACHE_HOME = path.join(home, '.cache');
+  env.XDG_STATE_HOME = path.join(home, '.local', 'state');
+  delete env.FNM_DIR;
   env.BLACKBOARD_CWD = home;
   return env;
 }

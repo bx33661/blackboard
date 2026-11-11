@@ -52,19 +52,29 @@ const sidebarProps = {
   filterOptions: { types: [], statuses: [], confidences: [], riskCount: 0 }, results: null,
 };
 
+function assertDisclosure(html, kind, count) {
+  const disclosures = [...html.matchAll(/<details\b[^>]*>([\s\S]*?)<\/details>/g)].map((match) => match[1]);
+  const details = disclosures.filter((content) => content.includes(`title="Synthetic ${kind} 8"`));
+  assert.equal(details.length, 1, `${kind} overflow has its own disclosure`);
+  const summary = details[0].match(/<summary\b[^>]*>([\s\S]*?)<\/summary>/)?.[1];
+  assert.ok(summary, `${kind} disclosure has a summary`);
+  assert.match(summary.replace(/<[^>]*>/g, ''), new RegExp(`(^|\\D)${count - 8}(\\D|$)`));
+  const titles = [...details[0].matchAll(new RegExp(`title="Synthetic ${kind} (\\d+)"`, 'g'))].map((match) => Number(match[1]));
+  assert.deepEqual(titles, Array.from({ length: count - 8 }, (_, i) => i + 8));
+}
+
 test('Sidebar keeps all findings reachable behind an explicit disclosure instead of silently cutting after eight', () => {
   const before = JSON.stringify(findings);
   const html = render(createElement(Sidebar, sidebarProps));
   assert.equal((html.match(/title="Synthetic finding \d+"/g) || []).length, findings.length);
-  assert.ok(/<details[^>]*>[\s\S]*?<summary[^>]*>[\s\S]*?10[\s\S]*?<\/summary>/.test(html), 'ten more findings have a native disclosure');
-  assert.ok(html.includes('title="Synthetic finding 17"'));
+  assertDisclosure(html, 'finding', findings.length);
   assert.equal(JSON.stringify(findings), before);
 });
 
 test('Sidebar open items retain every record and use the same explicit disclosure', () => {
   const html = render(createElement(Sidebar, sidebarProps));
   assert.equal((html.match(/title="Synthetic question \d+"/g) || []).length, openItems.length);
-  assert.ok(/<summary[^>]*>[\s\S]*?5[\s\S]*?<\/summary>/.test(html), 'five more questions have a native disclosure');
+  assertDisclosure(html, 'question', openItems.length);
 });
 
 

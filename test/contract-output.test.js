@@ -6,10 +6,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -19,6 +18,9 @@ const FIXTURES = path.join(HERE, 'fixtures', 'contract');
 const OUTPUTS = path.join(FIXTURES, 'outputs');
 const CONTRACT_DOC = path.join(REPO, 'docs', 'CONTRACT.md');
 const UPDATE = process.env.UPDATE_CONTRACT === '1';
+if (UPDATE && process.env.npm_lifecycle_event === 'test') {
+  throw new Error('UPDATE_CONTRACT cannot be used with npm test; run the dedicated contract test directly and review the baseline diff');
+}
 const PACKAGE_VERSION = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
 
 // Fixture times sit on 2026-01-01; anything later was written by the run itself.
@@ -52,7 +54,7 @@ const CASES = {
     { board: 'research', args: ['fact', 'Shared evidence', '--to', 'g1', '--to', 'f2', '--rel', 'supports'] },
     { board: 'research', args: ['hint', 'Compare with the SSO handler', '--agent', 'agent:reviewer'] },
     { board: 'research', args: ['fact', 'x', '--request-id', 'req-new-1'] },
-    { board: null, args: ['goal', 'No board yet', '--no-init'] },
+    { board: null, args: ['goal', 'No board yet', '--no-init'], errorCode: 'board_missing' },
   ],
   checkpoint: [
     { board: 'research', args: ['checkpoint', '--summary', 'Third pass.'] },
@@ -62,7 +64,7 @@ const CASES = {
     { board: 'research', args: ['cursor', 'f1', '--reason', 'look again'] },
     { board: 'research', args: ['cursor', 'none'] },
     { board: 'research', args: ['focus', 'q1', '--agent', 'agent:reviewer'] },
-    { board: 'research', args: ['cursor', 'nope'] },
+    { board: 'research', args: ['cursor', 'nope'], errorCode: 'not_found' },
   ],
   here: [
     { board: 'research', args: ['here'] },
@@ -188,14 +190,29 @@ const CASES = {
 
 let PORT;
 
-/** A port nothing listens on, so `status` reports the viewer offline. */
-function freePort() {
+/** Reserve an offline endpoint throughout synchronous CLI calls, including on a busy host. */
+function reserveOfflinePort() {
+  const child = spawn(process.execPath, ['-e', `
+    const net = require('node:net');
+    const server = net.createServer(socket => socket.destroy());
+    server.listen(0, '127.0.0.1', () => console.log(server.address().port));
+  `], { stdio: ['ignore', 'pipe', 'pipe'] });
   return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    const timer = setTimeout(() => { child.kill(); reject(new Error('offline endpoint did not start')); }, 5000);
+    child.once('error', error => { clearTimeout(timer); reject(error); });
+    child.once('exit', code => { clearTimeout(timer); reject(new Error(`offline endpoint exited ${code}: ${stderr}`)); });
+    let stdout = '';
+    child.stdout.on('data', chunk => {
+      stdout += chunk;
+      if (!stdout.includes('\n')) return;
+      clearTimeout(timer);
+      const port = Number(stdout.trim());
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        child.kill();
+        reject(new Error('offline endpoint returned an invalid port'));
+      } else resolve({ child, port });
     });
   });
 }
@@ -226,7 +243,8 @@ function cli(args, { root }, input) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
   // digest prints times in the local zone, so every machine renders them as UTC.
-  Object.assign(env, { HOME: path.join(root, 'home'), BLACKBOARD_QUIET: '1', BLACKBOARD_PORT: String(PORT), TZ: 'UTC' });
+  const home = path.join(root, 'home');
+  Object.assign(env, { HOME: home, USERPROFILE: home, XDG_DATA_HOME: path.join(home, '.local', 'share'), BLACKBOARD_QUIET: '1', BLACKBOARD_PORT: String(PORT), TZ: 'UTC' });
   return spawnSync(process.execPath, [CLI, ...args], { cwd: root, env, input, encoding: 'utf8' });
 }
 
@@ -307,6 +325,19 @@ function runCase(t, spec, writes = []) {
   const files = snapshot(dirs.board);
   const args = [...spec.args, ...(spec.cwd === false ? [] : ['--cwd', '<board>']), '--json'];
   const r = cli(fill(args, dirs), dirs, spec.input);
+  assert.notEqual(r.status, null, `${spec.args.join(' ')} failed to start or was terminated: ${r.error || r.signal}`);
+  if (r.status !== 0) {
+    assert.equal(r.stdout, '', `${spec.args.join(' ')} wrote stdout on failure`);
+    let error;
+    try { error = JSON.parse(r.stderr); }
+    catch { assert.fail(`${spec.args.join(' ')} --json printed a non-JSON error: ${r.stderr}`); }
+    assert.equal(error.schema, 'blackboard.error.v1');
+    assert.equal(typeof error.code, 'string');
+    assert.ok(error.code);
+    assert.equal(typeof error.message, 'string');
+    assert.ok(error.message);
+    if (spec.errorCode) assert.equal(error.code, spec.errorCode, spec.args.join(' '));
+  }
   writes.push(...touched(files, snapshot(dirs.board)));
   let output = null;
   if (r.stdout.trim()) {
@@ -322,9 +353,12 @@ function runCase(t, spec, writes = []) {
   return result;
 }
 
+let offlineEndpoint;
 test.before(async () => {
-  PORT = await freePort();
+  offlineEndpoint = await reserveOfflinePort();
+  PORT = offlineEndpoint.port;
 });
+test.after(() => { offlineEndpoint?.child.kill(); });
 
 for (const [command, cases] of Object.entries(CASES)) {
   test(`contract output: ${command}`, (t) => {
@@ -335,7 +369,7 @@ for (const [command, cases] of Object.entries(CASES)) {
       fs.writeFileSync(file, `${JSON.stringify(actual, null, 2)}\n`);
       return;
     }
-    assert.ok(fs.existsSync(file), `missing baseline ${path.relative(REPO, file)}; run UPDATE_CONTRACT=1 npm test`);
+    assert.ok(fs.existsSync(file), `missing baseline ${path.relative(REPO, file)}; run UPDATE_CONTRACT=1 node --test test/contract-output.test.js`);
     const expected = JSON.parse(fs.readFileSync(file, 'utf8'));
     const diff = firstDiff(actual, expected);
     assert.ok(!diff, `${command} --json output changed at ${diff}\nSee docs/CONTRACT.md before updating the baseline.`);

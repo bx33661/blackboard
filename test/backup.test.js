@@ -14,6 +14,7 @@ import {
 import { EVENT_VERSION } from '../lib/model.js';
 
 const STORE_URL = new URL('../lib/store.js', import.meta.url).href;
+const BACKUP_URL = new URL('../lib/backup.js', import.meta.url).href;
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 
 function fixture(t) {
@@ -196,37 +197,112 @@ test('restore checks checksums, exact file set, path allowlist, version and syml
 test('a concurrent writer cannot leave a partial compound action in the snapshot', async (t) => {
   const { root, source, backup, target } = fixture(t);
   addNode({ title: 'root' }, source);
-  const ready = path.join(root, 'ready');
-  const writer = spawn(process.execPath, ['--input-type=module', '-e', `
-    import fs from 'node:fs';
-    import { addNode } from ${JSON.stringify(STORE_URL)};
-    fs.writeFileSync(${JSON.stringify(ready)}, 'ready');
-    for (let i = 0; i < 40; i++) {
-      addNode({ title: 'write-' + i, parent: 'n1', enter: true }, ${JSON.stringify(source)});
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3);
-    }
-  `], { stdio: ['ignore', 'ignore', 'pipe'] });
-  t.after(() => { if (writer.exitCode === null) writer.kill(); });
-  let stderr = '';
-  writer.stderr.on('data', (bytes) => { stderr += bytes; });
-  const exited = once(writer, 'exit');
-  const start = Date.now();
-  while (!fs.existsSync(ready)) {
-    if (Date.now() - start > 5000) assert.fail(`writer did not start: ${stderr}`);
-    await new Promise((resolve) => setTimeout(resolve, 5));
+  const paused = path.join(root, 'writer-paused');
+  const release = path.join(root, 'release-writer');
+  const contended = path.join(root, 'backup-contended');
+  const continueWriting = path.join(root, 'continue-writing');
+  const receiptFile = path.join(root, 'receipt.json');
+  const children = [];
+  function startChild(code) {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', code], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', (bytes) => { stderr += bytes; });
+    const exited = once(child, 'exit');
+    const entry = { child, exited, stderr: () => stderr };
+    children.push(entry);
+    return entry;
   }
-  const receipt = backupBoard(source, backup);
-  restoreBoard(backup, target);
-  const graph = replay(target);
-  const written = Object.keys(graph.nodes).length - 1;
-  assert.equal(Object.keys(graph.edges).length, written);
-  assert.equal(graph.cursorTrail.length, written);
-  assert.equal(receipt.eventCount, 1 + written * 3);
-  assert.equal((await exited)[0], 0, stderr);
-  const finalBytes = fs.readFileSync(paths(source).events);
-  const captured = fs.readFileSync(paths(target).events);
-  assert.deepEqual(finalBytes.subarray(0, captured.length), captured);
-  assert.equal(replay(source).cursorTrail.length, 40);
+  async function waitForFile(file, entry) {
+    const deadline = Date.now() + 8000;
+    while (!fs.existsSync(file)) {
+      if (entry.child.exitCode !== null || entry.child.signalCode !== null) {
+        assert.fail(`child exited before ${path.basename(file)}: ${entry.stderr()}`);
+      }
+      if (Date.now() >= deadline) assert.fail(`timed out waiting for ${path.basename(file)}: ${entry.stderr()}`);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+  try {
+    const writer = startChild(`
+      import fs from 'node:fs';
+      import { addNode } from ${JSON.stringify(STORE_URL)};
+      const source = ${JSON.stringify(source)};
+      const file = ${JSON.stringify(paths(source).events)};
+      const wait = (marker) => {
+        const deadline = Date.now() + 15000;
+        while (!fs.existsSync(marker)) {
+          if (Date.now() >= deadline) throw new Error('timed out waiting for ' + marker);
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+        }
+      };
+      addNode({ title: 'write-0', parent: 'n1', enter: true }, source);
+      const append = fs.appendFileSync;
+      let paused = false;
+      fs.appendFileSync = function(target, ...args) {
+        const result = append.call(this, target, ...args);
+        if (target === file && !paused) {
+          paused = true;
+          fs.writeFileSync(${JSON.stringify(paused)}, 'paused');
+          wait(${JSON.stringify(release)});
+        }
+        return result;
+      };
+      addNode({ title: 'write-1', parent: 'n1', enter: true }, source);
+      if (!paused) throw new Error('compound write did not reach the pause');
+      fs.appendFileSync = append;
+      wait(${JSON.stringify(continueWriting)});
+      addNode({ title: 'write-2', parent: 'n1', enter: true }, source);
+    `);
+    await waitForFile(paused, writer);
+    const partial = fs.readFileSync(paths(source).events, 'utf8').trimEnd().split('\n').map(JSON.parse);
+    assert.equal(partial.length, 5);
+    assert.equal(partial.at(-1).node.title, 'write-1');
+
+    const archiver = startChild(`
+      import fs from 'node:fs';
+      import { backupBoard } from ${JSON.stringify(BACKUP_URL)};
+      const open = fs.openSync;
+      let reported = false;
+      fs.openSync = function(target, flags, ...args) {
+        try { return open.call(this, target, flags, ...args); }
+        catch (error) {
+          if (!reported && target === ${JSON.stringify(paths(source).lock)} && flags === 'wx' && error.code === 'EEXIST') {
+            reported = true;
+            fs.writeFileSync(${JSON.stringify(contended)}, 'contended');
+          }
+          throw error;
+        }
+      };
+      const receipt = backupBoard(${JSON.stringify(source)}, ${JSON.stringify(backup)});
+      if (!reported) throw new Error('backup never contended for the writer lock');
+      fs.writeFileSync(${JSON.stringify(receiptFile)}, JSON.stringify(receipt));
+    `);
+    await waitForFile(contended, archiver);
+    fs.writeFileSync(release, 'release');
+    assert.equal((await archiver.exited)[0], 0, archiver.stderr());
+
+    const receipt = JSON.parse(fs.readFileSync(receiptFile, 'utf8'));
+    restoreBoard(backup, target);
+    const graph = replay(target);
+    assert.equal(Object.keys(graph.nodes).length, 3);
+    assert.equal(Object.keys(graph.edges).length, 2);
+    assert.equal(graph.cursorTrail.length, 2);
+    assert.equal(receipt.eventCount, 7);
+    const captured = fs.readFileSync(paths(target).events);
+    assert.deepEqual(captured, fs.readFileSync(paths(source).events));
+    assert.equal(receipt.eventsSha256, digest(captured));
+
+    fs.writeFileSync(continueWriting, 'continue');
+    assert.equal((await writer.exited)[0], 0, writer.stderr());
+    const finalBytes = fs.readFileSync(paths(source).events);
+    assert.deepEqual(finalBytes.subarray(0, captured.length), captured);
+    assert.equal(replay(source).cursorTrail.length, 3);
+  } finally {
+    for (const { child } of children) {
+      if (child.exitCode === null && child.signalCode === null) child.kill();
+    }
+    await Promise.allSettled(children.map(({ exited }) => exited));
+  }
 });
 
 

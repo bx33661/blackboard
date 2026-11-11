@@ -56,7 +56,8 @@ function cliEnv(t, cwd) {
   for (const key of Object.keys(env)) {
     if (key.startsWith('BLACKBOARD_') || key.startsWith('FLOW_')) delete env[key];
   }
-  return { ...env, HOME: bare(t), BLACKBOARD_CWD: cwd, BLACKBOARD_QUIET: '1' };
+  const home = bare(t);
+  return { ...env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: path.join(home, '.local', 'share'), BLACKBOARD_CWD: cwd, BLACKBOARD_QUIET: '1' };
 }
 
 async function statusJson(env, ...args) {
@@ -799,14 +800,21 @@ test('concurrent writer processes never lose or duplicate a node', async (t) => 
   const nodes = Object.values(replay(dir).nodes);
   assert.equal(nodes.length, 90);
   assert.equal(new Set(nodes.map((n) => n.id)).size, 90);
+  const expectedTitles = Array.from({ length: 6 }, (_, writer) =>
+    Array.from({ length: 15 }, (_, index) => `w${writer}-${index}`)).flat().sort();
+  assert.deepEqual(nodes.map((node) => node.title).sort(), expectedTitles);
 });
 
 test('a live lock owner is never evicted, a dead owner is', (t) => {
   const dir = fixture(t);
   const lock = paths(dir).lock;
   // A live owner whose lock looks ancient must be respected.
+  const previousTimeout = process.env.BLACKBOARD_LOCK_TIMEOUT_MS;
+  t.after(() => {
+    if (previousTimeout === undefined) delete process.env.BLACKBOARD_LOCK_TIMEOUT_MS;
+    else process.env.BLACKBOARD_LOCK_TIMEOUT_MS = previousTimeout;
+  });
   process.env.BLACKBOARD_LOCK_TIMEOUT_MS = '400';
-  t.after(() => { delete process.env.BLACKBOARD_LOCK_TIMEOUT_MS; });
   const holder = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60000)']);
   t.after(() => holder.kill());
   fs.writeFileSync(lock, `${holder.pid}\n1\n`);
