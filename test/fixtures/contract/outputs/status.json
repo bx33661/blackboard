@@ -11,7 +11,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.status.v2",
+        "schema": "pinwhy.status.v2",
         "stats": {
           "total": 8,
           "edges": 7,
@@ -137,7 +137,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.status.v2",
+        "schema": "pinwhy.status.v2",
         "stats": {
           "total": 8,
           "edges": 7,
@@ -249,7 +249,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.status.v2",
+        "schema": "pinwhy.status.v2",
         "stats": {
           "total": 0,
           "edges": 0,
@@ -327,7 +327,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.status.v2",
+        "schema": "pinwhy.status.v2",
         "stats": {
           "total": 2,
           "edges": 1,

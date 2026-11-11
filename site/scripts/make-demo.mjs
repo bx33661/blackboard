@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
-const CLI = path.join(REPO, 'bin', 'blackboard.js');
+const CLI = path.join(REPO, 'bin', 'pinwhy.js');
 const OUT = path.join(REPO, 'site', 'public', 'demo');
 
 const TEXT = {
@@ -80,9 +80,9 @@ const TEXT = {
 
 function build(lang) {
   const T = TEXT[lang];
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `bb-site-demo-${lang}-`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `pinwhy-site-demo-${lang}-`));
   const bb = (...args) => execFileSync(process.execPath, [CLI, ...args, '--cwd', dir], {
-    cwd: dir, env: { ...process.env, BLACKBOARD_CWD: dir, BLACKBOARD_QUIET: '1' }, encoding: 'utf8',
+    cwd: dir, env: { ...process.env, PINWHY_CWD: dir, PINWHY_QUIET: '1' }, encoding: 'utf8',
   }).trim();
   const add = (kind, title, ...args) => JSON.parse(bb('node', 'add', kind, title, ...args, '--json')).node.id;
   const link = (a, b, rel) => bb('link', a, b, '--rel', rel);

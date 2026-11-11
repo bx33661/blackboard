@@ -1,8 +1,10 @@
 # 从记录到可信交接
 
+> 历史归属：本文带日期的旧版本、测量和验收记录属于原 blackboard，不是 Pinwhy 0.11.0 的验证结果；现行命令与资源路径使用 Pinwhy 名称。
+
 > 历史迭代记录：保留当轮范围、验收线和执行边界；下文“本轮”及浏览器验证描述不指向当前改动。当前目录边界见[架构说明](ARCHITECTURE.md)，实际开发与发布前命令见[贡献指南](../CONTRIBUTING.md)。
 
-本轮保留 blackboard 的身份：外置语义记忆，不选择下一步；events.jsonl 是唯一事实源。所有开发、故障注入和基准只操作临时演示板，不修改日常项目板或 installed/current。
+本轮保留 Pinwhy 的身份：外置语义记忆，不选择下一步；events.jsonl 是唯一事实源。所有开发、故障注入和基准只操作临时演示板，不修改日常项目板或 installed/current。
 
 ## 已实现
 
@@ -49,7 +51,7 @@ npm run benchmark:full
 ## 接手提示（可复用）
 
 ```text
-读取 blackboard context --json（默认 JSON）与指定 checkpoint 后的 changes。
+读取 pinwhy context --json（默认 JSON）与指定 checkpoint 后的 changes。
 仅依据所读记录说明当前问题、有效证据、已反驳项、变更原因（若有记录）与未验证项。
 用节点 ID、关系方向和来源位置引用证据；省略项通过 search/show/history 补读。
 缺少记录时明确写“未记录”，不要由类型推断状态、可信度或下一步。

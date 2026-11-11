@@ -7,13 +7,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { isolatedBlackboardEnv } from '../../scripts/lib/environment.mjs';
+import { isolatedPinwhyEnv } from '../../scripts/lib/environment.mjs';
 
 const moduleOverride = process.env.PLAYWRIGHT_MODULE;
 const executableOverride = process.env.CHROMIUM_EXECUTABLE;
-const output = path.resolve(process.env.BLACKBOARD_VIEWER_OUTPUT || fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-viewer-proof-')));
+const output = path.resolve(process.env.PINWHY_VIEWER_OUTPUT || fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-viewer-proof-')));
 fs.mkdirSync(output, { recursive: true });
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-viewer-'));
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-viewer-'));
 const board = path.join(scratch, 'board');
 const home = path.join(scratch, 'home');
 fs.mkdirSync(board); fs.mkdirSync(home);
@@ -60,7 +60,7 @@ async function viewerContext(instance = browser) {
   const context = await instance.newContext({ locale: 'zh-CN', viewport: { width: 1360, height: 960 } });
   context.setDefaultTimeout(15000);
   context.setDefaultNavigationTimeout(30000);
-  await context.addInitScript(() => localStorage.setItem('blackboard-pref-locale', JSON.stringify('zh-CN')));
+  await context.addInitScript(() => localStorage.setItem('pinwhy-pref-locale', JSON.stringify('zh-CN')));
   context.on('page', (page) => {
     page.on('pageerror', (error) => diagnostics.push({ kind: 'pageerror', page: page.url(), message: String(error) }));
     page.on('console', (message) => { if (message.type() === 'error') diagnostics.push({ kind: 'console', page: page.url(), message: message.text() }); });
@@ -125,8 +125,8 @@ async function verify() {
   // Resolve Playwright's installed browser before replacing HOME for the application.
   ({ chromium } = await import(moduleOverride ? pathToFileURL(path.resolve(moduleOverride)).href : 'playwright'));
   executablePath = executableOverride || chromium.executablePath();
-  const env = isolatedBlackboardEnv({ HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local', 'share'), XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.local', 'state'), BLACKBOARD_CWD: board, BLACKBOARD_QUIET: '1' });
-  for (const key of Object.keys(process.env)) if (key.startsWith('BLACKBOARD_')) delete process.env[key];
+  const env = isolatedPinwhyEnv({ HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local', 'share'), XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.local', 'state'), PINWHY_CWD: board, PINWHY_QUIET: '1' });
+  for (const key of Object.keys(process.env)) if (key.startsWith('PINWHY_')) delete process.env[key];
   Object.assign(process.env, env);
   const { ensure, addNode, addEdge, patchNode, removeNode, removeEdge, moveCursor, addCheckpoint, replay, readEvents, paths } = await import('../../lib/store.js');
   const { startServer } = await import('../../lib/server.js');

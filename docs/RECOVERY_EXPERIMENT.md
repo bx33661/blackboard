@@ -126,7 +126,7 @@ node scripts/recovery-experiment.mjs run \
 
 ```json
 {
-  "schema": "blackboard.recovery-run.request.v1",
+  "schema": "pinwhy.recovery-run.request.v1",
   "model": "provider-exact-model-revision",
   "parameters": { "temperature": 0, "seed": 123 },
   "budget": { "maxOutputTokens": 2000, "materialTokens": 4000 },

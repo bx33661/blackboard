@@ -1,4 +1,4 @@
-# Blackboard UI
+# Pinwhy UI
 
 Quiet tool chrome for exploration, with a paper-like document view for reading and sharing.
 
@@ -9,13 +9,17 @@ Quiet tool chrome for exploration, with a paper-like document view for reading a
   digest · theme. Narrow screens use two compact rows. The Agent menu appears only
   when there is more than one perspective; long names truncate in the trigger,
   with the full identity available in its tooltip and menu.
-- **About blackboard**: the brand mark and name open a centred dialog with the app
+- **About Pinwhy**: the brand mark and name open a centred dialog with the app
   icon, project introduction, available version/build/commit information, and Docs /
   GitHub links. Escape or the close button dismisses it and restores trigger focus.
   It follows the current language and theme and remains usable on narrow screens.
   The dialog icon and browser favicon share the transparent mint mark in
-  `design/blackboard-logo/blackboard-mark-mint.svg`, without a dark app tile.
+  `design/pinwhy-logo/pinwhy-mark-mint.svg`, without a dark app tile.
   Vite inlines both so live pages and self-contained offline exports need no image fetch.
+  Live workspaces also offer an explicit Check for updates button with loading,
+  failure/retry, current/ahead/available results, and an upgrade-document link when
+  an update is available. It checks the official main package version only when
+  clicked. Offline snapshots show a notice and make no update request.
 - **Sidebar (256px, collapsible; overlay below 1024px)**: outline of the board —
   current position, open items, findings, unconnected records — plus counts.
   Rows show recorded status, severity and confidence independently; footer counts wrap

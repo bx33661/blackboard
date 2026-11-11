@@ -12,7 +12,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.receipt.v1",
+        "schema": "pinwhy.receipt.v1",
         "requestId": "req-fixture-1",
         "command": "patchNode",
         "fingerprint": "951e50bc7f7ddeedf89d69269ebb659dce7a741965b005b167786d9197437c6a",

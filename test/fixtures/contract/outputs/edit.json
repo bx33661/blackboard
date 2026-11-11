@@ -18,7 +18,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.node.v2",
+        "schema": "pinwhy.node.v2",
         "id": "v1",
         "type": "vuln",
         "title": "Session fixation",

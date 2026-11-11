@@ -12,7 +12,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.show.v2",
+        "schema": "pinwhy.show.v2",
         "node": {
           "id": "v1",
           "type": "vuln",
@@ -85,7 +85,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.show.v2",
+        "schema": "pinwhy.show.v2",
         "node": {
           "id": "x1",
           "type": "experiment",
@@ -139,7 +139,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.show.v2",
+        "schema": "pinwhy.show.v2",
         "node": {
           "id": "v1",
           "type": "vuln",

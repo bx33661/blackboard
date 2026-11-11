@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Seed a blackboard demo in a fresh directory: `node scripts/demo.js [dir]`.
+// Seed a pinwhy demo in a fresh directory: `node scripts/demo.js [dir]`.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -7,25 +7,25 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const CLI = path.resolve(HERE, '..', 'bin', 'blackboard.js');
+const CLI = path.resolve(HERE, '..', 'bin', 'pinwhy.js');
 const dir = path.resolve(process.argv[2] || path.join(HERE, '..', 'demo'));
 
-if (fs.existsSync(path.join(dir, '.blackboard'))) fs.rmSync(path.join(dir, '.blackboard'), { recursive: true, force: true });
+if (fs.existsSync(path.join(dir, '.pinwhy'))) fs.rmSync(path.join(dir, '.pinwhy'), { recursive: true, force: true });
 fs.mkdirSync(dir, { recursive: true });
 
-const blackboard = (...args) => execFileSync(process.execPath, [CLI, ...args], {
+const pinwhy = (...args) => execFileSync(process.execPath, [CLI, ...args], {
   cwd: dir,
-  env: { ...process.env, BLACKBOARD_CWD: dir, BLACKBOARD_QUIET: '1' },
+  env: { ...process.env, PINWHY_CWD: dir, PINWHY_QUIET: '1' },
   encoding: 'utf8',
 }).trim();
 
 const add = (kind, title, ...args) => {
-  const out = blackboard('node', 'add', kind, title, ...args, '--json');
+  const out = pinwhy('node', 'add', kind, title, ...args, '--json');
   return JSON.parse(out).node.id;
 };
-const link = (from, to, relation) => blackboard('link', from, to, '--rel', relation);
+const link = (from, to, relation) => pinwhy('link', from, to, '--rel', relation);
 
-blackboard('init', '--here', '--title', 'blackboard 演示 · Agent 外置黑板');
+pinwhy('init', '--here', '--title', 'pinwhy 演示 · Agent 外置黑板');
 const start = add('start', '审计入口：内部管理后台', '--enter');
 const goalAuth = add('goal', '确认管理 API 的匿名访问边界');
 const goalTenant = add('goal', '确认导出链路的租户隔离');
@@ -52,7 +52,7 @@ link(hypothesisAuth, questionMiddleware, 'derived-from');
 const hintMiddleware = add('hint', '优先比较 router.get 与 router.post 的中间件参数');
 link(questionMiddleware, hintMiddleware, 'related-to');
 
-blackboard('cursor', goalTenant, '--reason', '切换到租户隔离分支');
+pinwhy('cursor', goalTenant, '--reason', '切换到租户隔离分支');
 const actionExport = add('action', '使用低权限账号修改 export 请求中的 tenantId', '--enter');
 link(goalTenant, actionExport, 'derived-from');
 const obsExport = add('observation', '服务端接受任意 tenantId 并返回其他租户订单');
@@ -75,8 +75,8 @@ link(obsSvg, questionUpload, 'supports');
 const counter = add('observation', '利用仍需要管理员访问，当前没有触发路径');
 link(counter, questionUpload, 'contradicts');
 
-blackboard('cursor', questionUpload, '--reason', '保留组合利用问题，等待后续条件');
-blackboard('checkpoint', '--summary', '已确认三个发现；当前停在上传与导出链路的组合利用问题。');
+pinwhy('cursor', questionUpload, '--reason', '保留组合利用问题，等待后续条件');
+pinwhy('checkpoint', '--summary', '已确认三个发现；当前停在上传与导出链路的组合利用问题。');
 
 console.log(`黑板演示已生成：${dir}`);
 console.log(`查看：node ${CLI} serve --open  (cwd=${dir})`);

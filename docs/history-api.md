@@ -1,8 +1,8 @@
 # Read-only history and checkpoint changes
 
-Both projections replay `.blackboard/events.jsonl`; they do not update the event log, state cache, cursor, or current graph. The live server exposes them on its own loopback origin, including in `--read-only` mode. Offline HTML has no history endpoint and must not request a different host.
+Both projections replay `.pinwhy/events.jsonl`; they do not update the event log, state cache, cursor, or current graph. The live server exposes them on its own loopback origin, including in `--read-only` mode. Offline HTML has no history endpoint and must not request a different host.
 
-New read contracts carry versioned schema identifiers: `blackboard.history.v1`, `blackboard.changes.v1`, and `blackboard.receipt-response.v1`. CLI backup/restore/receipt/search also carry v1 schema identifiers; existing legacy JSON contracts are not renamed.
+New read contracts carry versioned schema identifiers: `pinwhy.history.v1`, `pinwhy.changes.v1`, and `pinwhy.receipt-response.v1`. CLI backup/restore/receipt/search also carry v1 schema identifiers; existing legacy JSON contracts are not renamed.
 
 ## GET /api/history?node=ID
 

@@ -15,7 +15,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.batch.v1",
+        "schema": "pinwhy.batch.v1",
         "requestId": "batch-1",
         "refs": {
           "h": "hy1"
@@ -466,7 +466,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.batch.v1",
+        "schema": "pinwhy.batch.v1",
         "checked": true,
         "requestId": null,
         "refs": {

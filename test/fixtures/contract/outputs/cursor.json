@@ -14,7 +14,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.cursor.v1",
+        "schema": "pinwhy.cursor.v1",
         "cursor": {
           "id": "<cursor-id>",
           "agentId": "agent:primary",
@@ -53,7 +53,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.cursor.v1",
+        "schema": "pinwhy.cursor.v1",
         "cursor": {
           "id": "<cursor-id>",
           "agentId": "agent:primary",
@@ -92,7 +92,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.cursor.v1",
+        "schema": "pinwhy.cursor.v1",
         "cursor": {
           "id": "<cursor-id>",
           "agentId": "agent:reviewer",

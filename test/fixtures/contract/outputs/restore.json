@@ -12,10 +12,10 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.restore-receipt.v1",
+        "schema": "pinwhy.restore-receipt.v1",
         "kind": "restore",
         "path": "<root>/restored",
-        "boardPath": "<root>/restored/.blackboard",
+        "boardPath": "<root>/restored/.pinwhy",
         "eventsSha256": "487f1b6e2b5318c190421a8ef2d8ee0769706b8c6307504242a345d1b1df0d3f",
         "eventCount": 33,
         "integrity": {

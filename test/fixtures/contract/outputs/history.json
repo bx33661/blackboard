@@ -12,7 +12,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.history.v2",
+        "schema": "pinwhy.history.v2",
         "readOnly": true,
         "prescriptive": false,
         "nodeId": "v1",
@@ -162,7 +162,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.history.v2",
+        "schema": "pinwhy.history.v2",
         "readOnly": true,
         "prescriptive": false,
         "nodeId": "f4",
@@ -245,7 +245,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.history.v2",
+        "schema": "pinwhy.history.v2",
         "readOnly": true,
         "prescriptive": false,
         "nodeId": "n1",

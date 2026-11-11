@@ -9,7 +9,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.capabilities.v1",
+        "schema": "pinwhy.capabilities.v1",
         "schemaVersion": 1,
         "version": "<package-version>",
         "eventVersion": 1,
@@ -21,6 +21,7 @@
           "init",
           "setup",
           "status",
+          "doctor",
           "node",
           "start",
           "goal",
@@ -48,7 +49,6 @@
           "list",
           "show",
           "tree",
-          "tui",
           "digest",
           "context",
           "lint",
@@ -96,7 +96,15 @@
           "batch": true,
           "batchCheck": true,
           "jsonErrors": true,
-          "asOf": true
+          "asOf": true,
+          "doctor": true,
+          "editClear": true,
+          "listFilters": true,
+          "resourcePaths": true
+        },
+        "resources": {
+          "cli": "<runtime>/bin/pinwhy.js",
+          "skill": "<runtime>/skills/pinwhy"
         },
         "exportFormats": [
           "html",
@@ -106,7 +114,7 @@
         ],
         "errors": {
           "stream": "stderr",
-          "schema": "blackboard.error.v1",
+          "schema": "pinwhy.error.v1",
           "codes": [
             "unknown_command",
             "unknown_option",
@@ -141,160 +149,168 @@
         "outputs": {
           "init": {
             "shape": "object",
-            "schema": "blackboard.init.v1"
+            "schema": "pinwhy.init.v1"
           },
           "status": {
             "shape": "object",
-            "schema": "blackboard.status.v2"
+            "schema": "pinwhy.status.v2"
+          },
+          "doctor": {
+            "shape": "object",
+            "schema": "pinwhy.doctor.v1"
           },
           "node": {
             "shape": "object",
-            "schema": "blackboard.node-add.v2"
+            "schema": "pinwhy.node-add.v2"
           },
           "checkpoint": {
             "shape": "object",
-            "schema": "blackboard.checkpoint.v1"
+            "schema": "pinwhy.checkpoint.v1"
           },
           "cursor": {
             "shape": "object",
-            "schema": "blackboard.cursor.v1"
+            "schema": "pinwhy.cursor.v1"
           },
           "here": {
             "shape": "object",
-            "schema": "blackboard.here.v2"
+            "schema": "pinwhy.here.v2"
           },
           "activity": {
             "shape": "array",
-            "items": "blackboard.activity.v1"
+            "items": "pinwhy.activity.v1"
           },
           "activity show": {
             "shape": "object",
-            "schema": "blackboard.activity.v1"
+            "schema": "pinwhy.activity.v1"
           },
           "promote": {
             "shape": "object",
-            "schema": "blackboard.node-add.v2"
+            "schema": "pinwhy.node-add.v2"
           },
           "batch": {
             "shape": "object",
-            "schema": "blackboard.batch.v1"
+            "schema": "pinwhy.batch.v1"
           },
           "done": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "block": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "revive": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "edit": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "link": {
             "shape": "object",
-            "schema": "blackboard.edge.v1"
+            "schema": "pinwhy.edge.v1"
           },
           "unlink": {
             "shape": "object",
-            "schema": "blackboard.edge.v1"
+            "schema": "pinwhy.edge.v1"
           },
           "remove": {
             "shape": "object",
-            "schema": "blackboard.remove.v1"
+            "schema": "pinwhy.remove.v1"
           },
           "ls": {
             "shape": "array",
-            "items": "blackboard.node.v2"
+            "items": "pinwhy.node.v2"
           },
           "show": {
             "shape": "object",
-            "schema": "blackboard.show.v2"
+            "schema": "pinwhy.show.v2"
           },
           "digest": {
             "shape": "object",
-            "schema": "blackboard.digest.v1"
+            "schema": "pinwhy.digest.v1"
           },
           "context": {
             "shape": "object",
-            "schema": "blackboard.context.v2"
+            "schema": "pinwhy.context.v2"
           },
           "lint": {
             "shape": "object",
-            "schema": "blackboard.lint.v1"
+            "schema": "pinwhy.lint.v1"
           },
           "tail": {
             "shape": "object",
-            "schema": "blackboard.tail.v1"
+            "schema": "pinwhy.tail.v1"
           },
           "export": {
             "shape": "object",
-            "schema": "blackboard.export.v1"
+            "schema": "pinwhy.export.v1"
           },
           "reset": {
             "shape": "object",
-            "schema": "blackboard.reset.v1"
+            "schema": "pinwhy.reset.v1"
           },
           "search": {
             "shape": "object",
-            "schema": "blackboard.search.v2"
+            "schema": "pinwhy.search.v2"
           },
           "history": {
             "shape": "object",
-            "schema": "blackboard.history.v2"
+            "schema": "pinwhy.history.v2"
           },
           "changes": {
             "shape": "object",
-            "schema": "blackboard.changes.v2"
+            "schema": "pinwhy.changes.v2"
           },
           "backup": {
             "shape": "object",
-            "schema": "blackboard.backup-receipt.v1"
+            "schema": "pinwhy.backup-receipt.v1"
           },
           "restore": {
             "shape": "object",
-            "schema": "blackboard.restore-receipt.v1"
+            "schema": "pinwhy.restore-receipt.v1"
           },
           "receipt": {
             "shape": "object",
-            "schema": "blackboard.receipt.v1"
+            "schema": "pinwhy.receipt.v1"
           },
           "capabilities": {
             "shape": "object",
-            "schema": "blackboard.capabilities.v1"
+            "schema": "pinwhy.capabilities.v1"
+          },
+          "release check": {
+            "shape": "object",
+            "schema": "pinwhy.update-check.v1"
           }
         },
         "writeTargets": [
           {
-            "path": ".blackboard/events.jsonl",
+            "path": ".pinwhy/events.jsonl",
             "role": "log"
           },
           {
-            "path": ".blackboard/lock",
+            "path": ".pinwhy/lock",
             "role": "lock"
           },
           {
-            "path": ".blackboard/state.json",
+            "path": ".pinwhy/state.json",
             "role": "cache"
           },
           {
-            "path": ".blackboard/state.json.tmp",
+            "path": ".pinwhy/state.json.tmp",
             "role": "cache-temp"
           },
           {
-            "path": ".blackboard/config.json",
+            "path": ".pinwhy/config.json",
             "role": "config"
           },
           {
-            "path": ".blackboard/.gitignore",
+            "path": ".pinwhy/.gitignore",
             "role": "gitignore"
           },
           {
-            "path": ".blackboard/digest.md",
+            "path": ".pinwhy/digest.md",
             "role": "digest"
           }
         ]
@@ -310,7 +326,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.capabilities.v1",
+        "schema": "pinwhy.capabilities.v1",
         "schemaVersion": 1,
         "version": "<package-version>",
         "eventVersion": 1,
@@ -322,6 +338,7 @@
           "init",
           "setup",
           "status",
+          "doctor",
           "node",
           "start",
           "goal",
@@ -349,7 +366,6 @@
           "list",
           "show",
           "tree",
-          "tui",
           "digest",
           "context",
           "lint",
@@ -397,7 +413,15 @@
           "batch": true,
           "batchCheck": true,
           "jsonErrors": true,
-          "asOf": true
+          "asOf": true,
+          "doctor": true,
+          "editClear": true,
+          "listFilters": true,
+          "resourcePaths": true
+        },
+        "resources": {
+          "cli": "<runtime>/bin/pinwhy.js",
+          "skill": "<runtime>/skills/pinwhy"
         },
         "exportFormats": [
           "html",
@@ -407,7 +431,7 @@
         ],
         "errors": {
           "stream": "stderr",
-          "schema": "blackboard.error.v1",
+          "schema": "pinwhy.error.v1",
           "codes": [
             "unknown_command",
             "unknown_option",
@@ -442,160 +466,168 @@
         "outputs": {
           "init": {
             "shape": "object",
-            "schema": "blackboard.init.v1"
+            "schema": "pinwhy.init.v1"
           },
           "status": {
             "shape": "object",
-            "schema": "blackboard.status.v2"
+            "schema": "pinwhy.status.v2"
+          },
+          "doctor": {
+            "shape": "object",
+            "schema": "pinwhy.doctor.v1"
           },
           "node": {
             "shape": "object",
-            "schema": "blackboard.node-add.v2"
+            "schema": "pinwhy.node-add.v2"
           },
           "checkpoint": {
             "shape": "object",
-            "schema": "blackboard.checkpoint.v1"
+            "schema": "pinwhy.checkpoint.v1"
           },
           "cursor": {
             "shape": "object",
-            "schema": "blackboard.cursor.v1"
+            "schema": "pinwhy.cursor.v1"
           },
           "here": {
             "shape": "object",
-            "schema": "blackboard.here.v2"
+            "schema": "pinwhy.here.v2"
           },
           "activity": {
             "shape": "array",
-            "items": "blackboard.activity.v1"
+            "items": "pinwhy.activity.v1"
           },
           "activity show": {
             "shape": "object",
-            "schema": "blackboard.activity.v1"
+            "schema": "pinwhy.activity.v1"
           },
           "promote": {
             "shape": "object",
-            "schema": "blackboard.node-add.v2"
+            "schema": "pinwhy.node-add.v2"
           },
           "batch": {
             "shape": "object",
-            "schema": "blackboard.batch.v1"
+            "schema": "pinwhy.batch.v1"
           },
           "done": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "block": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "revive": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "edit": {
             "shape": "object",
-            "schema": "blackboard.node.v2"
+            "schema": "pinwhy.node.v2"
           },
           "link": {
             "shape": "object",
-            "schema": "blackboard.edge.v1"
+            "schema": "pinwhy.edge.v1"
           },
           "unlink": {
             "shape": "object",
-            "schema": "blackboard.edge.v1"
+            "schema": "pinwhy.edge.v1"
           },
           "remove": {
             "shape": "object",
-            "schema": "blackboard.remove.v1"
+            "schema": "pinwhy.remove.v1"
           },
           "ls": {
             "shape": "array",
-            "items": "blackboard.node.v2"
+            "items": "pinwhy.node.v2"
           },
           "show": {
             "shape": "object",
-            "schema": "blackboard.show.v2"
+            "schema": "pinwhy.show.v2"
           },
           "digest": {
             "shape": "object",
-            "schema": "blackboard.digest.v1"
+            "schema": "pinwhy.digest.v1"
           },
           "context": {
             "shape": "object",
-            "schema": "blackboard.context.v2"
+            "schema": "pinwhy.context.v2"
           },
           "lint": {
             "shape": "object",
-            "schema": "blackboard.lint.v1"
+            "schema": "pinwhy.lint.v1"
           },
           "tail": {
             "shape": "object",
-            "schema": "blackboard.tail.v1"
+            "schema": "pinwhy.tail.v1"
           },
           "export": {
             "shape": "object",
-            "schema": "blackboard.export.v1"
+            "schema": "pinwhy.export.v1"
           },
           "reset": {
             "shape": "object",
-            "schema": "blackboard.reset.v1"
+            "schema": "pinwhy.reset.v1"
           },
           "search": {
             "shape": "object",
-            "schema": "blackboard.search.v2"
+            "schema": "pinwhy.search.v2"
           },
           "history": {
             "shape": "object",
-            "schema": "blackboard.history.v2"
+            "schema": "pinwhy.history.v2"
           },
           "changes": {
             "shape": "object",
-            "schema": "blackboard.changes.v2"
+            "schema": "pinwhy.changes.v2"
           },
           "backup": {
             "shape": "object",
-            "schema": "blackboard.backup-receipt.v1"
+            "schema": "pinwhy.backup-receipt.v1"
           },
           "restore": {
             "shape": "object",
-            "schema": "blackboard.restore-receipt.v1"
+            "schema": "pinwhy.restore-receipt.v1"
           },
           "receipt": {
             "shape": "object",
-            "schema": "blackboard.receipt.v1"
+            "schema": "pinwhy.receipt.v1"
           },
           "capabilities": {
             "shape": "object",
-            "schema": "blackboard.capabilities.v1"
+            "schema": "pinwhy.capabilities.v1"
+          },
+          "release check": {
+            "shape": "object",
+            "schema": "pinwhy.update-check.v1"
           }
         },
         "writeTargets": [
           {
-            "path": ".blackboard/events.jsonl",
+            "path": ".pinwhy/events.jsonl",
             "role": "log"
           },
           {
-            "path": ".blackboard/lock",
+            "path": ".pinwhy/lock",
             "role": "lock"
           },
           {
-            "path": ".blackboard/state.json",
+            "path": ".pinwhy/state.json",
             "role": "cache"
           },
           {
-            "path": ".blackboard/state.json.tmp",
+            "path": ".pinwhy/state.json.tmp",
             "role": "cache-temp"
           },
           {
-            "path": ".blackboard/config.json",
+            "path": ".pinwhy/config.json",
             "role": "config"
           },
           {
-            "path": ".blackboard/.gitignore",
+            "path": ".pinwhy/.gitignore",
             "role": "gitignore"
           },
           {
-            "path": ".blackboard/digest.md",
+            "path": ".pinwhy/digest.md",
             "role": "digest"
           }
         ]

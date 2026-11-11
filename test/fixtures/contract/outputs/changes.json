@@ -13,7 +13,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.changes.v2",
+        "schema": "pinwhy.changes.v2",
         "readOnly": true,
         "prescriptive": false,
         "since": {
@@ -763,7 +763,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.changes.v2",
+        "schema": "pinwhy.changes.v2",
         "readOnly": true,
         "prescriptive": false,
         "since": {
@@ -804,7 +804,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.changes.v2",
+        "schema": "pinwhy.changes.v2",
         "readOnly": true,
         "prescriptive": false,
         "since": {

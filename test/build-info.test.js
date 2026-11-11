@@ -9,13 +9,13 @@ import { installRelease, useRelease } from '../lib/release.js';
 import { probeViewer } from '../lib/service.js';
 
 function fixture(t) {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-identity-'));
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-identity-'));
   t.after(() => fs.rmSync(base, { recursive: true, force: true }));
   const root = path.join(base, 'source');
   fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
   fs.mkdirSync(path.join(root, 'public'));
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.2.3', files: ['bin', 'public'] }));
-  fs.writeFileSync(path.join(root, 'bin', 'blackboard.js'), 'console.log("synthetic original");\n');
+  fs.writeFileSync(path.join(root, 'bin', 'pinwhy.js'), 'console.log("synthetic original");\n');
   fs.writeFileSync(path.join(root, 'public', 'index.html'), '<html>Synthetic viewer</html>');
   return { root, home: path.join(base, 'releases'), base };
 }
@@ -41,7 +41,7 @@ test('content identity survives relocation and installation but distinguishes sa
   assert.equal(release.commit, 'abc1234');
   assert.equal(release.dirty, true);
   assert.deepEqual(release.origin, { kind: 'release', version: '1.2.3', active: true });
-  fs.appendFileSync(path.join(moved, 'bin', 'blackboard.js'), '// changed code\n');
+  fs.appendFileSync(path.join(moved, 'bin', 'pinwhy.js'), '// changed code\n');
   const changedCode = buildInfo({ root: moved, home });
   assert.notEqual(changedCode.buildId, original.buildId);
   fs.appendFileSync(path.join(moved, 'public', 'index.html'), '<!-- changed asset -->');

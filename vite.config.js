@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { resolvePort, viewerUrl } from './lib/service.js';
 
 const backendUrl = viewerUrl(resolvePort({
-  cwd: process.env.BLACKBOARD_CWD || process.cwd(),
+  cwd: process.env.PINWHY_CWD || process.cwd(),
 }));
 
 export default defineConfig({

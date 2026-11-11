@@ -9,7 +9,7 @@ import { ensure, addNode, patchNode } from '../lib/store.js';
 import { createGraphStream } from '../lib/http/graph-stream.js';
 
 function board(t) {
-  const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-sse-')));
+  const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-sse-')));
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   ensure(cwd);
   return cwd;

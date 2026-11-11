@@ -1,7 +1,7 @@
 import { useT } from '../i18n.jsx';
 import { Icon, REPO, useCopyPrompt } from '../shared.jsx';
 
-const WORD = 'blackboard';
+const WORD = 'Pinwhy';
 
 export default function Hero() {
   const t = useT();
@@ -14,12 +14,11 @@ export default function Hero() {
         <a className="hero-pill sans" href={t.hero.eyebrowHref} target="_blank" rel="noreferrer">
           <i />{t.hero.eyebrow}<Icon.arrow />
         </a>
-        <h1 className="wordmark" id="hero-title" aria-label="blackboard 黑板">
+        <h1 className="wordmark" id="hero-title" aria-label="Pinwhy">
           <span className="wm-latin" aria-hidden="true">
             {[...WORD].map((ch, i) => <span key={i} className="ch" style={{ '--i': i }}>{ch}</span>)}
           </span>
           <span className="dot" aria-hidden="true"><i /></span>
-          <span className="cjk" aria-hidden="true">黑板</span>
         </h1>
         <p className="hero-lead">
           {lead1}<br className="br-d" />{lead2}

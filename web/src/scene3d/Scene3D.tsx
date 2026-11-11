@@ -30,7 +30,7 @@ export default function Scene3D(props: Scene3DProps) {
       if (!blob) { reject(new Error(t('app.exportFailed'))); return; }
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `blackboard-3d-${mode}-${new Date().toISOString().slice(0, 10)}.png`;
+      link.download = `pinwhy-3d-${mode}-${new Date().toISOString().slice(0, 10)}.png`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       resolve();

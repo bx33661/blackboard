@@ -13,9 +13,9 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.init.v1",
+        "schema": "pinwhy.init.v1",
         "cwd": "<root>/board",
-        "board": "<root>/board/.blackboard",
+        "board": "<root>/board/.pinwhy",
         "title": "New board",
         "session": "<session-id>"
       },

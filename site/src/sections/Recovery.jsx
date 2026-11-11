@@ -63,7 +63,7 @@ export default function Recovery() {
   };
   const erased = (n) => phase === 1 && wipe * 110 > n.x + NW / 2;
   const ctx = phase === 0 ? Math.round(18 + build * 70) : phase === 1 ? Math.round(88 + wipe * 12) : Math.round(14 + restore * 8);
-  const cmd = 'blackboard context --budget 4000';
+  const cmd = 'pinwhy context --budget 4000';
   const typedCmd = cmd.slice(0, Math.round(typed * cmd.length));
 
   return (
@@ -86,7 +86,7 @@ export default function Recovery() {
           <div className={`rb phase-${phase}`} aria-hidden="true">
             <div className="rb-bar">
               <i /><i /><i />
-              <span>.blackboard/events.jsonl</span>
+              <span>.pinwhy/events.jsonl</span>
               <span className={`rb-ctx${ctx > 95 ? ' full' : ''}`}>
                 {T.ctx} <span className="track"><b style={{ width: `${Math.min(100, ctx)}%` }} /></span> {Math.min(100, ctx)}%
               </span>

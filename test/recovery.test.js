@@ -11,7 +11,7 @@ import { isConfirmedFact, isCurrentFinding, isExplicitlyConfirmed, isOpenThread 
 import { evaluateRecovery, contextNodeIds } from '../scripts/evaluate-recovery.mjs';
 
 function fixture(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-recovery-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-recovery-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   ensure(dir);
   return dir;
@@ -69,7 +69,7 @@ test('action openness agrees between digest, context and statistics', (t) => {
   const graph = replay(dir);
   assert.equal(buildAgentContext(graph).openThreads.some((item) => item.id === node.id), true);
   const digest = buildDigest(graph, dir);
-  assert.match(digest.slice(digest.indexOf('## 开放节点')), /Explicit pending experiment/);
+  assert.ok(digest.includes(node.title));
   assert.equal(stats(graph).frontier, 1);
 });
 

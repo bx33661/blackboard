@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { setImmediate as flush } from 'node:timers/promises';
 
 // Compile the controller using the same portable Node 18+ pattern as the viewer tests.
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-graph-stream-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-graph-stream-'));
 after(() => fs.rmSync(dir, { recursive: true, force: true }));
 const root = fileURLToPath(new URL('../', import.meta.url));
 execFileSync(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '--target', 'ES2022', '--module', 'ESNext', '--moduleResolution', 'Bundler', '--skipLibCheck', '--outDir', dir, path.join(root, 'web/src/workspace/graph-stream.ts')], { cwd: dir });

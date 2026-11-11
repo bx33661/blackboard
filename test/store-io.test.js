@@ -6,7 +6,7 @@ import path from 'node:path';
 import { addNode, appendEvent, ensure, paths, readEvents, replay, withLock, writeBatch } from '../lib/store.js';
 
 function fixture(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-store-io-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-store-io-'));
   ensure(dir);
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;

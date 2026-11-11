@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 // Compile pure viewer modules without requiring a DOM or a specific Node TS loader.
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-presenter-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-presenter-'));
 after(() => fs.rmSync(dir, { recursive: true, force: true }));
 const root = fileURLToPath(new URL('../', import.meta.url));
 execFileSync(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '--target', 'ES2022', '--module', 'ESNext', '--moduleResolution', 'Bundler', '--skipLibCheck', '--outDir', dir, path.join(root, 'web/src/presentation.ts'), path.join(root, 'web/src/api.ts'), path.join(root, 'web/src/workspace/selectors.ts')], { cwd: dir });

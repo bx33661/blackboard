@@ -1,6 +1,6 @@
 # 批量写入 `batch`：设计
 
-状态：已实现（0.10.0）。本文记录设计取舍；对外的输入格式、输出和错误规则以[公开契约](CONTRACT.md#批量写入)为准。来源：一次 4 小时多 Agent 审计的反馈（见[路线图](ROADMAP.md)“真实长任务反馈”）。
+状态：已实现（原 blackboard 0.10.0）；以下命令与输出名称为当前 Pinwhy 0.11.0，原发布使用 `blackboard.batch.v1`。本文记录设计取舍；对外的输入格式、输出和错误规则以[公开契约](CONTRACT.md#批量写入)为准。来源：一次 4 小时多 Agent 审计的反馈（见[路线图](ROADMAP.md)“真实长任务反馈”）。
 
 ## 要解决的问题
 
@@ -21,8 +21,8 @@
 ## 命令
 
 ```sh
-blackboard batch --request-id wave-3 --file wave-3.jsonl --cwd "/已确认项目" --no-init [--agent coordinator] [--no-truncate] [--json]
-blackboard batch --check --file wave-3.jsonl --cwd "/已确认项目"   # 只校验，不写入
+pinwhy batch --request-id wave-3 --file wave-3.jsonl --cwd "/已确认项目" --no-init [--agent coordinator] [--no-truncate] [--json]
+pinwhy batch --check --file wave-3.jsonl --cwd "/已确认项目"   # 只校验，不写入
 # 不给 --file 时从 stdin 读取
 ```
 
@@ -45,11 +45,12 @@ JSON Lines，每行一个对象，`op` 决定操作。空行忽略。
 | --- | --- | --- |
 | `node` | `type`、`title` 必填；`detail`、`tags`（字符串数组）、`at`、`status`、`severity`、`confidence`、`to`（字符串或数组）、`rel`、`label`、`ref`、`agent` | 同 `node add`：`to` 读作“新节点 `rel` 目标”，可多个；省略 `rel` 时为 `related-to` |
 | `link` | `from`、`to` 必填；`rel`、`label`、`agent` | 同 `link` |
-| `edit` | `id` 必填；`title`、`detail`、`status`、`severity`、`confidence`、`agent` 至少一个要修改的字段 | 同 `edit`；`detail` 是替换 |
+| `edit` | `id` 必填；`title`、`detail`、`tags`、`status`、`severity`、`confidence` 至少一个要修改的字段；`agent` 可选 | 同 `edit`；`detail` 是替换，省略字段不变 |
 
 - **批内引用**：`ref` 给本批新建的节点起一个本地名（`[A-Za-z0-9_-]`，最长 64），后面的行用 `$名字` 引用。只能引用**之前**的行，名字在一批内唯一。`$` 前缀不会与已有节点 ID 混淆；已有节点照常用 ID 或唯一前缀。
 - **严格字段**：出现未知字段即报错。字段名拼错（如 `confidance`）如果被静默忽略，这条信息就丢了。节点类型和关系名仍然开放，与单条写入相同。
 - 状态、严重度、可信度的取值规则与单条写入相同。
+- 声明 `features.editClear` 时，批量 `edit` 允许 `"detail":""`、`"tags":[]` 和三个维度的 `null` 显式清空，与 CLI `edit --clear` 相同。标题不可清空，其他 null、纯空白详情及空标签元素拒绝；`node`/`link` 仍沿用严格非空输入规则。清空使用普通 patch 事件，支持历史、重放和 request-id 重试。
 
 ## 原子性与错误
 
@@ -60,11 +61,11 @@ JSON Lines，每行一个对象，`op` 决定操作。空行忽略。
 
 ## 输出
 
-`--json` 输出 `blackboard.batch.v1`：
+`--json` 输出 `pinwhy.batch.v1`：
 
 ```json
 {
-  "schema": "blackboard.batch.v1",
+  "schema": "pinwhy.batch.v1",
   "requestId": "wave-3",
   "refs": { "h": "hy4" },
   "counts": { "nodes": 2, "edges": 4, "edits": 1 },
@@ -90,8 +91,8 @@ JSON Lines，每行一个对象，`op` 决定操作。空行忽略。
 # 子 Agent：只写自己的输出文件
 #   out/audit-a1/wave-3.jsonl
 # 协调者：每波结束导入，再打检查点
-blackboard batch --request-id wave-3-a1 --file out/audit-a1/wave-3.jsonl --cwd "/已确认项目" --no-init
-blackboard checkpoint --summary "第 3 波：…" --cwd "/已确认项目" --no-init
+pinwhy batch --request-id wave-3-a1 --file out/audit-a1/wave-3.jsonl --cwd "/已确认项目" --no-init
+pinwhy checkpoint --summary "第 3 波：…" --cwd "/已确认项目" --no-init
 ```
 
 导入后检查点回显“自上一检查点以来：节点 +N”，可以直接核对这一波是否记下了东西。

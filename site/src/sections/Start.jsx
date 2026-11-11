@@ -190,7 +190,7 @@ export default function Start() {
 
         <p className="tw-foot rv">
           {S.auto.note}
-          <a href={`${REPO}/blob/main/skills/blackboard/references/setup.md`} target="_blank" rel="noreferrer">{S.manual.guide}<Icon.arrow /></a>
+          <a href={`${REPO}/blob/main/skills/pinwhy/references/setup.md`} target="_blank" rel="noreferrer">{S.manual.guide}<Icon.arrow /></a>
         </p>
       </div>
     </section>

@@ -14,7 +14,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.remove.v1",
+        "schema": "pinwhy.remove.v1",
         "id": "h1",
         "edges": [
           "h1->v1:related-to"
@@ -44,7 +44,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.remove.v1",
+        "schema": "pinwhy.remove.v1",
         "id": "q1",
         "edges": []
       },

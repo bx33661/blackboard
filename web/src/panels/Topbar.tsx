@@ -53,7 +53,7 @@ export function Topbar(props: Props) {
     <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b bg-background px-3 py-2 lg:h-12 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-4 lg:py-0">
       <div className="flex min-w-0 items-center gap-2">
         {!notesOpen && <IconButton label={sidebarOpen ? t('topbar.collapseNav') : t('topbar.expandNav')} aria-pressed={sidebarOpen} onClick={onToggleSidebar}><PanelLeft /></IconButton>}
-        <AboutDialog build={build} />
+        <AboutDialog build={build} isStatic={isStatic} />
         {build && (
           <Tooltip>
             <TooltipTrigger asChild>

@@ -13,7 +13,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.backup-receipt.v1",
+        "schema": "pinwhy.backup-receipt.v1",
         "kind": "backup",
         "path": "<root>/backup",
         "manifest": "<root>/backup/manifest.json",

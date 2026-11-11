@@ -6,7 +6,7 @@ import { performance } from 'node:perf_hooks';
 import { estimateTokensText } from '../../lib/context.js';
 
 const ARMS = ['A', 'B', 'C'];
-const SCHEMA = 'blackboard.recovery-run.v1';
+const SCHEMA = 'pinwhy.recovery-run.v1';
 const DEFAULT_PROMPT = 'Recover only what the supplied material records. Answer every question exactly once. Use fact, guess, or unknown for stance; say unknown when the material does not establish the answer. Cite only recorded node or checkpoint IDs. Return the response envelope required by the adapter protocol. Do not grade your answers or consult other sources.';
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const json = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -96,7 +96,7 @@ export async function runExperiment({ manifest: manifestFile, questions: questio
   outputBudget = positive(outputBudget, 'output-budget');
   maxBytes = positive(maxBytes, 'max-bytes');
   const manifest = json(manifestFile);
-  if (manifest.schema !== 'blackboard.recovery-experiment.v1') throw new Error('unsupported prepared manifest schema');
+  if (manifest.schema !== 'pinwhy.recovery-experiment.v1') throw new Error('unsupported prepared manifest schema');
   positive(manifest.budgetTokens, 'prepared material budget');
   const questions = json(questionsFile);
   // Reuse the checker validation before creating any output or starting a process.
@@ -160,7 +160,7 @@ export async function runExperiment({ manifest: manifestFile, questions: questio
     const dir = path.join(output, id);
     fs.mkdirSync(dir);
     const fullPrompt = `${prompt}\n\nQuestions:\n${JSON.stringify(publicQuestions)}\n\nRecovery material:\n${materials[item.arm]}`;
-    const request = { schema: 'blackboard.recovery-run.request.v1', model: runner.model,
+    const request = { schema: 'pinwhy.recovery-run.request.v1', model: runner.model,
       parameters: runner.parameters || {}, budget: { maxOutputTokens: outputBudget, materialTokens: manifest.budgetTokens },
       questions: publicQuestions, prompt: fullPrompt };
     const input = `${JSON.stringify(request)}\n`;

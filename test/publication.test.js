@@ -17,7 +17,7 @@ function git(cwd,args,expected=0) {
   return result;
 }
 function fixture(t) {
-  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'blackboard-publication-')));
+  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'pinwhy-publication-')));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   git(root,['init','--quiet']);
   git(root,['config','user.name','Publication Fixture']);
@@ -32,9 +32,9 @@ function write(root,name,content='synthetic fixture') {
 
 test('publication paths exclude real-run data, installed adapters and key files, not source or synthetic tests',()=>{
   for(const name of ['trial/run/corpus.jsonl','.claude/settings.json','.agents/skills/x/SKILL.md',
-    '.blackboard/events.jsonl','.zcode/workflow.json','recon/response.txt','report/client.md',
+    '.pinwhy/events.jsonl','.blackboard/events.jsonl','.flow/events.jsonl','.zcode/workflow.json','recon/response.txt','report/client.md',
     '.env','.env.production','.npmrc','credentials.json','TRIAL/result.json','private.key','identity.pem','dist/candidate.tgz']) assert.equal(privatePath(name),true,name);
-  for(const name of ['lib/context.js','test/recovery.test.js','skills/blackboard/SKILL.md',
+  for(const name of ['lib/context.js','test/recovery.test.js','skills/pinwhy/SKILL.md',
     'docs/RECOVERY_EXPERIMENT.md','.env.example','.env.template','public/index.html']) assert.equal(privatePath(name),false,name);
 });
 
@@ -118,7 +118,7 @@ test('the real pre-commit hook blocks a staged synthetic credential without echo
 });
 
 test('root ignore rules protect private paths while keeping regression code publishable',()=>{
-  for(const name of ['trial/REPORT.md','.agents/skills/blackboard/SKILL.md','.claude/settings.json',
+  for(const name of ['trial/REPORT.md','.agents/skills/pinwhy/SKILL.md','.claude/settings.json',
     '.zcode/workflow.json','recon/response.txt','report/client.md','.env','.npmrc','identity.pem']) {
     git(ROOT,['check-ignore','--no-index','--quiet',name]);
   }

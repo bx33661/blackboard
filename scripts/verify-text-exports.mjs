@@ -9,17 +9,17 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { chromium } from 'playwright';
-import { isolatedBlackboardEnv } from './lib/environment.mjs';
+import { isolatedPinwhyEnv } from './lib/environment.mjs';
 
 const require = createRequire(import.meta.url);
-const cli = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+const cli = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
 const mermaidBundle = path.join(path.dirname(require.resolve('mermaid')), 'mermaid.min.js');
 const args = process.argv.slice(2);
 assert.ok(args.length === 0 || (args.length === 2 && args[0] === '--out-dir'), 'Usage: node scripts/verify-text-exports.mjs [--out-dir <directory>]');
 const outDir = args.length ? path.resolve(args[1]) : null;
 if (outDir) fs.mkdirSync(outDir, { recursive: true });
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-text-consumers-'));
-const env = isolatedBlackboardEnv();
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-text-consumers-'));
+const env = isolatedPinwhyEnv();
 const markdown = new MarkdownIt({ html: true, linkify: false, typographer: false });
 const compact = (value) => value.replace(/\s/gu, '');
 let browser;
@@ -27,14 +27,14 @@ let exportCount = 0;
 let svgCount = 0;
 const board = (name, { title = 'Synthetic consumer board', nodes = [], edges = [] } = {}) => {
   const cwd = path.join(root, name);
-  fs.mkdirSync(path.join(cwd, '.blackboard'), { recursive: true });
+  fs.mkdirSync(path.join(cwd, '.pinwhy'), { recursive: true });
   const events = [
     { op: 'meta', set: { title } },
     ...nodes.map((node) => ({ op: 'node', node: { type: 'note', ...node } })),
     ...edges.map((edge, index) => ({ op: 'edge', edge: { id: `e${index}`, ...edge } })),
   ];
   const bytes = Buffer.from(events.map((event) => JSON.stringify({ eventVersion: 1, ...event })).join('\n') + '\n');
-  const file = path.join(cwd, '.blackboard/events.jsonl');
+  const file = path.join(cwd, '.pinwhy/events.jsonl');
   fs.writeFileSync(file, bytes);
   return { cwd, file, bytes };
 };

@@ -12,7 +12,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.node.v2",
+        "schema": "pinwhy.node.v2",
         "id": "h1",
         "type": "hint",
         "title": "Check whether logout rotates the id",

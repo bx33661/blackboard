@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { emptyGraph } from '../lib/model.js';
 import { buildExportData } from '../lib/export-data.js';
 
-const CLI = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
 function graph() {
   const g = emptyGraph();
   g.meta.title = 'Synthetic report';
@@ -28,11 +28,11 @@ function graph() {
   return g;
 }
 function fixture(t, g = graph()) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-export-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-export-'));
   t.after(() => fs.rmSync(root, { force: true, recursive: true }));
   const cwd = path.join(root, 'board');
   fs.mkdirSync(cwd);
-  const board = path.join(cwd, '.blackboard');
+  const board = path.join(cwd, '.pinwhy');
   fs.mkdirSync(board);
   const events = [{ op: 'meta', set: g.meta }, ...Object.values(g.nodes).map((node) => ({ op: 'node', node })),
     ...Object.values(g.edges).map((edge) => ({ op: 'edge', edge })), ...Object.values(g.activities).map((activity) => ({ op: 'activity', activity }))];
@@ -40,7 +40,7 @@ function fixture(t, g = graph()) {
   const log = events.map((event) => JSON.stringify({ eventVersion: 1, ...event })).join('\n') + '\n';
   fs.writeFileSync(file, log);
   const env = { ...process.env };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_')) delete env[key];
   const run = (...args) => spawnSync(process.execPath, [CLI, ...args, '--cwd', cwd], { cwd: root, env, encoding: 'utf8' });
   return { root, cwd, file, log, run };
 }
@@ -79,7 +79,7 @@ test('CLI exports Markdown, Mermaid and SARIF through the same filters without m
     const output = path.join(root, `report.${extension}`);
     const response = run('export', '--format', format, '--type', 'vuln', '--sev', 'high', '--confidence', 'reproduced', '--tag', 'site=app.example', '--sort', 'severity', '--out', output, '--json');
     assert.equal(response.status, 0, response.stderr);
-    assert.deepEqual(JSON.parse(response.stdout), { schema: 'blackboard.export.v1', file: output, format });
+    assert.deepEqual(JSON.parse(response.stdout), { schema: 'pinwhy.export.v1', file: output, format });
     const content = fs.readFileSync(output, 'utf8');
     assert.match(content, /High claim/);
     assert.doesNotMatch(content, /Unrelated material|SYNTHETIC_ACTIVITY/);
@@ -102,8 +102,8 @@ test('default HTML export stays self-contained and contains projected nodes with
   const response = run('export', '--out', output);
   assert.equal(response.status, 0, response.stderr);
   const content = fs.readFileSync(output, 'utf8');
-  const snapshot = JSON.parse(content.match(/window\.__BLACKBOARD_DATA__ = (.*);/)[1]);
-  assert.equal(snapshot.schema, 'blackboard.graph.v2');
+  const snapshot = JSON.parse(content.match(/window\.__PINWHY_DATA__ = (.*);/)[1]);
+  assert.equal(snapshot.schema, 'pinwhy.graph.v2');
   assert.equal(snapshot.nodes.f1.status, null);
   assert.equal(snapshot.nodes.f1.severity, null);
   assert.equal(snapshot.nodes.f1.confidence, null);
@@ -128,8 +128,8 @@ test('export rejects missing boards, unknown formats, ignored options and output
     assert.equal(run('export', '--format', 'markdown', '--out', outputPath).status, 1);
     assert.equal(fs.readFileSync(file, 'utf8'), log);
   }
-  fs.renameSync(path.join(cwd, '.blackboard'), path.join(cwd, 'saved-board'));
+  fs.renameSync(path.join(cwd, '.pinwhy'), path.join(cwd, 'saved-board'));
   assert.equal(run('export', '--format', 'markdown', '--out', output).status, 1);
-  assert.equal(fs.existsSync(path.join(cwd, '.blackboard')), false);
+  assert.equal(fs.existsSync(path.join(cwd, '.pinwhy')), false);
   assert.equal(fs.existsSync(output), false);
 });

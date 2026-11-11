@@ -9,7 +9,7 @@ import { ensure, paths, readEvents, addNode, getReceipt } from '../lib/store.js'
 import { startServer } from '../lib/server.js';
 
 function fixture(t) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-api-receipts-'));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-api-receipts-'));
   ensure(cwd);
   t.after(() => fs.rmSync(cwd, { force: true, recursive: true }));
   return cwd;

@@ -14,12 +14,16 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
-const CLI = path.join(REPO, 'bin', 'blackboard.js');
+const CLI = path.join(REPO, 'bin', 'pinwhy.js');
 const FIXTURES = path.join(HERE, 'fixtures', 'contract');
 const OUTPUTS = path.join(FIXTURES, 'outputs');
 const CONTRACT_DOC = path.join(REPO, 'docs', 'CONTRACT.md');
 const UPDATE = process.env.UPDATE_CONTRACT === '1';
 const PACKAGE_VERSION = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
+const RESOURCE_PATHS = new Map([
+  [fs.realpathSync(CLI), '<runtime>/bin/pinwhy.js'],
+  [fs.realpathSync(path.join(REPO, 'skills', 'pinwhy')), '<runtime>/skills/pinwhy'],
+]);
 
 // Fixture times sit on 2026-01-01; anything later was written by the run itself.
 const FIXTURE_TIME_LIMIT = Date.UTC(2026, 0, 2);
@@ -40,6 +44,10 @@ const CASES = {
     { board: 'research', args: ['status', '--agent', 'agent:reviewer'] },
     { board: 'empty', args: ['status'] },
     { board: 'integrity', args: ['status'] },
+  ],
+  doctor: [
+    { board: null, args: ['doctor', '--share'] },
+    { board: 'integrity', args: ['doctor', '--share'] },
   ],
   node: [
     { board: 'research', args: ['node', 'add', 'note', 'A plain note', '--detail', 'Body.', '--tag', 'x'] },
@@ -180,6 +188,7 @@ const CASES = {
     { board: 'research', args: ['receipt', 'req-missing'] },
     { board: 'research', args: ['receipt'] },
   ],
+  release: [{ board: null, cwd: false, args: ['release', 'check'] }],
   capabilities: [
     { board: null, cwd: false, args: ['capabilities'] },
     { board: null, args: ['capabilities'] },
@@ -201,7 +210,7 @@ function freePort() {
 }
 
 function tmp(t) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-contract-out-')));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-contract-out-')));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -212,8 +221,8 @@ function prepare(t, boardName) {
   fs.mkdirSync(board);
   fs.mkdirSync(path.join(root, 'home'));
   if (boardName) {
-    fs.mkdirSync(path.join(board, '.blackboard'));
-    fs.copyFileSync(path.join(FIXTURES, `${boardName}.events.jsonl`), path.join(board, '.blackboard', 'events.jsonl'));
+    fs.mkdirSync(path.join(board, '.pinwhy'));
+    fs.copyFileSync(path.join(FIXTURES, `${boardName}.events.jsonl`), path.join(board, '.pinwhy', 'events.jsonl'));
   }
   return { root, board };
 }
@@ -224,15 +233,28 @@ function fill(args, { root, board }) {
 
 function cli(args, { root }, input) {
   const env = { ...process.env };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_')) delete env[key];
   // digest prints times in the local zone, so every machine renders them as UTC.
-  Object.assign(env, { HOME: path.join(root, 'home'), BLACKBOARD_QUIET: '1', BLACKBOARD_PORT: String(PORT), TZ: 'UTC' });
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: root, env, input, encoding: 'utf8' });
+  const fixtureHome = path.join(root, 'home');
+  Object.assign(env, { HOME: fixtureHome, USERPROFILE: fixtureHome, PINWHY_QUIET: '1', PINWHY_PORT: String(PORT), TZ: 'UTC' });
+  const preload = [];
+  if (args[0] === 'release' && args[1] === 'check') {
+    const fixture = path.join(root, 'upstream.cjs');
+    fs.writeFileSync(fixture, `globalThis.fetch = async () => new Response(JSON.stringify({ name: 'pinwhy', version: '9999.0.0' }));`);
+    preload.push('--require', fixture);
+  }
+  if (args[0] === 'doctor') {
+    const fixture = path.join(root, 'doctor.cjs');
+    fs.writeFileSync(fixture, `Object.defineProperty(process, 'platform', { value: 'doctor-fixture' }); globalThis.fetch = async () => { throw new Error('synthetic offline'); };`);
+    env.PATH = fixtureHome;
+    preload.push('--require', fixture);
+  }
+  return spawnSync(process.execPath, [...preload, CLI, ...args], { cwd: root, env, input, encoding: 'utf8' });
 }
 
 function readLog(board) {
   try {
-    return fs.readFileSync(path.join(board, '.blackboard', 'events.jsonl'), 'utf8').split('\n').filter(Boolean);
+    return fs.readFileSync(path.join(board, '.pinwhy', 'events.jsonl'), 'utf8').split('\n').filter(Boolean);
   } catch {
     return [];
   }
@@ -250,12 +272,17 @@ function normalize(value, root, key) {
     return value;
   }
   if (typeof value !== 'string') return value;
-  // lint wording is for people; only its place and type are contract.
-  if (key === 'message') return '<human-text>';
+  // Generated prose is for people; fixed contracts cover its field and type, not its wording.
+  if (['message', 'remedy', 'digest', 'tail'].includes(key)) return '<human-text>';
   const id = RUNTIME_ID.exec(value);
   if (id) return `<${id[1]}-id>`;
   if (key === 'version' && value === PACKAGE_VERSION) return '<package-version>';
+  if (key === 'currentVersion' && value === PACKAGE_VERSION) return '<package-version>';
+  if (key === 'buildId') return '<build-id>';
+  if (key === 'nodeVersion') return '<node-version>';
+  if (key === 'arch') return '<arch>';
   if (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(value) && Date.parse(value) > FIXTURE_TIME_LIMIT) return '<now-iso>';
+  if (RESOURCE_PATHS.has(value)) return RESOURCE_PATHS.get(value);
   // Paths under the temp root read the same on every platform.
   if (value.includes(root)) return value.replaceAll(root, '<root>').replaceAll('\\', '/');
   return value.replaceAll(`127.0.0.1:${PORT}`, '127.0.0.1:<port>');
@@ -367,8 +394,23 @@ function capabilities() {
   return JSON.parse(spawnSync(process.execPath, [CLI, 'capabilities', '--json'], { encoding: 'utf8' }).stdout);
 }
 
+test('capabilities resource paths identify actual complete runtime resources before normalization', () => {
+  const declared = capabilities();
+  assert.equal(declared.features.resourcePaths, true);
+  assert.ok(path.isAbsolute(declared.resources.cli));
+  assert.ok(path.isAbsolute(declared.resources.skill));
+  assert.equal(fs.realpathSync(declared.resources.cli), fs.realpathSync(CLI));
+  assert.equal(fs.realpathSync(declared.resources.skill), fs.realpathSync(path.join(REPO, 'skills', 'pinwhy')));
+  assert.ok(fs.statSync(declared.resources.cli).isFile());
+  assert.ok(fs.statSync(path.join(declared.resources.skill, 'SKILL.md')).isFile());
+  assert.ok(fs.statSync(path.join(declared.resources.skill, 'references')).isDirectory());
+  assert.deepEqual(normalize(declared.resources, '/unused-contract-root'), {
+    cli: '<runtime>/bin/pinwhy.js', skill: '<runtime>/skills/pinwhy',
+  });
+});
+
 /** The capabilities.outputs entry a case answers to; `activity show` has its own. */
-const outputKey = (command, spec) => (command === 'activity' && spec.args[1] === 'show' ? 'activity show' : command);
+const outputKey = (command, spec) => command === 'release' ? 'release check' : (command === 'activity' && spec.args[1] === 'show' ? 'activity show' : command);
 
 test('contract output: every output matches the schema capabilities declares', () => {
   const { outputs } = capabilities();
@@ -384,7 +426,7 @@ test('contract output: every output matches the schema capabilities declares', (
       assert.ok(declared, `capabilities.outputs lacks ${key}`);
       if (declared.shape === 'array') {
         assert.ok(Array.isArray(output), `${spec.args.join(' ')} prints an array`);
-        assert.match(declared.items, /^blackboard\.[a-z-]+\.v\d+$/);
+        assert.match(declared.items, /^pinwhy\.[a-z-]+\.v\d+$/);
       } else {
         assert.equal(declared.shape, 'object');
         assert.equal(output?.schema, declared.schema, `${spec.args.join(' ')} prints the schema capabilities declares`);
@@ -433,7 +475,7 @@ test('contract doc: command table matches baselines and capabilities', () => {
   const { outputs } = capabilities();
   for (const cells of covered) {
     const command = codeNames(cells[0])[0];
-    const declared = outputs[command];
+    const declared = outputs[command === 'release' ? 'release check' : command];
     assert.equal(codeNames(cells[3])[0], declared.schema || declared.items, `${command} row names the schema capabilities declares`);
   }
 

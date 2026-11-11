@@ -11,7 +11,7 @@ import { buildAgentContext, renderAgentContext, estimateTokensText } from '../li
 import { buildDigest } from '../lib/digest.js';
 import { lintGraph } from '../lib/lint.js';
 
-const CLI = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
 const nodeMarker = { detail: { originalLength: 85, storedLength: 12 } };
 const edgeMarker = { label: { originalLength: 60, storedLength: 11 } };
 const checkpointMarker = { summary: { originalLength: 90, storedLength: 13 } };
@@ -27,10 +27,10 @@ const events = () => [
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
 function fixture(t, log = events()) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-input-projection-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-input-projection-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(root, '.blackboard'));
-  const file = path.join(root, '.blackboard/events.jsonl');
+  fs.mkdirSync(path.join(root, '.pinwhy'));
+  const file = path.join(root, '.pinwhy/events.jsonl');
   fs.writeFileSync(file, log.map(event => JSON.stringify(event)).join('\n') + '\n');
   return { root, file, graph: applyAll(emptyGraph(), structuredClone(log)) };
 }

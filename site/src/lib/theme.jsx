@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-const KEY = 'bb-site-theme';
+const KEY = 'pinwhy-site-theme';
 const ThemeCtx = createContext({ theme: 'system', resolved: 'dark', setTheme: () => {} });
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;

@@ -1,7 +1,7 @@
 # React Flow UI components
 
 Local source copies of official React Flow UI registry components, restyled for
-the Blackboard theme tokens (see `src/styles.css`). Upstream is MIT licensed.
+the Pinwhy theme tokens (see `src/styles.css`). Upstream is MIT licensed.
 
 - BaseNode: https://ui.reactflow.dev/base-node
 - GroupNode / GroupNodeLabel: https://ui.reactflow.dev/labeled-group-node

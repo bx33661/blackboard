@@ -7,9 +7,11 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { ensure, addNode, addCheckpoint, patchNode, paths } from '../lib/store.js';
+import { addNode, addCheckpoint, patchNode } from '../lib/store.js';
+import { ensure } from '../lib/storage/board.js';
+import { paths } from '../lib/storage/layout.js';
 import { startServer } from '../lib/server.js';
-const dir=fs.mkdtempSync(path.join(os.tmpdir(),'blackboard-postman-'));
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pinwhy-postman-'));
 const sha=()=>crypto.createHash('sha256').update(fs.readFileSync(paths(dir).events)).digest('hex');
 let server;
 function run(args) {

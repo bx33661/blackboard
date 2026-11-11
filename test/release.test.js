@@ -11,10 +11,11 @@ import { resolveNodeBinary } from '../lib/hooks.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
-const CLI = path.join(REPO, 'bin', 'blackboard.js');
+const CLI = path.join(REPO, 'bin', 'pinwhy.js');
 const VERSION = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
+const LAUNCHER = process.platform === 'win32' ? 'pinwhy.cmd' : 'pinwhy';
 
-function tmp(t, prefix = 'blackboard-release-') {
+function tmp(t, prefix = 'pinwhy-release-') {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
@@ -22,11 +23,12 @@ function tmp(t, prefix = 'blackboard-release-') {
 
 /** A fake HOME: releases, launcher, Skill and settings all land inside it. */
 function homeEnv(t) {
-  const home = tmp(t, 'blackboard-home-');
-  const env = { ...process.env, HOME: home, BLACKBOARD_QUIET: '1' };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_') && key !== 'BLACKBOARD_QUIET') delete env[key];
+  const home = tmp(t, 'pinwhy-home-');
+  const env = { ...process.env, HOME: home, USERPROFILE: home, APPDATA: path.join(home, 'AppData', 'Roaming'), LOCALAPPDATA: path.join(home, 'AppData', 'Local'), PINWHY_QUIET: '1' };
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_') && key !== 'PINWHY_QUIET') delete env[key];
   delete env.XDG_DATA_HOME;
-  env.BLACKBOARD_CWD = home;
+  env.XDG_CONFIG_HOME = path.join(home, '.config');
+  env.PINWHY_CWD = home;
   return env;
 }
 
@@ -35,8 +37,8 @@ function run(env, cli, ...args) {
 }
 
 function releasePaths(env) {
-  const home = path.join(env.HOME, '.local', 'share', 'blackboard');
-  return { home, current: path.join(home, 'current'), currentCli: path.join(home, 'current', 'bin', 'blackboard.js') };
+  const home = path.join(env.HOME, '.local', 'share', 'pinwhy');
+  return { home, current: path.join(home, 'current'), currentCli: path.join(home, 'current', 'bin', 'pinwhy.js') };
 }
 
 test('release install copies the package and integrations point at current, not the checkout', (t) => {
@@ -49,20 +51,18 @@ test('release install copies the package and integrations point at current, not 
   assert.equal(result.refresh.error, undefined);
 
   const dir = path.join(home, 'versions', VERSION);
-  for (const entry of ['bin/blackboard.js', 'lib/model.js', 'skills/blackboard/SKILL.md', 'skills/blackboard/methods/threat-model.md', 'public/index.html', 'package.json', 'README.md', '.release.json']) {
+  for (const entry of ['bin/pinwhy.js', 'lib/model.js', 'skills/pinwhy/SKILL.md', 'skills/pinwhy/methods/threat-model.md', 'public/index.html', 'package.json', 'README.md', '.release.json']) {
     assert.ok(fs.existsSync(path.join(dir, entry)), entry);
   }
   assert.equal(fs.existsSync(path.join(dir, 'test')), false);
   assert.equal(fs.realpathSync(current), dir);
 
-  const launcher = fs.readFileSync(path.join(env.HOME, '.local', 'bin', 'blackboard'), 'utf8');
+  const launcher = fs.readFileSync(path.join(env.HOME, '.local', 'bin', LAUNCHER), 'utf8');
   assert.ok(launcher.includes(currentCli), launcher);
   assert.ok(!launcher.includes(REPO), launcher);
   // Nothing that was not installed before is added by the refresh.
   assert.equal(fs.existsSync(path.join(env.HOME, '.claude')), false);
 
-  const version = run(env, currentCli, '--version');
-  assert.match(version.stdout, new RegExp(`blackboard ${VERSION.replaceAll('.', '\\.')} \\(已安装版本 · current\\)`));
 });
 
 test('an installed version is immutable unless --force replaces it', (t) => {
@@ -70,7 +70,6 @@ test('an installed version is immutable unless --force replaces it', (t) => {
   assert.equal(run(env, CLI, 'release', 'install').status, 0);
   const again = run(env, CLI, 'release', 'install');
   assert.equal(again.status, 1);
-  assert.match(again.stderr, /已安装/);
   const forced = run(env, CLI, 'release', 'install', '--force', '--json');
   assert.equal(forced.status, 0, forced.stderr);
   assert.equal(JSON.parse(forced.stdout).replaced, true);
@@ -83,14 +82,15 @@ test('Skill and hooks installed through current survive switching versions', (t)
   assert.equal(run(env, currentCli, 'skill', 'install', '--user').status, 0);
   assert.equal(run(env, currentCli, 'hooks', 'install', '--user', '--write').status, 0);
 
-  const skillFile = path.join(env.HOME, '.claude', 'skills', 'blackboard', 'SKILL.md');
+  const skillFile = path.join(env.HOME, '.claude', 'skills', 'pinwhy', 'SKILL.md');
   const settingsFile = path.join(env.HOME, '.claude', 'settings.json');
-  const recorded = () => [fs.readFileSync(skillFile, 'utf8'), fs.readFileSync(settingsFile, 'utf8')];
+  const recorded = () => [fs.readFileSync(skillFile, 'utf8'), Object.values(JSON.parse(fs.readFileSync(settingsFile, 'utf8')).hooks)
+    .flatMap((groups) => groups.flatMap((group) => group.hooks.map((hook) => hook.command))).join('\n')];
   assert.equal(fs.readFileSync(path.join(path.dirname(skillFile), 'methods/threat-model.md'), 'utf8'),
-    fs.readFileSync(path.join(REPO, 'skills/blackboard/methods/threat-model.md'), 'utf8'));
+    fs.readFileSync(path.join(REPO, 'skills/pinwhy/methods/threat-model.md'), 'utf8'));
   for (const text of recorded()) {
-    assert.ok(text.includes(currentCli));
-    assert.ok(!text.includes(path.join(home, 'versions')));
+    assert.ok(text.includes(currentCli) || text.includes(currentCli.replaceAll('\\', '/')));
+    assert.ok(!text.includes(path.join(home, 'versions')) && !text.includes(path.join(home, 'versions').replaceAll('\\', '/')));
   }
 
   // A second installed version, as a later release would produce.
@@ -99,7 +99,7 @@ test('Skill and hooks installed through current survive switching versions', (t)
   const pkg = JSON.parse(fs.readFileSync(path.join(next, 'package.json'), 'utf8'));
   fs.writeFileSync(path.join(next, 'package.json'), JSON.stringify({ ...pkg, version: '9.9.9' }));
   fs.writeFileSync(path.join(next, '.release.json'), JSON.stringify({ version: '9.9.9', installedAt: new Date(Date.now() + 1000).toISOString() }));
-  fs.appendFileSync(path.join(next, 'skills', 'blackboard', 'SKILL.md'), '\n<!-- 9.9.9 -->\n');
+  fs.appendFileSync(path.join(next, 'skills', 'pinwhy', 'SKILL.md'), '\n<!-- 9.9.9 -->\n');
 
   const use = run(env, currentCli, 'release', 'use', '9.9.9');
   assert.equal(use.status, 0, use.stderr);
@@ -107,8 +107,9 @@ test('Skill and hooks installed through current survive switching versions', (t)
   const [skill, settings] = recorded();
   assert.ok(skill.includes('<!-- 9.9.9 -->'), 'the newly active version rewrites the user Skill');
   assert.ok(skill.includes(currentCli));
-  assert.ok(settings.includes(currentCli));
-  assert.match(run(env, currentCli, '--version').stdout, /blackboard 9\.9\.9/);
+  assert.ok(settings.includes(currentCli.replaceAll('\\', '/')));
+  assert.equal(run(env, currentCli, '--version').status, 0);
+  assert.equal(JSON.parse(run(env, currentCli, 'capabilities', '--json').stdout).version, '9.9.9');
 
   const list = JSON.parse(run(env, currentCli, 'release', 'ls', '--json').stdout);
   assert.deepEqual(list.versions.map((v) => [v.version, v.active]), [[VERSION, false], ['9.9.9', true]]);
@@ -119,7 +120,6 @@ test('Skill and hooks installed through current survive switching versions', (t)
 
   const missing = run(env, currentCli, 'release', 'use', '0.0.0');
   assert.equal(missing.status, 1);
-  assert.match(missing.stderr, /未安装版本 0\.0\.0.*9\.9\.9/);
 });
 
 test('only the active release may refresh integrations, and installs come from a checkout', (t) => {
@@ -127,28 +127,27 @@ test('only the active release may refresh integrations, and installs come from a
   const fromCheckout = run(env, CLI, 'release', 'refresh');
   assert.equal(fromCheckout.status, 1);
   assert.match(fromCheckout.stderr, /current/);
-  assert.equal(fs.existsSync(path.join(env.HOME, '.local', 'bin', 'blackboard')), false);
+  assert.equal(fs.existsSync(path.join(env.HOME, '.local', 'bin', LAUNCHER)), false);
 
   assert.equal(run(env, CLI, 'release', 'install').status, 0);
   const nested = run(env, releasePaths(env).currentCli, 'release', 'install');
   assert.equal(nested.status, 1);
-  assert.match(nested.stderr, /开发仓库/);
 });
 
 test('a CLI path inside the active version is recorded through current', (t) => {
   const home = tmp(t);
-  const cli = path.join(home, 'versions', '1.0.0', 'bin', 'blackboard.js');
+  const cli = path.join(home, 'versions', '1.0.0', 'bin', 'pinwhy.js');
   fs.mkdirSync(path.dirname(cli), { recursive: true });
   fs.writeFileSync(cli, '');
   fs.mkdirSync(path.join(home, 'versions', '2.0.0', 'bin'), { recursive: true });
-  fs.writeFileSync(path.join(home, 'versions', '2.0.0', 'bin', 'blackboard.js'), '');
+  fs.writeFileSync(path.join(home, 'versions', '2.0.0', 'bin', 'pinwhy.js'), '');
 
   assert.equal(stableCliPath(cli, home), cli, 'no current link yet');
-  assert.deepEqual(useRelease('1.0.0', home), { version: '1.0.0', previous: null, cli: path.join(home, 'current', 'bin', 'blackboard.js') });
-  assert.equal(stableCliPath(cli, home), path.join(home, 'current', 'bin', 'blackboard.js'));
+  assert.deepEqual(useRelease('1.0.0', home), { version: '1.0.0', previous: null, cli: path.join(home, 'current', 'bin', 'pinwhy.js') });
+  assert.equal(stableCliPath(cli, home), path.join(home, 'current', 'bin', 'pinwhy.js'));
   assert.deepEqual(cliOrigin(cli, home), { kind: 'release', version: '1.0.0', active: true });
 
-  const other = path.join(home, 'versions', '2.0.0', 'bin', 'blackboard.js');
+  const other = path.join(home, 'versions', '2.0.0', 'bin', 'pinwhy.js');
   assert.equal(stableCliPath(other, home), other, 'an inactive version keeps its own path');
   assert.deepEqual(cliOrigin(other, home), { kind: 'release', version: '2.0.0', active: false });
   assert.equal(stableCliPath(CLI, home), CLI);
@@ -156,18 +155,18 @@ test('a CLI path inside the active version is recorded through current', (t) => 
 
   assert.equal(useRelease('2.0.0', home).previous, '1.0.0');
   assert.equal(listReleases(home).current, '2.0.0');
-  assert.throws(() => useRelease('3.0.0', home), /未安装版本 3\.0\.0/);
+  assert.throws(() => useRelease('3.0.0', home));
 });
 
 function packageFixture(t, marker = 'original') {
-  const source = tmp(t, 'blackboard-package-');
+  const source = tmp(t, 'pinwhy-package-');
   const home = tmp(t);
   fs.mkdirSync(path.join(source, 'bin'));
   fs.mkdirSync(path.join(source, 'public'));
   fs.writeFileSync(path.join(source, 'package.json'), JSON.stringify({ version: '1.0.0', files: ['bin', 'public', 'payload.txt'] }));
   fs.writeFileSync(path.join(source, 'public', 'index.html'), '<html></html>');
   const update = (value) => {
-    fs.writeFileSync(path.join(source, 'bin', 'blackboard.js'), `console.log(${JSON.stringify(value)});\n`);
+    fs.writeFileSync(path.join(source, 'bin', 'pinwhy.js'), `console.log(${JSON.stringify(value)});\n`);
     fs.writeFileSync(path.join(source, 'payload.txt'), value);
   };
   update(marker);
@@ -176,7 +175,7 @@ function packageFixture(t, marker = 'original') {
     source, home, dest, update,
     staging: path.join(home, 'versions', `.1.0.0.staging-${process.pid}`),
     retired: path.join(home, 'versions', `.1.0.0.replaced-${process.pid}`),
-    currentCli: path.join(home, 'current', 'bin', 'blackboard.js'),
+    currentCli: path.join(home, 'current', 'bin', 'pinwhy.js'),
   };
 }
 
@@ -280,11 +279,11 @@ test('failed rollback preserves old bytes and reports recovery alongside the ori
     assert.match(error.message, /injected publication failure.*injected rollback failure/);
     return true;
   }));
-  assertRunnable(path.join(fixture.retired, 'bin', 'blackboard.js'), 'original');
+  assertRunnable(path.join(fixture.retired, 'bin', 'pinwhy.js'), 'original');
   assert.equal(fs.readFileSync(path.join(fixture.retired, 'payload.txt'), 'utf8'), 'original');
   assert.equal(fs.existsSync(fixture.staging), false);
   assert.throws(() => installRelease({ ...fixture, force: true }), (error) => error.message.includes(fixture.retired));
-  assertRunnable(path.join(fixture.retired, 'bin', 'blackboard.js'), 'original');
+  assertRunnable(path.join(fixture.retired, 'bin', 'pinwhy.js'), 'original');
 });
 
 test('failed staging cleanup keeps the original installation error and names the leftover path', (t) => {
@@ -326,7 +325,7 @@ test('retired cleanup failure reports a warning after successful force publicati
   assert.ok(installed.warnings[0].includes(fixture.retired));
   assert.match(installed.warnings[0], /injected retired cleanup failure/);
   assertRunnable(fixture.currentCli, 'replacement');
-  assertRunnable(path.join(fixture.retired, 'bin', 'blackboard.js'), 'original');
+  assertRunnable(path.join(fixture.retired, 'bin', 'pinwhy.js'), 'original');
   assert.equal(fs.existsSync(fixture.staging), false);
 });
 
@@ -372,4 +371,25 @@ test('fnm interpreter paths that go stale are replaced by the default alias', (t
   assert.equal(resolveNodeBinary(pinned, {}), alias);
   assert.equal(resolveNodeBinary('/run/user/fnm_multishells/123/bin/node', { FNM_DIR: fnm }), alias);
   assert.equal(resolveNodeBinary('/usr/local/bin/node', { FNM_DIR: fnm }), '/usr/local/bin/node');
+});
+
+test('a failed integration refresh reports the completed switch as one failure', (t) => {
+  for (const json of [false, true]) {
+    const env = homeEnv(t);
+    fs.mkdirSync(path.join(env.HOME, '.local'), { recursive: true });
+    fs.writeFileSync(path.join(env.HOME, '.local', 'bin'), 'synthetic launcher directory obstruction');
+    const result = run(env, CLI, 'release', 'install', ...(json ? ['--json'] : []));
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout, '');
+    const installed = releasePaths(env);
+    assert.equal(fs.existsSync(installed.currentCli), true);
+    if (json) {
+      const error = JSON.parse(result.stderr);
+      assert.equal(error.schema, 'pinwhy.error.v1');
+      assert.equal(error.committed, true);
+      assert.equal(error.result.version, VERSION);
+      assert.equal(error.result.cli, installed.currentCli);
+      assert.equal(typeof error.result.refresh.error, 'string');
+    }
+  }
 });

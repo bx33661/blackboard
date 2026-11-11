@@ -20,7 +20,7 @@ export default function Finale() {
       <footer className="foot">
         <div className="wrap foot-in">
           <div className="foot-brand">
-            <img src="/mark.svg" alt="" /><b>blackboard</b><span>{t.footer.tag}</span>
+            <img src="/mark.svg" alt="" /><b>Pinwhy</b><span>{t.footer.tag}</span>
           </div>
           <nav className="foot-links" aria-label="footer">
             {t.footer.links.map((label, i) => <a key={label} href={links[i]} target="_blank" rel="noreferrer">{label}</a>)}

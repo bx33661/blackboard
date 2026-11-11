@@ -8,17 +8,17 @@ import { fileURLToPath } from 'node:url';
 import { ensure, appendEvent, addNode, addCheckpoint, moveCursor, patchNode, paths, getReceipt } from '../lib/store.js';
 import { startServer } from '../lib/server.js';
 
-const CLI = fileURLToPath(new URL('../bin/blackboard.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/pinwhy.js', import.meta.url));
 const FIELDS = ['status', 'severity', 'confidence'];
 const unset = (node) => {
   for (const field of FIELDS) assert.equal(node[field], null, `${node.id}.${field}`);
 };
 function fixture(t) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-node-json-'));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-node-json-'));
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   ensure(cwd);
   const env = { ...process.env };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_')) delete env[key];
   const run = (...args) => {
     const r = spawnSync(process.execPath, [CLI, ...args, '--cwd', cwd, '--json'], { cwd, env, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
@@ -48,8 +48,8 @@ test('legacy nodes have the same nullable dimensions through CLI reads and histo
     assert.deepEqual(node.example, { id: 'example', type: 'note' });
   }
   assert.deepEqual(changes.nodes.updated[0].fields, ['title', 'updated']);
-  assert.equal(context.schema, 'blackboard.context.v2');
-  assert.equal(run('show', 'n1').schema, 'blackboard.show.v2');
+  assert.equal(context.schema, 'pinwhy.context.v2');
+  assert.equal(run('show', 'n1').schema, 'pinwhy.show.v2');
   assert.equal(log(), before);
 });
 
@@ -58,14 +58,14 @@ test('write responses project missing dimensions but stored events and request r
   const args = ['node', 'add', 'note', 'Written claim', '--request-id', 'write-1'];
   const first = run(...args);
   unset(first.node);
-  assert.equal(first.schema, 'blackboard.node-add.v2');
+  assert.equal(first.schema, 'pinwhy.node-add.v2');
   const stored = getReceipt('write-1', cwd).result.node;
   for (const field of FIELDS) assert.equal(Object.hasOwn(stored, field), false);
   const before = log();
   assert.deepEqual(run(...args), first);
   const receipt = run('receipt', 'write-1');
   assert.deepEqual(receipt.result.node, stored);
-  assert.equal(receipt.schema, 'blackboard.receipt.v1');
+  assert.equal(receipt.schema, 'pinwhy.receipt.v1');
   assert.equal(log(), before);
   const vuln = run('node', 'add', 'vuln', 'Existing defaults');
   assert.equal(vuln.node.severity, null, 'an unrated vuln is not given a severity from its type');
@@ -93,7 +93,7 @@ test('HTTP graph, SSE, context and mutation results use nullable fields while re
   const base = `http://127.0.0.1:${server.address().port}`;
   const before = log();
   const graph = await (await fetch(`${base}/api/graph`)).json();
-  assert.equal(graph.schema, 'blackboard.graph.v2');
+  assert.equal(graph.schema, 'pinwhy.graph.v2');
   unset(graph.nodes[node.id]);
   const packet = await (await fetch(`${base}/api/context?budget=64000`)).json();
   unset(packet.currentFocus);

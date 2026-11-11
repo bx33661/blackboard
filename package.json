@@ -1,17 +1,27 @@
 {
-  "name": "blackboard",
-  "version": "0.10.1",
-  "description": "Agent 外置黑板：自由探索，持续记录逻辑节点、关系、当前游标与轨迹",
+  "name": "pinwhy",
+  "version": "0.2.0",
+  "description": "Pinwhy — Agent 外置记忆：留下判断、证据与现场，跨会话接着思考",
+  "homepage": "https://github.com/bx33661/pinwhy#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bx33661/pinwhy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bx33661/pinwhy/issues"
+  },
+  "keywords": ["pinwhy", "agent-memory", "cli", "context", "local-first"],
   "type": "module",
   "bin": {
-    "blackboard": "./bin/blackboard.js"
+    "pinwhy": "./bin/pinwhy.js"
   },
   "files": [
     "bin/",
     "lib/",
     "skills/",
     "public/",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18"
@@ -20,8 +30,8 @@
     "test": "node --test \"test/*.test.js\"",
     "build": "vite build",
     "dev": "vite --host 127.0.0.1",
-    "serve": "node bin/blackboard.js serve",
-    "export": "node bin/blackboard.js export",
+    "serve": "node bin/pinwhy.js serve",
+    "export": "node bin/pinwhy.js export",
     "check": "npm run check:types && npm run check:docs && npm run check:publish",
     "check:types": "tsc --noEmit",
     "check:docs": "node scripts/check-docs.mjs",
@@ -32,6 +42,8 @@
     "benchmark": "node scripts/benchmark.mjs",
     "benchmark:full": "node scripts/benchmark.mjs --full",
     "verify:package": "node scripts/verify-package.mjs",
+    "pack:packages": "node scripts/pack-packages.mjs",
+    "verify:npm-packages": "node scripts/verify-npm-packages.mjs",
     "verify:api": "node scripts/verify-api.mjs",
     "verify:viewer": "node web/scripts/verify-viewer.mjs",
     "verify:exports:text": "node scripts/verify-text-exports.mjs",
@@ -39,6 +51,7 @@
     "verify:exports": "npm run verify:exports:text && npm run verify:exports:sarif"
   },
   "license": "MIT",
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "devDependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",

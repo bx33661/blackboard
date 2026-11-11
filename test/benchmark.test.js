@@ -52,7 +52,7 @@ test('small benchmark exercises cold/read/context/write/concurrency and validate
 });
 
 test('benchmark CLI supports source/output and rejects accidental unknown options', (t) => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-benchmark-cli-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-benchmark-cli-'));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const script = path.join(root, 'scripts', 'benchmark.mjs');
   const output = path.join(tmp, 'result.json');
@@ -69,7 +69,7 @@ test('benchmark CLI supports source/output and rejects accidental unknown option
 test('performance budgets enforce measured boundaries and reject unmeasured work', () => {
   const report = { results: [{ nodes: 10, events: 30, metrics: { fullReplay: { p50: 4, p95: 8 } } }] };
   const limit = { nodes: 10, events: 30, metric: 'fullReplay', statistic: 'p95', maxMs: 8 };
-  const budget = { schema: 'blackboard.performance-budget.v1', limits: [limit] };
+  const budget = { schema: 'pinwhy.performance-budget.v1', limits: [limit] };
   assert.equal(checkPerformanceBudget(report, budget).passed, true);
   const failed = checkPerformanceBudget(report, { ...budget, limits: [{ ...limit, maxMs: 7 }] });
   assert.equal(failed.passed, false);
@@ -84,11 +84,11 @@ test('performance budgets enforce measured boundaries and reject unmeasured work
 });
 
 test('a failed CLI budget exits unsuccessfully and retains the measured report', (t) => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-budget-cli-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-budget-cli-'));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const budget = path.join(tmp, 'budget.json');
   const output = path.join(tmp, 'report.json');
-  fs.writeFileSync(budget, JSON.stringify({ schema: 'blackboard.performance-budget.v1', limits: [
+  fs.writeFileSync(budget, JSON.stringify({ schema: 'pinwhy.performance-budget.v1', limits: [
     { nodes: 10, events: 30, metric: 'fullReplay', statistic: 'p95', maxMs: Number.MIN_VALUE },
   ] }));
   const result = spawnSync(process.execPath, [path.join(root, 'scripts/benchmark.mjs'), '--nodes', '10', '--events', '30', '--runs', '1', '--no-concurrency', '--budget', budget, '--output', output], { encoding: 'utf8' });
@@ -100,7 +100,7 @@ test('a failed CLI budget exits unsuccessfully and retains the measured report',
 });
 
 test('benchmark source identity changes when a measured storage helper changes', async (t) => {
-  const source = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-benchmark-source-'));
+  const source = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-benchmark-source-'));
   t.after(() => fs.rmSync(source, { recursive: true, force: true }));
   fs.cpSync(path.join(root, 'lib'), path.join(source, 'lib'), { recursive: true });
   fs.copyFileSync(path.join(root, 'package.json'), path.join(source, 'package.json'));

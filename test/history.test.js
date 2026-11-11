@@ -141,7 +141,7 @@ test('history keeps both explicit reset incarnations and ignores rejected identi
 });
 
 function fixture(t) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-history-'));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-history-'));
   ensure(cwd);
   t.after(() => fs.rmSync(cwd, { force: true, recursive: true }));
   return cwd;

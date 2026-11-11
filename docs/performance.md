@@ -1,18 +1,20 @@
 # 可复现的性能基线
 
+> 历史归属：本文带日期的旧版本、测量和验收记录属于原 blackboard，不是 Pinwhy 0.11.0 的验证结果；现行命令与资源路径使用 Pinwhy 名称。
+
 性能测量只创建临时的合成黑板，不读取当前目录、真实项目黑板、宿主会话或已安装的 release。成功和失败都会清理临时目录；只有显式指定的 JSON 报告留在磁盘。
 
 ## 运行
 
 ```sh
 # 日常 / CI：1,000 节点、10,000 事件，每项 3 次
-node scripts/benchmark.mjs --quick --output /tmp/blackboard-quick.json
+node scripts/benchmark.mjs --quick --output /tmp/pinwhy-quick.json
 
 # 完整：分别测 1,000 和 10,000 节点，各 100,000 事件，每项 5 次
-node scripts/benchmark.mjs --full --output /tmp/blackboard-full.json
+node scripts/benchmark.mjs --full --output /tmp/pinwhy-full.json
 
 # 同一测量脚本，对比另一个源码目录；不要求对方包含此脚本
-node scripts/benchmark.mjs --full --source /absolute/path/to/baseline --output /tmp/blackboard-baseline.json
+node scripts/benchmark.mjs --full --source /absolute/path/to/baseline --output /tmp/pinwhy-baseline.json
 
 # 缩小数据验证工具本身 / 排除并发争用
 node scripts/benchmark.mjs --nodes 100 --events 1000 --runs 2 --no-concurrency
@@ -26,7 +28,7 @@ JSON 含机器、Node 版本、时间、源码内容指纹、固定输入 SHA-25
 
 ```json
 {
-  "schema": "blackboard.performance-budget.v1",
+  "schema": "pinwhy.performance-budget.v1",
   "limits": [
     { "nodes": 1000, "events": 10000, "metric": "fullReplay", "statistic": "p95", "maxMs": 100 },
     { "nodes": 1000, "events": 10000, "metric": "write", "statistic": "p95", "maxMs": 250 }
@@ -35,7 +37,7 @@ JSON 含机器、Node 版本、时间、源码内容指纹、固定输入 SHA-25
 ```
 
 ```sh
-node scripts/benchmark.mjs --quick --budget /tmp/blackboard-budget.json --output /tmp/blackboard-budget-report.json
+node scripts/benchmark.mjs --quick --budget /tmp/pinwhy-budget.json --output /tmp/pinwhy-budget-report.json
 ```
 
 报告增加 `budget.passed` 和逐项 `checks`，保留实际耗时。超限时依旧输出并保存完整报告，进程非零退出。CI 的共享机器继续只收集基线，不默认应用本地预算。

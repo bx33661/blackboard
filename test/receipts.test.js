@@ -13,7 +13,7 @@ import {
 import { applyAll, emptyGraph } from '../lib/model.js';
 
 function fixture(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-receipts-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-receipts-'));
   ensure(dir);
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;

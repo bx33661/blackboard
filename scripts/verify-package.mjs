@@ -6,34 +6,10 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { isolatedBlackboardEnv } from './lib/environment.mjs';
+import { npmEntry, isolatedNpmEnv } from './lib/npm.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SELF), '..');
-
-function cleanEnv(home, board) {
-  return isolatedBlackboardEnv({ HOME: home, USERPROFILE: home, BLACKBOARD_CWD: board, BLACKBOARD_QUIET: '1', npm_config_cache: path.join(home, 'npm-cache'), npm_config_update_notifier: 'false' });
-}
-
-// Invoke npm's JavaScript entry directly, including on Windows (.cmd is not an executable).
-function npmEntry() {
-  const candidates = [process.env.npm_execpath,
-    path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
-    path.resolve(path.dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js')];
-  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
-    for (const name of ['npm', 'npm.cmd']) {
-      const file = path.join(dir, name);
-      try {
-        const resolved = fs.realpathSync(file);
-        if (resolved.endsWith('.js')) candidates.push(resolved);
-        candidates.push(path.join(path.dirname(resolved), 'node_modules/npm/bin/npm-cli.js'));
-      } catch {}
-    }
-  }
-  const entry = candidates.find((file) => file && file.endsWith('.js') && fs.existsSync(file));
-  assert.ok(entry, 'npm CLI entry not found; run through npm run verify:package or install npm alongside Node');
-  return entry;
-}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { encoding: 'utf8', timeout: 120000, maxBuffer: 8 * 1024 * 1024, ...options });
@@ -50,14 +26,14 @@ export function filesBelow(root, prefix = '') {
 
 export function assertPackageLayout(root) {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.equal(pkg.name, 'blackboard');
+  assert.equal(pkg.name, 'pinwhy');
   assert.deepEqual(pkg.dependencies || {}, {}, 'the core must have zero runtime dependencies');
   assert.deepEqual(pkg.peerDependencies || {}, {}, 'host SDKs must stay inside isolated plugins');
-  for (const name of ['bin/blackboard.js', 'lib/model.js', 'lib/store.js', 'skills/blackboard/SKILL.md', 'skills/blackboard/agents/openai.yaml', 'public/index.html', 'README.md']) {
+  for (const name of ['bin/pinwhy.js', 'lib/model.js', 'lib/store.js', 'skills/pinwhy/SKILL.md', 'skills/pinwhy/agents/openai.yaml', 'public/index.html', 'README.md']) {
     assert.ok(fs.statSync(path.join(root, name)).isFile(), `packed file missing: ${name}`);
   }
   const files = filesBelow(root);
-  for (const name of files) assert.doesNotMatch(name, /^(?:plugins|web|test|node_modules|\.blackboard)\//, `unexpected runtime package member: ${name}`);
+  for (const name of files) assert.doesNotMatch(name, /^(?:plugins|web|test|node_modules|\.pinwhy)\//, `unexpected runtime package member: ${name}`);
   const assets = files.filter((name) => name.startsWith('public/assets/'));
   assert.ok(assets.some((name) => name.endsWith('.js')), 'built JavaScript assets must be shipped');
   assert.ok(assets.some((name) => name.endsWith('.css')), 'built CSS assets must be shipped');
@@ -74,12 +50,12 @@ export function assertPackageLayout(root) {
 
 export function verifyPackage(options = {}) {
   const source = fs.realpathSync(path.resolve(options.source || ROOT));
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-packed-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-packed-'));
   const home = path.join(tmp, 'home');
   const board = path.join(tmp, 'board');
   const prefix = path.join(tmp, 'consumer');
   for (const dir of [home, board, prefix]) fs.mkdirSync(dir);
-  const env = cleanEnv(home, board);
+  const env = isolatedNpmEnv(home, { PINWHY_CWD: board, PINWHY_QUIET: '1' });
   const npm = npmEntry();
   try {
     let tarball = options.tarball ? path.resolve(options.tarball) : null;
@@ -89,26 +65,27 @@ export function verifyPackage(options = {}) {
       tarball = path.join(tmp, packed[0].filename);
     }
     assert.ok(fs.statSync(tarball).isFile(), `tarball missing: ${tarball}`);
-    fs.writeFileSync(path.join(prefix, 'package.json'), JSON.stringify({ name: 'blackboard-packed-smoke', private: true, version: '0.0.0' }));
+    fs.writeFileSync(path.join(prefix, 'package.json'), JSON.stringify({ name: 'pinwhy-packed-smoke', private: true, version: '0.0.0' }));
     run(process.execPath, [npm, 'install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', tarball], { cwd: prefix, env });
-    const installed = path.join(prefix, 'node_modules', 'blackboard');
+    const installed = path.join(prefix, 'node_modules', 'pinwhy');
     const { pkg, files } = assertPackageLayout(installed);
-    const sourceSkill = path.join(source, 'skills', 'blackboard');
-    const installedSkill = path.join(installed, 'skills', 'blackboard');
+    const sourceSkill = path.join(source, 'skills', 'pinwhy');
+    const installedSkill = path.join(installed, 'skills', 'pinwhy');
     const skillFiles = filesBelow(sourceSkill).filter((name) => name !== '.DS_Store');
     assert.deepEqual(filesBelow(installedSkill).filter((name) => name !== '.DS_Store'), skillFiles, 'the complete single-source Skill must be packed');
     for (const name of skillFiles) assert.ok(fs.readFileSync(path.join(sourceSkill, name)).equals(fs.readFileSync(path.join(installedSkill, name))), `Skill content changed: ${name}`);
     const installedModules = fs.readdirSync(path.join(prefix, 'node_modules')).filter((name) => !name.startsWith('.'));
-    assert.deepEqual(installedModules, ['blackboard'], 'clean consumer must not install frontend dev dependencies or host SDKs');
-    const cli = path.join(installed, 'bin', 'blackboard.js');
+    assert.deepEqual(installedModules, ['pinwhy'], 'clean consumer must not install frontend dev dependencies or host SDKs');
+    const cli = path.join(installed, 'bin', 'pinwhy.js');
     const command = (...args) => run(process.execPath, [cli, ...args], { cwd: board, env });
-    assert.match(command('--version'), new RegExp(`blackboard ${pkg.version.replaceAll('.', '\\.')}`));
+    command('--version');
+    assert.equal(JSON.parse(command('capabilities', '--json')).version, pkg.version);
     const init = JSON.parse(command('init', '--title', 'Packed smoke fixture', '--json'));
     assert.ok(init);
     command('node', 'add', 'hypothesis', 'Packed hypothesis', '--status', 'open');
     command('node', 'add', 'observation', 'Packed evidence', '--confidence', 'reproduced', '--at', 'fixture.js:12');
     command('node', 'add', 'finding', 'Packed code finding', '--at', 'fixture.js:24', '--sev', 'high');
-    const eventsFile = path.join(board, '.blackboard', 'events.jsonl');
+    const eventsFile = path.join(board, '.pinwhy', 'events.jsonl');
     const beforeRead = fs.readFileSync(eventsFile);
     const packet = JSON.parse(command('context'));
     assert.equal(packet.policy.readOnly, true);
@@ -117,6 +94,12 @@ export function verifyPackage(options = {}) {
     command('context', '--markdown');
     const lint = JSON.parse(command('lint', '--json'));
     assert.ok(lint);
+    const doctor = JSON.parse(command('doctor', '--share', '--json'));
+    assert.equal(doctor.schema, 'pinwhy.doctor.v1');
+    assert.equal(doctor.readOnly, true);
+    assert.equal(doctor.checks.find(check => check.id === 'board.log').status, 'ok');
+    assert.equal(doctor.cwd, '<project>');
+    assert.ok(!JSON.stringify(doctor).includes(tmp), 'shared diagnostics omit consumer paths');
     command('export', '-o', path.join(board, 'offline.html'));
     assert.match(fs.readFileSync(path.join(board, 'offline.html'), 'utf8'), /Packed hypothesis/);
     for (const [format, extension] of [['markdown', 'md'], ['mermaid', 'mmd'], ['sarif', 'sarif']]) {
@@ -136,7 +119,7 @@ export function verifyPackage(options = {}) {
     // Source and installed runtime are deliberately separate. No global installation/setup runs.
     return { result: 'PASS', package: `${pkg.name}@${pkg.version}`, node: process.version, platform: process.platform, arch: process.arch,
       tarball: options.tarball ? tarball : '(temporary npm pack artifact; removed)', packedFiles: files.length, skillFiles: skillFiles.length,
-      checks: ['zero-runtime-dependencies', 'complete-skill', 'built-assets-resolve', 'clean-install', 'cli-init-create', 'json-markdown-context', 'nonblocking-lint', 'offline-export', 'markdown-mermaid-sarif-exports', 'read-only-event-integrity'] };
+      checks: ['zero-runtime-dependencies', 'complete-skill', 'built-assets-resolve', 'clean-install', 'cli-init-create', 'json-markdown-context', 'read-only-doctor', 'nonblocking-lint', 'offline-export', 'markdown-mermaid-sarif-exports', 'read-only-event-integrity'] };
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 

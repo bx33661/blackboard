@@ -15,7 +15,7 @@ export const LOCALES: { id: Locale; name: string }[] = [
   { id: 'zh-CN', name: '简体中文' }, { id: 'zh-HK', name: '繁體中文' }, { id: 'en', name: 'English' }, { id: 'ja', name: '日本語' },
 ];
 const CATALOGUES: Record<Locale, Messages> = { 'zh-CN': zhCN, 'zh-HK': zhHK, en, ja };
-const STORAGE_KEY = 'blackboard-pref-locale';
+const STORAGE_KEY = 'pinwhy-pref-locale';
 
 /** The first supported language in the browser's list; any Traditional Chinese (by script or region) gets zh-HK. */
 export function matchLocale(tags: readonly string[]): Locale {
@@ -68,13 +68,12 @@ export function tOptional(key: string) {
 const DIGEST_KEYS: Record<string, MessageKey> = Object.fromEntries(
   (Object.keys(zhCN) as MessageKey[])
     .filter((key) => /^(digest\.(section|stat)|type|relation|confidence)\./.test(key) && !key.endsWith('.unset'))
-    .map((key) => [zhCN[key], key]),
+    .flatMap((key) => [[zhCN[key], key], [en[key], key]]),
 );
 
 /**
- * The digest is generated in Chinese for the Agent. Its fixed vocabulary (section headings, counts,
- * node types, relations, confidence) can be shown in the interface language; everything else is
- * the Agent's text and stays as written.
+ * Digests use English for generated text. Translate their fixed vocabulary in the viewer;
+ * older snapshots with Chinese headings are also readable. Authored text stays as written.
  */
 export function digestTerm(text: string) {
   const key = DIGEST_KEYS[text.trim()];

@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../lib/server.js';
 
-const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'blackboard.js');
+const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'pinwhy.js');
 const T = Date.UTC(2026, 0, 1);
 const ev = (n, body) => JSON.stringify({ eventVersion: 1, eventId: `event_ASOF_${n}`, ...body });
 const node = (n, id, type, title, extra = {}) => ev(n, { op: 'node', node: { id, type, title, ts: T + n * 1000, author: 'agent:primary', ...extra } });
@@ -41,22 +41,22 @@ const CP2_LINE = 12;
 const CP1_LAST_LINE = 17;
 
 function board(t, lines) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-as-of-')));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-as-of-')));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(dir, '.blackboard'));
-  fs.writeFileSync(path.join(dir, '.blackboard', 'events.jsonl'), `${lines.join('\n')}\n`);
+  fs.mkdirSync(path.join(dir, '.pinwhy'));
+  fs.writeFileSync(path.join(dir, '.pinwhy', 'events.jsonl'), `${lines.join('\n')}\n`);
   return dir;
 }
 
 function cli(cwd, args) {
   const env = { ...process.env, TZ: 'UTC', HOME: cwd };
-  for (const key of Object.keys(env)) if (key.startsWith('BLACKBOARD_')) delete env[key];
+  for (const key of Object.keys(env)) if (key.startsWith('PINWHY_')) delete env[key];
   const r = spawnSync(process.execPath, [CLI, ...args, '--cwd', cwd], { cwd, env, encoding: 'utf8' });
   return { status: r.status, stdout: r.stdout };
 }
 
 function files(dir) {
-  const root = path.join(dir, '.blackboard');
+  const root = path.join(dir, '.pinwhy');
   return Object.fromEntries(fs.readdirSync(root).map((name) => [name, fs.readFileSync(path.join(root, name), 'utf8')]));
 }
 

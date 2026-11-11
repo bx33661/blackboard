@@ -105,7 +105,8 @@ function within(root,file) {
 export function checkDocs(root,{files}={}) {
   root=fs.realpathSync(root);
   const names=files??git(root,['ls-files','--cached','--others','--exclude-standard','-z']).split('\0').filter(Boolean);
-  const sources=[...new Set(names.map(name=>name.replaceAll('\\','/')))].filter(publicDocument).sort();
+  const deleted=files?new Set():new Set(git(root,['ls-files','--deleted','-z']).split('\0'));
+  const sources=[...new Set(names.map(name=>name.replaceAll('\\','/')))].filter(name=>publicDocument(name)&&!deleted.has(name)).sort();
   const findings=[],documents=new Map();
   let checked=0;
   const add=(source,line,reason)=>findings.push({path:source,line,reason});

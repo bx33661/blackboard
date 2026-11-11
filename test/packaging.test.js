@@ -18,12 +18,12 @@ test('release tarball installs without runtime/dev dependencies and runs outside
 });
 
 test('package layout rejects missing assets and leaked plugin directories', (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blackboard-layout-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-layout-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const entries = {
-    'package.json': JSON.stringify({ name: 'blackboard' }),
-    'bin/blackboard.js': '', 'lib/model.js': '', 'lib/store.js': '',
-    'skills/blackboard/SKILL.md': '', 'skills/blackboard/agents/openai.yaml': '',
+    'package.json': JSON.stringify({ name: 'pinwhy' }),
+    'bin/pinwhy.js': '', 'lib/model.js': '', 'lib/store.js': '',
+    'skills/pinwhy/SKILL.md': '', 'skills/pinwhy/agents/openai.yaml': '',
     'README.md': '', 'public/assets/app.js': '', 'public/assets/app.css': '',
     'public/index.html': '<script src="/assets/app.js"></script><link href="/assets/app.css">',
   };

@@ -41,12 +41,12 @@ jobs:
         # The verifier explicitly uses ANGLE SwiftShader for normal 3D rendering.
         run: npm run verify:viewer
         env:
-          BLACKBOARD_VIEWER_OUTPUT: dist/viewer-verification
+          PINWHY_VIEWER_OUTPUT: dist/viewer-verification
       - name: Preserve viewer screenshots and results, including failures
         if: always() && steps.viewer.outcome != 'skipped'
         uses: actions/upload-artifact@v4
         with:
-          name: blackboard-viewer-verification
+          name: pinwhy-viewer-verification
           path: dist/viewer-verification/
           if-no-files-found: error
           retention-days: 14
@@ -61,14 +61,14 @@ jobs:
       - name: Pack exactly the built files to be tested
         id: pack
         run: |
-          npm pack --json --ignore-scripts --pack-destination dist > dist/pack.json
-          node -e "const fs = require('node:fs'); const [pkg] = JSON.parse(fs.readFileSync('dist/pack.json', 'utf8')); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'tarball=' + pkg.filename + '\n');"
+          node scripts/pack-packages.mjs --out-dir dist
+          node -e "const fs = require('node:fs'); const pkg = JSON.parse(fs.readFileSync('dist/manifest.json', 'utf8')).artifacts.find(pkg => pkg.name === 'pinwhy'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'tarball=' + pkg.filename + '\n');"
       - uses: actions/upload-artifact@v4
         with:
-          name: blackboard-release-candidate
+          name: pinwhy-release-candidate
           path: |
-            dist/${{ steps.pack.outputs.tarball }}
-            dist/pack.json
+            dist/*.tgz
+            dist/manifest.json
             dist/benchmark-quick.json
             dist/export-consumers/
           retention-days: 14
@@ -89,11 +89,30 @@ jobs:
           node-version: ${{ matrix.node }}
       - uses: actions/download-artifact@v4
         with:
-          name: blackboard-release-candidate
+          name: pinwhy-release-candidate
           path: artifact
       # Deliberately no npm ci here: the runtime must work without frontend devDependencies.
       - name: Install the same tarball into a clean temporary prefix and exercise its CLI
         run: node scripts/verify-package.mjs --tarball artifact/${{ needs.build.outputs.tarball }}
+      - name: Verify SDK and CLI consumers against the same four package artifacts
+        run: node scripts/verify-npm-packages.mjs --artifacts-dir artifact
+
+  platform:
+    name: Native launchers and lifecycle fixtures / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      # Fixtures never register a real user job. Native launcher/Bash argument
+      # handling and Windows task command-line parsing run on their actual OS.
+      - name: Verify diagnostics, launchers and isolated lifecycle rollback
+        run: node --test test/doctor.test.js test/launcher-platform.test.js test/platform-services.test.js test/setup-service.test.js test/release.test.js
 
   dsh-unit:
     name: Isolated DSH adapter / Node ${{ matrix.node }}
@@ -109,8 +128,8 @@ jobs:
           node-version: ${{ matrix.node }}
       # Unit fixtures do not load the host SDK or need an installed DSH/model account.
       # The real-CLI test runs against this checkout's kernel, so the adapter is checked against the contract it ships with.
-      - run: npm --prefix plugins/dsh-blackboard test
+      - run: npm --prefix plugins/dsh-pinwhy test
         env:
-          BLACKBOARD_TEST_CLI: ${{ github.workspace }}/bin/blackboard.js
-      - run: npm --prefix plugins/dsh-blackboard run check
+          PINWHY_TEST_CLI: ${{ github.workspace }}/bin/pinwhy.js
+      - run: npm --prefix plugins/dsh-pinwhy run check
       # Real Host loader/settings and paid-model E2E remain explicit local release checks.

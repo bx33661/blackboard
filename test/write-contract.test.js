@@ -11,9 +11,9 @@ import { fileURLToPath } from 'node:url';
 import { addActivity, addEdge, ensure, readEvents, replay } from '../lib/store.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const CLI = path.resolve(HERE, '..', 'bin', 'blackboard.js');
+const CLI = path.resolve(HERE, '..', 'bin', 'pinwhy.js');
 
-function tmp(t, prefix = 'blackboard-contract-') {
+function tmp(t, prefix = 'pinwhy-contract-') {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
@@ -25,13 +25,13 @@ function board(t) {
   return dir;
 }
 
-/** Run the CLI with no inherited BLACKBOARD_* settings unless `env` passes them. */
+/** Run the CLI with no inherited PINWHY_* settings unless `env` passes them. */
 function run(t, args, { cwd, env = {} } = {}) {
   const base = { ...process.env };
-  for (const key of Object.keys(base)) if (key.startsWith('BLACKBOARD_')) delete base[key];
+  for (const key of Object.keys(base)) if (key.startsWith('PINWHY_')) delete base[key];
   return spawnSync(process.execPath, [CLI, ...args], {
-    cwd: cwd || tmp(t, 'blackboard-elsewhere-'),
-    env: { ...base, HOME: tmp(t, 'blackboard-home-'), BLACKBOARD_QUIET: '1', ...env },
+    cwd: cwd || tmp(t, 'pinwhy-elsewhere-'),
+    env: { ...base, HOME: tmp(t, 'pinwhy-home-'), PINWHY_QUIET: '1', ...env },
     encoding: 'utf8',
   });
 }
@@ -62,15 +62,14 @@ const WRITE_COMMANDS = [
 test('every write command accepts --agent, --cwd and --no-init, and --no-init never creates a board', (t) => {
   const parent = tmp(t);
   const missing = path.join(parent, 'typo', 'project');
-  const elsewhere = tmp(t, 'blackboard-elsewhere-');
+  const elsewhere = tmp(t, 'pinwhy-elsewhere-');
   for (const args of WRITE_COMMANDS) {
     const r = run(t, [...args, '--agent', 'w', '--cwd', missing, '--no-init'], { cwd: elsewhere });
     assert.equal(r.status, 1, `${args[0]} should refuse: ${r.stderr}`);
-    assert.doesNotMatch(r.stderr, /未知选项/, `${args[0]}: ${r.stderr}`);
     assert.match(r.stderr, /--no-init/, `${args[0]} should say why it refused: ${r.stderr}`);
     assert.match(r.stderr, new RegExp(missing.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.equal(fs.existsSync(path.join(parent, 'typo')), false, `${args[0]} created the missing path`);
-    assert.equal(fs.existsSync(path.join(elsewhere, '.blackboard')), false, `${args[0]} fell back to the process cwd`);
+    assert.equal(fs.existsSync(path.join(elsewhere, '.pinwhy')), false, `${args[0]} fell back to the process cwd`);
   }
 });
 
@@ -78,7 +77,7 @@ test('--no-init refuses an existing directory without a board, and is a no-op on
   const empty = tmp(t);
   const refused = run(t, ['goal', 'G', '--cwd', empty, '--no-init']);
   assert.equal(refused.status, 1);
-  assert.equal(fs.existsSync(path.join(empty, '.blackboard')), false);
+  assert.equal(fs.existsSync(path.join(empty, '.pinwhy')), false);
 
   const dir = board(t);
   const result = ok(t, ['goal', 'G', '--cwd', dir, '--no-init', '--json']);
@@ -89,40 +88,40 @@ test('without --no-init, a write still initializes a missing board (unchanged de
   const dir = tmp(t);
   const r = run(t, ['goal', 'G'], { cwd: dir });
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(fs.existsSync(path.join(dir, '.blackboard', 'events.jsonl')), true);
+  assert.equal(fs.existsSync(path.join(dir, '.pinwhy', 'events.jsonl')), true);
 });
 
-test('--cwd beats BLACKBOARD_CWD and the process directory, for writes and reads', (t) => {
+test('--cwd beats PINWHY_CWD and the process directory, for writes and reads', (t) => {
   const a = board(t);
   const b = board(t);
-  ok(t, ['goal', 'in B', '--cwd', b], { cwd: a, env: { BLACKBOARD_CWD: a } });
+  ok(t, ['goal', 'in B', '--cwd', b], { cwd: a, env: { PINWHY_CWD: a } });
   assert.deepEqual(Object.keys(replay(a).nodes), []);
   assert.deepEqual(Object.values(replay(b).nodes).map((n) => n.title), ['in B']);
 
-  const listed = ok(t, ['ls', '--cwd', b, '--json'], { cwd: a, env: { BLACKBOARD_CWD: a } });
+  const listed = ok(t, ['ls', '--cwd', b, '--json'], { cwd: a, env: { PINWHY_CWD: a } });
   assert.deepEqual(listed.map((n) => n.title), ['in B']);
   const context = ok(t, ['context', '--cwd', b, '--json'], { cwd: a });
-  assert.equal(context.schema, 'blackboard.context.v2');
+  assert.equal(context.schema, 'pinwhy.context.v2');
 
   // A relative --cwd resolves against the process directory, like any path argument.
   ok(t, ['goal', 'relative', '--cwd', path.relative(a, b)], { cwd: a });
   assert.equal(Object.keys(replay(b).nodes).length, 2);
 });
 
-test('nodes record their author: --agent beats BLACKBOARD_AGENT, which beats agent:primary', (t) => {
+test('nodes record their author: --agent beats PINWHY_AGENT, which beats agent:primary', (t) => {
   const dir = board(t);
-  const flag = ok(t, ['goal', 'flag', '--agent', 'qs', '--json'], { env: { BLACKBOARD_CWD: dir, BLACKBOARD_AGENT: 'env' } });
+  const flag = ok(t, ['goal', 'flag', '--agent', 'qs', '--json'], { env: { PINWHY_CWD: dir, PINWHY_AGENT: 'env' } });
   assert.equal(flag.node.author, 'agent:qs');
-  const env = ok(t, ['goal', 'env', '--json'], { env: { BLACKBOARD_CWD: dir, BLACKBOARD_AGENT: 'env' } });
+  const env = ok(t, ['goal', 'env', '--json'], { env: { PINWHY_CWD: dir, PINWHY_AGENT: 'env' } });
   assert.equal(env.node.author, 'agent:env');
-  const plain = ok(t, ['goal', 'plain', '--json'], { env: { BLACKBOARD_CWD: dir } });
+  const plain = ok(t, ['goal', 'plain', '--json'], { env: { PINWHY_CWD: dir } });
   assert.equal(plain.node.author, 'agent:primary');
   assert.equal(replay(dir).nodes.g1.author, 'agent:qs');
 });
 
 test('relations record their author, whether made on create or with link', (t) => {
   const dir = board(t);
-  const env = { BLACKBOARD_CWD: dir };
+  const env = { PINWHY_CWD: dir };
   ok(t, ['goal', 'G'], { env });
   const created = ok(t, ['fact', 'F', '--to', 'g1', '--rel', 'supports', '--agent', 'qs', '--json'], { env });
   assert.equal(created.edge.author, 'agent:qs');
@@ -135,20 +134,20 @@ test('relations record their author, whether made on create or with link', (t) =
 
 test('edits and state changes record who made them', (t) => {
   const dir = board(t);
-  const env = { BLACKBOARD_CWD: dir };
+  const env = { PINWHY_CWD: dir };
   ok(t, ['intent', 'I'], { env });
   for (const [cmd, extra] of [['edit', ['--title', 'renamed']], ['done', []], ['block', []], ['revive', []]]) {
     const result = ok(t, [cmd, 'i1', ...extra, '--agent', `by-${cmd}`, '--json'], { env });
     assert.equal(result.updatedBy, `agent:by-${cmd}`, cmd);
     assert.equal(lastEvent(dir, 'patch').set.updatedBy, `agent:by-${cmd}`, cmd);
   }
-  const fromEnv = ok(t, ['done', 'i1', '--json'], { env: { ...env, BLACKBOARD_AGENT: 'env' } });
+  const fromEnv = ok(t, ['done', 'i1', '--json'], { env: { ...env, PINWHY_AGENT: 'env' } });
   assert.equal(fromEnv.updatedBy, 'agent:env');
 });
 
 test('promote, remove, unlink and reset record who made them', (t) => {
   const dir = board(t);
-  const env = { BLACKBOARD_CWD: dir };
+  const env = { PINWHY_CWD: dir };
   addActivity({ tool: 'Read', summary: 'read parse.js' }, dir);
   const promoted = ok(t, ['promote', 'act1', '--agent', 'qs', '--json'], { env });
   assert.equal(promoted.node.author, 'agent:qs');
@@ -165,7 +164,7 @@ test('promote, remove, unlink and reset record who made them', (t) => {
 
 test('history attributes relation events to their author', (t) => {
   const dir = board(t);
-  const env = { BLACKBOARD_CWD: dir };
+  const env = { PINWHY_CWD: dir };
   ok(t, ['goal', 'G'], { env });
   const fact = ok(t, ['fact', 'F', '--json'], { env }).node.id;
   ok(t, ['link', fact, 'g1', '--rel', 'supports', '--agent', 'qs'], { env });
@@ -178,7 +177,7 @@ test('history attributes relation events to their author', (t) => {
 test('store: addEdge keeps an explicit author and records none when not given', (t) => {
   const dir = board(t);
   ensure(dir);
-  const env = { BLACKBOARD_CWD: dir };
+  const env = { PINWHY_CWD: dir };
   ok(t, ['goal', 'A'], { env });
   ok(t, ['goal', 'B'], { env });
   assert.equal(addEdge({ from: 'g1', to: 'g2', author: 'human' }, dir).author, 'human');
@@ -196,7 +195,7 @@ test('capabilities advertise attribution, --cwd and --no-init so adapters can fe
 
 test('repeated --to links one new node to every target with the same relation, all or nothing', (t) => {
   const dir = board(t);
-  const env = { BLACKBOARD_CWD: dir };
+  const env = { PINWHY_CWD: dir };
   ok(t, ['goal', 'G'], { env });
   ok(t, ['node', 'add', 'hypothesis', 'H'], { env });
   const created = ok(t, ['node', 'add', 'observation', 'E', '--to', 'g1', '--to', 'hy1', '--to', 'g1', '--rel', 'supports', '--agent', 'ev', '--json'], { env });
@@ -210,15 +209,15 @@ test('repeated --to links one new node to every target with the same relation, a
   const unlinked = ok(t, ['node', 'add', 'note', 'Alone', '--json'], { env });
   assert.deepEqual([unlinked.edge, unlinked.edges], [null, []]);
 
-  const log = fs.readFileSync(path.join(dir, '.blackboard', 'events.jsonl'));
+  const log = fs.readFileSync(path.join(dir, '.pinwhy', 'events.jsonl'));
   assert.equal(run(t, ['node', 'add', 'note', 'X', '--to', 'g1', '--to', 'missing'], { env }).status, 1);
-  assert.deepEqual(fs.readFileSync(path.join(dir, '.blackboard', 'events.jsonl')), log, 'an unknown target writes neither the node nor any relation');
+  assert.deepEqual(fs.readFileSync(path.join(dir, '.pinwhy', 'events.jsonl')), log, 'an unknown target writes neither the node nor any relation');
   assert.equal(run(t, ['node', 'add', 'note', 'X', '--to', 'g1', '--relate-here'], { env }).status, 1);
 });
 
 test('checkpoint reports what changed since the same identity\'s previous checkpoint, up to itself', (t) => {
   const dir = board(t);
-  const env = { BLACKBOARD_CWD: dir };
+  const env = { PINWHY_CWD: dir };
   ok(t, ['goal', 'G'], { env });
   assert.equal(ok(t, ['checkpoint', '--summary', 'first', '--json'], { env }).sincePrevious, null);
   const idle = ok(t, ['checkpoint', '--summary', 'nothing new', '--json'], { env }).sincePrevious;

@@ -16,7 +16,7 @@
       ],
       "exitCode": 0,
       "output": {
-        "schema": "blackboard.node-add.v2",
+        "schema": "pinwhy.node-add.v2",
         "node": {
           "id": "o1",
           "type": "observation",
