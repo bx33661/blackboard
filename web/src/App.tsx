@@ -20,7 +20,6 @@ import { NewNodeDialog } from './panels/EditPanel';
 import { Sidebar } from './panels/Sidebar';
 import { Topbar } from './panels/Topbar';
 import { TimelineBar } from './panels/TimelineBar';
-import { FieldNotesPanel } from './field-notes/FieldNotesPanel';
 import { locale, t } from './i18n';
 import { SessionDrafts } from './session-drafts';
 import { useWorkspaceData } from './workspace/use-workspace-data';
@@ -34,7 +33,6 @@ import { useWorkspaceScene } from './workspace/use-workspace-scene';
 import { useWorkspaceTimeline } from './workspace/use-workspace-timeline';
 import { useWorkspaceChrome, useWorkspaceShortcuts } from './workspace/use-workspace-chrome';
 import type { Scene3DProps } from './scene3d/shared';
-import type { ViewMode } from './types';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
 const edgeTypes = { routed: RoutedEdge };
@@ -49,7 +47,7 @@ const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
 
 function Workspace() {
   const { snapshot: live, connection, syncedAt, isStatic, reload } = useGraphStream();
-  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, page, setPage, deepLink, pendingFocus } = useWorkspaceLocation();
+  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
   // A checkpoint view replaces what every panel reads; the live stream keeps running underneath.
   const timeline = useWorkspaceTimeline(live, asOf, setAsOf, isStatic);
   const snapshot = timeline.snapshot;
@@ -66,30 +64,23 @@ function Workspace() {
   const flatRef = useRef<HTMLDivElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
 
-  const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter, page === 'board');
+  const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter);
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
   const { agentIds, digest, currentId, current, findings, openItems } = agent;
   // Stepping through checkpoints is not the Agent writing: only the live board pulses.
   const { fresh, notice, flash, linkCopied, copyNodeLink, copied, copyDigest, offlineShown } = useWorkspaceFeedback(timeline.active ? null : snapshot, allNodes, digest, agentId, connection, isStatic);
   const { nodes, edges, onNodesChange, layoutRevision, layoutMode, laying } = useWorkspaceLayout(projection, mode, direction);
-  const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision: page === 'board' ? layoutRevision : -1, mode, follow, currentId, selectedId });
+  const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision, mode, follow, currentId, selectedId });
   const { scene3d, sceneRef, openScene, closeScene, occlusion, exporting, exportImage } = useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode, flash });
   // Resolve selection against the requested checkpoint, never its loading fallback.
   const { selected, focusNode, clearSelection, switchMode, handleNodesChange, onNodeClick } = useWorkspaceSelection({
-    snapshot: page === 'notes' || (timeline.active && !timeline.point) ? null : snapshot,
+    snapshot: timeline.active && !timeline.point ? null : snapshot,
     byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId,
     deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d,
-    enabled: page === 'board',
   });
   const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, mode, edgeStyle, showChanges && timeline.active ? timeline.changeMap : null);
-  const continueExploring = () => {
-    pendingFocus.current = selectedId ?? currentId ?? null;
-    setPage('board');
-  };
-  const openNoteNode = (id: string) => { setPage('board'); focusNode(id); };
-  const changeView = (next: ViewMode) => { setPage('board'); switchMode(next); };
 
-  useWorkspaceShortcuts(page, clearSelection, setPaletteOpen, setShortcutsOpen, setSidebarOpen);
+  useWorkspaceShortcuts(clearSelection, setPaletteOpen, setShortcutsOpen, setSidebarOpen);
 
 
   if (!snapshot) {
@@ -114,7 +105,7 @@ function Workspace() {
         title={snapshot.meta.title || t('app.untitledTask')}
         build={snapshot.meta.build}
         mode={mode}
-        onMode={changeView}
+        onMode={switchMode}
         agentId={agentId}
         agentIds={agentIds}
         onAgent={setAgentId}
@@ -126,37 +117,17 @@ function Workspace() {
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
         onSearch={() => setPaletteOpen(true)}
         onDigest={() => setDigestOpen(true)}
-        onNew={writable && page === 'board' ? () => setNewOpen(true) : undefined}
+        onNew={writable ? () => setNewOpen(true) : undefined}
         digestRef={digestTrigger}
         activities={activities}
         activityTotal={stats.activities || activities.length}
         timelineOpen={timelineOpen}
-        notesOpen={page === 'notes'}
-        onNotes={() => { timeline.pause(); if (page === 'notes') continueExploring(); else setPage('notes'); }}
         onTimeline={isStatic ? undefined : () => {
-          setPage('board');
           if (timelineOpen) { timeline.pause(); setAsOf(null); }
           setTimelineOpen(!timelineOpen);
         }}
       />
 
-      {page === 'notes' && timeline.active && !timeline.point ? (
-        <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <History className="size-5 text-muted-foreground" />
-          <p role={timeline.error ? 'alert' : 'status'} className="m-0 text-sm text-muted-foreground">{timeline.error || t('timeline.loading')}</p>
-          {timeline.error && <button type="button" className="rounded-md border px-3 py-2 text-sm" onClick={() => { timeline.pause(); setAsOf(null); }}>{t('timeline.backToNow')}</button>}
-        </main>
-      ) : page === 'notes' ? (
-        <FieldNotesPanel
-          key={`${live?.meta.session ?? ''}:${live?.meta.title ?? ''}`}
-          snapshot={snapshot}
-          theme={theme}
-          isStatic={isStatic}
-          onContinue={continueExploring}
-          onNode={openNoteNode}
-          onCheckpoint={isStatic ? undefined : (id) => { timeline.pause(); setAsOf(id); setTimelineOpen(true); setPage('board'); }}
-        />
-      ) : <>
       <div className="relative flex min-h-0 flex-1">
         {sidebarOpen && (
           <>
@@ -325,7 +296,6 @@ function Workspace() {
           onClose={() => { timeline.pause(); setAsOf(null); setTimelineOpen(false); }}
         />
       )}
-      </>}
 
       <CommandPalette
         open={paletteOpen}
@@ -333,16 +303,16 @@ function Workspace() {
         nodes={paletteNodes}
         theme={theme}
         copied={copied}
-        onSelect={openNoteNode}
-        onMode={changeView}
+        onSelect={focusNode}
+        onMode={switchMode}
         onTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         onCopyDigest={copyDigest}
-        onExport={page === 'board' && nodes.length > 0 && !exporting ? exportImage : null}
+        onExport={nodes.length > 0 && !exporting ? exportImage : null}
         onShortcuts={() => setShortcutsOpen(true)}
       />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       {writable && <NewNodeDialog open={newOpen} onOpenChange={setNewOpen} />}
-      <DigestDialog open={digestOpen} onOpenChange={setDigestOpen} digest={digest} copied={copied} onCopy={copyDigest} returnFocus={digestTrigger} byId={byId} onFocus={openNoteNode} agentId={agentId} checkpoints={snapshot?.checkpoints} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />
+      <DigestDialog open={digestOpen} onOpenChange={setDigestOpen} digest={digest} copied={copied} onCopy={copyDigest} returnFocus={digestTrigger} byId={byId} onFocus={focusNode} agentId={agentId} checkpoints={snapshot?.checkpoints} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />
     </div>
   );
 }

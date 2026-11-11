@@ -27,10 +27,9 @@ const zh = {
       context: ['现场', '围绕当前关注点，只看一跳邻域、目标与开放问题。Agent 在哪，你就看哪。'],
       logic: ['逻辑', '沿已记录的支持、反驳与推导关系阅读证据。图上的每一根线都是被明确写下的。'],
       all: ['全局', '浏览整个工作台，包括尚未连接的记录。分组只用于展示，不改变数据。'],
-      notes: ['项目手记', '把检查点、当前位置和显式关系排成一份可阅读、可导出的项目手记。'],
       board: ['2.5D 电路板', '每个判断是一颗芯片，高度是记录的严重度；每条显式关系是一根铜线，信号沿记录的方向流动。'],
     },
-    ws: { context: '现场视图', logic: '逻辑视图', all: '全局视图', notesOpen: '打开项目手记', notesBack: '返回画布', fit: '适应画布', toDark: '切换深色主题', toLight: '切换浅色主题', locale: 'zh-CN' },
+    ws: { context: '现场视图', logic: '逻辑视图', all: '全局视图', fit: '适应画布', toDark: '切换深色主题', toLight: '切换浅色主题', locale: 'zh-CN' },
   },
   how: {
     kicker: '工作原理', title: [<>上下文会丢，</>, <>判断<i>不该丢。</i></>],
@@ -80,10 +79,10 @@ const zh = {
         ],
       },
       {
-        shot: 'notes', k: '导出', t: '把成果整理成一份手记',
+        shot: 'stage-all', k: '导出', t: '把记录与关系带出工作台',
         li: [
-          '项目手记按检查点、当前位置和显式关系排版，可导出为不依赖脚本的离线 HTML。',
-          '也可以导出 Markdown、Mermaid、SARIF，或一份可只读浏览的离线工作台。',
+          '导出为可只读浏览的离线 HTML 工作台，保留记录与显式关系。',
+          '也可以导出 Markdown、Mermaid 或 SARIF，接入文档、图表与安全分析流程。',
           '导出保留已记录的原文与关系，不生成摘要，也不补全结论。',
         ],
       },
@@ -182,10 +181,9 @@ const en = {
       context: ['Context', 'Only the current focus, its one-hop neighbours, goals and open questions. Where the agent is, you are.'],
       logic: ['Logic', 'Read the evidence along recorded supports, contradictions and derivations. Every line was written down on purpose.'],
       all: ['Overview', 'The whole board, including records that aren’t connected yet. Groups are for display only.'],
-      notes: ['Field notes', 'Checkpoints, the current position and explicit relations, typeset as a readable, exportable notebook.'],
       board: ['2.5D board', 'Every judgment is a chip whose height is its recorded severity; every explicit relation is a copper trace carrying signal in its recorded direction.'],
     },
-    ws: { context: 'Context view', logic: 'Logic view', all: 'Overview', notesOpen: 'Open field notes', notesBack: 'Back to canvas', fit: 'Fit to screen', toDark: 'Switch to dark theme', toLight: 'Switch to light theme', locale: 'en' },
+    ws: { context: 'Context view', logic: 'Logic view', all: 'Overview', fit: 'Fit to screen', toDark: 'Switch to dark theme', toLight: 'Switch to light theme', locale: 'en' },
   },
   how: {
     kicker: 'How it works', title: [<>Context gets lost.</>, <>Judgment <i>shouldn’t.</i></>],
@@ -235,10 +233,10 @@ const en = {
         ],
       },
       {
-        shot: 'notes', k: 'Export', t: 'Turn the work into field notes',
+        shot: 'stage-all', k: 'Export', t: 'Take records and relations beyond the workspace',
         li: [
-          'Field notes typeset checkpoints, the current position and explicit relations, and export to script-free offline HTML.',
-          'You can also export Markdown, Mermaid, SARIF, or a read-only offline workspace.',
+          'Export a read-only offline HTML workspace with the recorded text and explicit relations.',
+          'Export Markdown, Mermaid or SARIF for documentation, diagrams and security analysis workflows.',
           'Exports keep the recorded text and relations as written — no generated summaries, no filled-in conclusions.',
         ],
       },

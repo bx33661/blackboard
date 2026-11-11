@@ -43,19 +43,19 @@ export function useWorkspaceChrome() {
 
 type Toggle = Dispatch<SetStateAction<boolean>>;
 
-/** Global search works on either page; board shortcuts respect editors, dialogs and menus. */
-export function useWorkspaceShortcuts(page: 'board' | 'notes', clearSelection: () => void, setPaletteOpen: Toggle, setShortcutsOpen: Toggle, setSidebarOpen: Toggle) {
+/** Canvas shortcuts respect editors, dialogs and menus. */
+export function useWorkspaceShortcuts(clearSelection: () => void, setPaletteOpen: Toggle, setShortcutsOpen: Toggle, setSidebarOpen: Toggle) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setPaletteOpen((open) => !open);
-      } else if (page === 'board' && !event.metaKey && !event.ctrlKey && !event.altKey && !(event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]') && !document.querySelector('[role="dialog"]') && (event.key === '/' || event.key === '[' || event.key === '?')) {
+      } else if (!event.metaKey && !event.ctrlKey && !event.altKey && !(event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]') && !document.querySelector('[role="dialog"]') && (event.key === '/' || event.key === '[' || event.key === '?')) {
         event.preventDefault();
         if (event.key === '/') setPaletteOpen(true); else if (event.key === '?') setShortcutsOpen(true); else setSidebarOpen((open) => !open);
-      } else if (page === 'board' && event.key === 'Escape' && !document.querySelector('[role="dialog"], [role="menu"]')) clearSelection();
+      } else if (event.key === 'Escape' && !document.querySelector('[role="dialog"], [role="menu"]')) clearSelection();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clearSelection, page, setPaletteOpen, setShortcutsOpen, setSidebarOpen]);
+  }, [clearSelection, setPaletteOpen, setShortcutsOpen, setSidebarOpen]);
 }

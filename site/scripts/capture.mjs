@@ -80,19 +80,14 @@ for (const lang of ['zh', 'en']) for (const theme of ['light', 'dark']) {
     await page.close();
   }
   // Stage stills: what the workspace window shows before the reader opens the live one.
-  for (const [view, query] of [['context', 'view=context'], ['logic', 'view=logic'], ['all', 'view=all'], ['notes', 'page=notes']]) {
+  for (const [view, query] of [['context', 'view=context'], ['logic', 'view=logic'], ['all', 'view=all']]) {
     const page = await open(lang, theme, query);
-    if (view !== 'notes') { await page.click(`button[aria-label="${L.fit}"]`); await sleep(900); }
+    await page.click(`button[aria-label="${L.fit}"]`);
+    await sleep(900);
     await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1.5 });
     await sleep(400);
     await page.screenshot({ path: path.join(OUT, `stage-${view}-${lang}-${theme}.webp`), type: 'webp', quality: 86 });
     console.log('saved', `stage-${view}-${lang}-${theme}`);
-    await page.close();
-  }
-  // Field notes: the readable, exportable notebook.
-  {
-    const page = await open(lang, theme, 'page=notes');
-    await save(page, name('notes'), { x: 0, y: 48, width: 1280, height: 640 });
     await page.close();
   }
 }
