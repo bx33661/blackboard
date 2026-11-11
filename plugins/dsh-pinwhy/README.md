@@ -6,7 +6,7 @@ pinwhy 的可选 **DeepSeek Harness 适配器**，位于主仓库的 `plugins/ds
 DSH → dsh-pinwhy → 独立安装的 pinwhy CLI → 项目 .pinwhy/events.jsonl
 ```
 
-目标版本：DSH `0.2.1-rc.2`。pinwhy 不按版本号判断，而按 `capabilities --json` 检测：`schema` 为 `pinwhy.capabilities.v1`，`features` 含 `writeAttribution`、`cwdFlag`、`noInit`，用到的 8 个命令输出声明为插件读取的 schema，并声明 `writeTargets`，即 [公开契约](../../docs/CONTRACT.md) v1。早于契约的构建（包括 2026-10-27 的 0.6.1 发布准备提交）缺少 `outputs`、`writeTargets`，诊断会报 RUNTIME_INCOMPATIBLE。Node 与 DSH 的运行要求一致：`^22.19.0 || >=24.0.0`。源码是可直接运行的 ESM，安装后不依赖构建或生命周期脚本。
+目标版本：DSH `0.2.1-rc.2`。pinwhy 不按版本号判断，而按 `capabilities --json` 检测：`schema` 为 `pinwhy.capabilities.v1`，`features` 含 `writeAttribution`、`cwdFlag`、`noInit`、`resourcePaths`，用到的 8 个命令输出声明为插件读取的 schema，并声明 `writeTargets` 和绝对资源路径 `resources.cli`、`resources.skill`，即 [公开契约](../../docs/CONTRACT.md) v1。缺少上述声明的构建会在诊断中报 RUNTIME_INCOMPATIBLE。Node 与 DSH 的运行要求一致：`^22.19.0 || >=24.0.0`。源码是可直接运行的 ESM，安装后不依赖构建或生命周期脚本。
 
 ## 插件展示信息
 
@@ -129,13 +129,13 @@ data 是 CLI 的原始结构化结果，diagnostics 保留 stderr 提示（包�
 
 失败通过 DSH 标准错误结果呈现，消息携带错误代码：NOT_ENABLED、BOARD_NOT_INITIALIZED、SESSION_REQUIRED、WORKSPACE_MISSING、AMBIGUOUS_PROJECT、RUNTIME_MISSING、RUNTIME_INCOMPATIBLE、SPAWN_FAILED、CLI_FAILED、INVALID_JSON、CONTEXT_CONTRACT、POLICY_REQUIRED、WRITE_POLICY、TIMEOUT、ABORTED、OUTPUT_LIMIT 或 DISPOSED。模型参数不开放任意命令、shell 或目标目录。
 
-固定 CLI 桥接只通过公开契约调用内核：项目根和身份以 `--cwd`、`--agent` 显式传入（写命令另加 `--no-init`），不设置也不继承 `PINWHY_CWD`、`PINWHY_AGENT`；写入前按 `capabilities.writeTargets` 声明的每个文件做宿主模式/路径校验：已存在的目标解析真实路径后必须在工作区内，悬空软链拒绝，尚不存在的目标看最近的已存在上级目录。不把它宣称为独立的 OS 沙箱。Skill 仍按发布包结构从 CLI 所在包的 `skills/pinwhy/` 读取，这一处不在公开契约内。boardRoot 配置到工作区外时，workspace-write 模式下写工具会返回 WRITE_POLICY。read-only 模式仍可读取已配置黑板。文件系统上的并发路径替换仍由实际运行环境的隔离承担。
+固定 CLI 桥接只通过公开契约调用内核：项目根和身份以 `--cwd`、`--agent` 显式传入（写命令另加 `--no-init`），不设置也不继承 `PINWHY_CWD`、`PINWHY_AGENT`；写入前按 `capabilities.writeTargets` 声明的每个文件做宿主模式/路径校验：已存在的目标解析真实路径后必须在工作区内，悬空软链拒绝，尚不存在的目标看最近的已存在上级目录。不把它宣称为独立的 OS 沙箱。Skill 读取公开契约的 `resources.skill`，CLI 占位符使用 `resources.cli`；两项必须是绝对路径，不再从配置的 CLI 所在目录猜测资源位置。因此配置指向 npm `pinwhy-cli` 包装器、实际运行时位于依赖包 `pinwhy` 时也能读取完整资源。boardRoot 配置到工作区外时，workspace-write 模式下写工具会返回 WRITE_POLICY。read-only 模式仍可读取已配置黑板。文件系统上的并发路径替换仍由实际运行环境的隔离承担。
 
 超时、取消或输出过限时，写入可能已经提交；先读取现场，不自动重试写操作。黑板内容是用户或 Agent 留下的数据，不能提升为宿主指令。
 
 ## Skill 与资源
 
-provider 使用 pinwhy 安装包的 `skills/pinwhy/`，展开 CLI 占位符，resourceBase 指向完整资源目录；不改写安装文件。候选指向已解析的不可变版本资源，CLI 路径仍保持 current。升级需要按 DSH 机制重载 provider 以刷新目录；项目同名 Skill 按 DSH 优先级覆盖 bundled 候选。
+provider 使用 `capabilities.resources.skill`，展开 `resources.cli` 占位符，resourceBase 指向完整资源目录；不改写安装文件。候选资源目录解析真实路径并固定到该版本，正文的 CLI 路径保留运行时声明（独立发布安装仍保持 current）。升级需要按 DSH 机制重载 provider 以刷新目录；项目同名 Skill 按 DSH 优先级覆盖 bundled 候选。
 
 Skill 可见不代表项目已启用，更不代表模型已经加载或调用了它；实际使用以工具执行与事件记录为准。runtime 未安装时 provider 会向 DSH 报告发现失败，不创建替代 Skill 或黑板。
 

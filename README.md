@@ -94,6 +94,25 @@ Agent 应按当前宿主选择接入方式：Claude Code 使用其 Skill / Hook�
 
 按[完整使用参考](docs/USAGE.md#manual-install)安装独立 CLI，再为当前项目选择 Claude Code、Codex 或手动接入。日常使用通过 `release install` 安装的稳定副本；开发仓库与真实黑板保持隔离。
 
+### npm 包的选择
+
+本轮发布目标如下；下列 registry 安装示例仅在对应版本发布成功后可用，不代表已经上架。
+
+| 包 | 版本 | 用途 |
+| --- | --- | --- |
+| `pinwhy` | `0.11.0` | 完整、自包含产品：CLI、工作台、Skill 与接入资源，零运行时依赖 |
+| `pinwhy-core` | `0.11.0` | Node ≥ 18、零依赖的 SDK；`pinwhy-core/model` 可在浏览器使用 |
+| `pinwhy-cli` | `0.11.0` | 官方命令入口，精确依赖 `pinwhy@0.11.0`，执行同一个真实 CLI |
+| `dsh-pinwhy` | `0.3.0` | 可选 DSH 适配器；保留 DSH rc.2 兼容门禁 |
+
+```bash
+# 对应版本发布后，以下全局安装方式二选一；两者都提供 pinwhy 命令
+npm install -g pinwhy@0.11.0
+# 或：npm install -g pinwhy-cli@0.11.0
+```
+
+`npm install` 与导入 SDK 都不会启用 Hook、注册服务或迁移真实数据；这些接入动作需要显式执行。现有源码 `release install` 与不可变版本 / `current` 安装方式继续支持。SDK 示例见[使用参考](docs/USAGE.md#sdk)。
+
 支持 macOS、Windows 和 Linux；用户级常驻查看器分别使用 launchd、计划任务和 systemd。已有项目可用 `pinwhy service install` 安装后台查看器，使用 `pinwhy service start|status|stop|uninstall` 管理。
 
 <a id="给-agent-的只读上下文"></a>

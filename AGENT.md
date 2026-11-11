@@ -71,7 +71,7 @@ Pinwhy 不是行动前置条件，不替 Agent 决定下一步。具体体现，
 - 适配层和 Skill 只依赖契约：CLI 参数、`--json` 输出、退出码和事件格式，逐项列在 [公开契约](docs/CONTRACT.md)，由固定输出测试守着。不依赖内部文件名、模块路径或给人看的输出文案。
 - 机器可读输出与事件格式守同一纪律：加字段兼容，改语义、删字段或改类型才升版本。契约内的 `--json` 输出都带 `schema`，并登记在 `capabilities.outputs`；新增输出时同样登记，并在固定输出测试里加用例。
 - 给人看的输出可以随时改；给机器读的输出不能悄悄改。改契约先改测试，让不兼容的改动在内核仓库里先失败。
-- DSH 插件已通过公开 CLI 契约显式传 `--cwd` / `--agent` / `--no-init`，以 `capabilities` 检测能力和读取 `writeTargets`，不依赖锁与缓存的内部文件名。完整 Skill 仍按 CLI 发布包结构定位，尚不是公开位置契约；当前边界见 [架构说明](docs/ARCHITECTURE.md)，后续方向见 [发展方向](docs/ROADMAP.md) 的“阶段 2”。
+- DSH 插件通过公开 CLI 契约显式传 `--cwd` / `--agent` / `--no-init`，以 `capabilities` 检测能力、读取 `writeTargets` 和 `resources.cli` / `resources.skill` 绝对路径；不依赖锁、缓存或包安装目录的内部结构。当前边界见 [架构说明](docs/ARCHITECTURE.md)，后续方向见 [发展方向](docs/ROADMAP.md) 的“阶段 2”。
 
 ### 适配
 
@@ -131,14 +131,16 @@ Pinwhy 不是行动前置条件，不替 Agent 决定下一步。具体体现，
 
 ## 工程边界
 
-- 零运行时依赖，只需 Node ≥ 18；前端依赖全部是 devDependencies，`public/` 带构建产物，CLI 即装即用。
-- `lib/model.js` 必须保持无 Node-only API：被 CLI、server 和浏览器共用。
-- `lib/contracts.js` 是 CLI、服务和导出的共享契约常量；`lib/cli/` 只放参数解析、帮助和终端格式，命令调度仍在唯一入口。实时与离线图快照共用 `lib/snapshot.js`，实时推送在 `lib/http/graph-stream.js`；版本包发布在 `lib/release/`。前端工作台派生数据、URL 状态与实时订阅在 `web/src/workspace/`。这些是内部路径，不向适配器承诺稳定性。
+- 完整根产品 `pinwhy@0.11.0` 与 SDK `pinwhy-core@0.11.0` 均支持 Node ≥ 18、零运行时依赖；前端依赖全部是 devDependencies，`public/` 带构建产物。`pinwhy-cli@0.11.0` 是精确依赖 `pinwhy@0.11.0` 的官方薄入口，执行同一个 CLI；不要复制命令实现。可选 `dsh-pinwhy@0.3.0` 保留 DSH rc.2 兼容门禁。
+- `lib/model.js` 必须保持无 Node-only API：被 CLI、server 和浏览器共用，也是 `pinwhy-core/model` 的浏览器安全入口。SDK 根 facade `lib/core.js` 只选择 model/store/context/search/history/backup 函数；公开子路径为 `/model`、`/store`、`/context`、`/search`、`/history`、`/backup`、`/contracts`。仓库内路径仍为实现细节。
+- 领域实现只维护在 `lib/`；SDK 由打包脚本从相同源码生成暂存产物，不手工维护第二份实现。`packages/` 只承载包元数据与薄入口，发布产物位于 `dist/npm/`。根 `LICENSE` 随完整产品分发。`npm install` 与导入 SDK 不启用 Hook、服务或真实数据迁移。
+- `lib/contracts.js` 是 CLI、服务和导出的共享契约常量；`bin/pinwhy.js` 只负责根目录与稳定 CLI 路径的启动组装，`lib/cli/` 管理单次调用上下文、分发、命令组、参数、帮助与终端呈现。命令组依赖明确的调用上下文，不创建共享可变单例；领域写入仍经过 store。实时与离线图快照共用 `lib/snapshot.js`，实时推送在 `lib/http/graph-stream.js`；版本包发布在 `lib/release/`。前端工作台派生数据、URL 状态与实时订阅在 `web/src/workspace/`。这些是内部路径，不向适配器承诺稳定性。
 - `scripts/lib/` 只共享开发验证辅助实现；运行时 `lib/` / `bin/` 不依赖 `scripts/`、`test/` 或插件。开发与测试职责见 [架构说明](docs/ARCHITECTURE.md)，具体命令与生成产物规则见 [贡献指南](CONTRIBUTING.md)。
+- `lib/storage/layout.js` 是路径定义叶模块，`event-log.js` 只依赖它，`board.js` 依赖路径与事件读取；`input.js` 负责输入准备，`store.js` 负责写锁、请求恢复和领域事务。内部调用直接依赖所属模块，公开 SDK 仍通过原有入口导出；拆分不得引入循环依赖或第二份回放实现。开发 npm 入口与消费者环境配置集中在 `scripts/lib/npm.mjs`，打包器不导入验证器入口。
 - Pinwhy `0.11.0`（DSH 插件 `0.3.0`）完成 breaking cutover：唯一 CLI 为 `pinwhy`（`bin/pinwhy.js`），只读取 `PINWHY_*` 与 `.pinwhy/`。不保留原 `blackboard` / `BLACKBOARD_*` / `.blackboard/` 或更早 `flow` / `FLOW_*` / `.flow/` 的入口、回退、别名或自动迁移。机器 schema 使用 `pinwhy.*`，形状及 v1/v2 后缀不变，`EVENT_VERSION = 1`。用户按[手动迁移说明](docs/USAGE.md#upgrade)停止写入、备份，仅在目标不存在时改名并退役旧接入；不覆盖或拼接共存数据，不改写事件正文、作者或回执。开发 Agent 不操作真实本地数据、宿主配置、全局安装或服务。
 - Skill 的唯一源是完整的 `skills/pinwhy/` 包：`SKILL.md` 保持聚焦，参考资料按需加载，`agents/openai.yaml` 与 `assets/` 承载展示信息。安装和发布必须包含完整目录，不恢复内嵌副本，也不只复制入口而遗漏资源。
 - 页面协作编辑只提交实际修改字段，并在事件写锁内核对字段基准；冲突保留草稿，不自动覆盖或合并。选择 Agent 阅读视角不写事件、不移动任何人的游标；实时与离线投影须保持同一身份语义。
-- 开发仓库与日常使用隔离：启动器、Skill、Hook 和常驻服务只指向 `<data>/pinwhy/current`，由 `release install|use` 切换，已安装版本不可变。必须安装真正的 Pinwhy 包，不把原 blackboard/flow 的不可变版本搬入新目录冒充新包。从 `current` 运行时 CLI 路径必须记录为 `current` 而不是具体版本；刷新接入只能由 current 指向的版本自己执行。开发中的代码只写演示黑板，不写真实项目数据。
+- 开发仓库与日常使用隔离：源码 `release install|use` 继续以不可变版本和 `<data>/pinwhy/current` 管理启动器、Skill、Hook 与常驻服务；npm 全局安装可选择完整 `pinwhy` 或官方 `pinwhy-cli` 入口，两者提供同一个命令，安装其中一个即可。必须安装真正的 Pinwhy 包，不把原 blackboard/flow 的不可变版本搬入新目录冒充新包。从 `current` 运行时 CLI 路径必须记录为 `current` 而不是具体版本；刷新接入只能由 current 指向的版本自己执行。开发中的代码只写演示黑板，不写真实项目数据。
 - 事件格式跨版本兼容：新字段、新操作保持 `EVENT_VERSION` 不变，旧版本忽略不认识的操作并在 `lint` 报告；只有旧版本按旧逻辑回放会得到错误投影时才提升 `EVENT_VERSION`。遇到更高版本的事件，回放跳过并报告，写入在锁内拒绝（防止 ID 冲突），读取不受影响。
 - 可选适配放在 `plugins/` 下，自带 `package.json` 与测试；`lib/`、`bin/` 不引用适配代码，内核测试不需要任何宿主在场。
 

@@ -6,34 +6,10 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { isolatedPinwhyEnv } from './lib/environment.mjs';
+import { npmEntry, isolatedNpmEnv } from './lib/npm.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SELF), '..');
-
-function cleanEnv(home, board) {
-  return isolatedPinwhyEnv({ HOME: home, USERPROFILE: home, APPDATA: path.join(home, 'AppData', 'Roaming'), LOCALAPPDATA: path.join(home, 'AppData', 'Local'), XDG_DATA_HOME: path.join(home, '.local', 'share'), XDG_CONFIG_HOME: path.join(home, '.config'), PINWHY_CWD: board, PINWHY_QUIET: '1', npm_config_cache: path.join(home, 'npm-cache'), npm_config_update_notifier: 'false' });
-}
-
-// Invoke npm's JavaScript entry directly, including on Windows (.cmd is not an executable).
-function npmEntry() {
-  const candidates = [process.env.npm_execpath,
-    path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
-    path.resolve(path.dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js')];
-  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
-    for (const name of ['npm', 'npm.cmd']) {
-      const file = path.join(dir, name);
-      try {
-        const resolved = fs.realpathSync(file);
-        if (resolved.endsWith('.js')) candidates.push(resolved);
-        candidates.push(path.join(path.dirname(resolved), 'node_modules/npm/bin/npm-cli.js'));
-      } catch {}
-    }
-  }
-  const entry = candidates.find((file) => file && file.endsWith('.js') && fs.existsSync(file));
-  assert.ok(entry, 'npm CLI entry not found; run through npm run verify:package or install npm alongside Node');
-  return entry;
-}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { encoding: 'utf8', timeout: 120000, maxBuffer: 8 * 1024 * 1024, ...options });
@@ -79,7 +55,7 @@ export function verifyPackage(options = {}) {
   const board = path.join(tmp, 'board');
   const prefix = path.join(tmp, 'consumer');
   for (const dir of [home, board, prefix]) fs.mkdirSync(dir);
-  const env = cleanEnv(home, board);
+  const env = isolatedNpmEnv(home, { PINWHY_CWD: board, PINWHY_QUIET: '1' });
   const npm = npmEntry();
   try {
     let tarball = options.tarball ? path.resolve(options.tarball) : null;

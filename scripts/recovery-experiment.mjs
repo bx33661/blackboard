@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { applyAll, emptyGraph } from '../lib/model.js';
-import { readEvents } from '../lib/store.js';
+import { readEvents } from '../lib/storage/event-log.js';
 import { buildAgentContext, estimateTokensText } from '../lib/context.js';
 import { runExperiment } from './lib/recovery-runner.mjs';
 

@@ -99,7 +99,12 @@
           "asOf": true,
           "doctor": true,
           "editClear": true,
-          "listFilters": true
+          "listFilters": true,
+          "resourcePaths": true
+        },
+        "resources": {
+          "cli": "<runtime>/bin/pinwhy.js",
+          "skill": "<runtime>/skills/pinwhy"
         },
         "exportFormats": [
           "html",
@@ -411,7 +416,12 @@
           "asOf": true,
           "doctor": true,
           "editClear": true,
-          "listFilters": true
+          "listFilters": true,
+          "resourcePaths": true
+        },
+        "resources": {
+          "cli": "<runtime>/bin/pinwhy.js",
+          "skill": "<runtime>/skills/pinwhy"
         },
         "exportFormats": [
           "html",

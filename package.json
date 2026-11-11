@@ -2,6 +2,15 @@
   "name": "pinwhy",
   "version": "0.11.0",
   "description": "Pinwhy — Agent 外置记忆：留下判断、证据与现场，跨会话接着思考",
+  "homepage": "https://github.com/bx33661/pinwhy#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bx33661/pinwhy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bx33661/pinwhy/issues"
+  },
+  "keywords": ["pinwhy", "agent-memory", "cli", "context", "local-first"],
   "type": "module",
   "bin": {
     "pinwhy": "./bin/pinwhy.js"
@@ -11,7 +20,8 @@
     "lib/",
     "skills/",
     "public/",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18"
@@ -32,6 +42,8 @@
     "benchmark": "node scripts/benchmark.mjs",
     "benchmark:full": "node scripts/benchmark.mjs --full",
     "verify:package": "node scripts/verify-package.mjs",
+    "pack:packages": "node scripts/pack-packages.mjs",
+    "verify:npm-packages": "node scripts/verify-npm-packages.mjs",
     "verify:api": "node scripts/verify-api.mjs",
     "verify:viewer": "node web/scripts/verify-viewer.mjs",
     "verify:exports:text": "node scripts/verify-text-exports.mjs",
@@ -39,6 +51,7 @@
     "verify:exports": "npm run verify:exports:text && npm run verify:exports:sarif"
   },
   "license": "MIT",
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "devDependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",

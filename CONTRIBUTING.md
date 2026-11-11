@@ -70,7 +70,7 @@ npm run verify:exports
 
 ## 契约与版本
 
-[公开契约](docs/CONTRACT.md)是 CLI 参数、JSON schema、HTTP 行为、事件格式与写入目标的唯一参考。内部模块路径、终端文案和目录拆分不是公开接口。
+[公开契约](docs/CONTRACT.md)是 CLI 参数、JSON schema、HTTP 行为、事件格式与写入目标的唯一参考。SDK 通过 `pinwhy-core` 的根入口与声明的子路径公开能力；其他仓库内部模块路径、终端文案和目录拆分不是公开接口。
 
 - 外部行为变化时，先更新有意义的契约或行为测试，再同步实现与文档；不要仅为新输出重新生成存档而隐藏差异。
 - `lib/contracts.js` 集中声明输出、写入目标和图 schema。新增公开能力必须与 `capabilities`、固定输出和契约文档一致；适配器按能力声明检测，不解析版本号或内核文件名。
@@ -87,6 +87,22 @@ Pinwhy `0.11.0` 是命名 breaking cutover，插件为 `0.3.0`：机器 schema �
 提交或推送前运行 `npm run check:publish`。仓库的 `.githooks/` 提供暂存与待推送历史检查；本地可用 `git config core.hooksPath .githooks` 启用。默认命令检查当前工作树可发布文件，暂存快照可用 `npm run check:publish -- --staged` 检查；pre-push 还检查待推送中间提交，不能靠末尾删除敏感内容掩盖已提交历史。真实目标匹配词只存本地 Git 的 `info/publication-deny.json`，不要放进公开扫描器或 fixture。检查输出仅给路径与规则，不回显命中内容。
 
 ## 发布与交接
+
+四个功能包的发布目标为 `pinwhy-core@0.11.0`、`pinwhy@0.11.0`、`pinwhy-cli@0.11.0` 与 `dsh-pinwhy@0.3.0`。包名和安装示例不表示已经发布；registry 消费必须等待对应版本发布成功。
+
+```bash
+# 先按本地验证清单构建与检查，再生成全部候选
+npm run pack:packages
+# 实际隔离消费者安装，而非仅检查源码或 tarball 文件名
+npm run verify:npm-packages
+# 使用指定 registry 验证消费者安装
+npm run verify:npm-packages -- --registry https://registry.npmjs.org
+```
+
+`pack:packages` 生成 `dist/npm/*.tgz` 与 `dist/npm/manifest.json`。SDK 的暂存实现从规范 `lib/` 自动生成，修改只落在单一源文件；不要编辑生成副本。`lib/core.js` 选择 SDK 根导出，子路径导出由 SDK 包元数据声明。完整 `pinwhy` 自包含且零运行时依赖，根 `LICENSE` 包含在分发中；`pinwhy-cli` 精确依赖该版本并执行其真实 CLI。适配器独立发布，DSH rc.2 门禁保持不变。
+
+完成候选与消费者验证后，发布顺序为 **pinwhy-core → pinwhy → pinwhy-cli → dsh-pinwhy**，让官方 CLI 的精确依赖先可解析。认证、registry 可见性和每个发布结果需要单独确认，打包成功不代表发布成功。安装和 SDK import 不启用 Hook、服务或迁移；不要用真实项目、全局宿主接入或用户服务做候选验证。源码 `release install` 与不可变版本 / `current` 安装继续支持。
+
 
 变更说明写清问题、行为变化、运行过的命令及结果，未执行的检查明确写明。CI 配置存在不代表矩阵通过；记录具体运行的链接或本地环境。Chromium 与 SARIF schema 校验不等于 GitHub code scanning 上传或 IDE 导入，DSH headless 模型检查不等于桌面交互验收。
 

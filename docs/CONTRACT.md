@@ -266,6 +266,8 @@ SARIF `level` 只映射记录的 severity：critical/high → error，medium →
 - `features.doctor`：支持统一只读诊断与可分享报告。
 - `features.editClear`：单条和批量编辑可显式清空可选字段，见“编辑与字段清空”。
 - `features.listFilters`：列表支持状态、严重度、可信度和重复标签的交集筛选，保持裸数组输出。
+- `features.resourcePaths`：通过 `resources` 声明可直接使用的运行时资源路径。
+- `resources`：对象 `{cli, skill}`，两项都是本机绝对路径。`cli` 是实际运行的 pinwhy 内核 CLI 路径；独立发布安装使用稳定的 `current/bin/pinwhy.js`，通过 `pinwhy-cli` 包装器启动时仍指向依赖包 pinwhy 的 CLI。`skill` 是同一运行时包根目录下完整的 `skills/pinwhy` 目录，包含 `SKILL.md` 与参考资源；独立安装时也沿用同一 `current` 根。适配层必须检查 `features.resourcePaths` 并读取声明，不从配置的可执行文件位置猜测包根。读取 Skill 时可解析目录真实路径，候选资源固定到该版本；正文的 CLI 占位符使用声明的 `resources.cli`。路径因安装位置而异；契约存档只将源码资源路径规范化为 `<runtime>/bin/pinwhy.js` 和 `<runtime>/skills/pinwhy`，实际 CLI 输出保持真实绝对路径。
 - `exportFormats`：当前支持 `html`、`markdown`、`mermaid`、`sarif`。
 - `outputs`：每个契约输出的形状，以命令为键（`activity show` 单列）。对象输出是 `{shape: "object", schema}`，数组输出是 `{shape: "array", items}`。输出里的 `schema` 与这张表来自同一处，测试逐个用例核对。
 - `writeTargets`：命令在项目根下会写的全部文件，每项是 `{path, role}`，`path` 相对项目根、用 `/` 分隔：

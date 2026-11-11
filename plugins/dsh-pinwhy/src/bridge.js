@@ -6,7 +6,7 @@ import { PinwhyError } from './config.js';
 /** What this adapter relies on, checked against `capabilities --json` instead of a version number. */
 export const REQUIRED = Object.freeze({
   schema: 'pinwhy.capabilities.v1',
-  features: Object.freeze(['writeAttribution', 'cwdFlag', 'noInit']),
+  features: Object.freeze(['writeAttribution', 'cwdFlag', 'noInit', 'resourcePaths']),
   outputs: Object.freeze({
     status: 'pinwhy.status.v2', context: 'pinwhy.context.v2', show: 'pinwhy.show.v2',
     node: 'pinwhy.node-add.v2', edit: 'pinwhy.node.v2', link: 'pinwhy.edge.v1',
@@ -22,6 +22,10 @@ function missing(capabilities) {
     else if (capabilities.outputs?.[command]?.schema !== schema) gaps.push(`output ${schema}`);
   }
   if (!Array.isArray(capabilities.writeTargets)) gaps.push('writeTargets');
+  for (const name of ['cli', 'skill']) {
+    const resource = capabilities.resources?.[name];
+    if (typeof resource !== 'string' || !path.isAbsolute(resource)) gaps.push(`absolute resources.${name}`);
+  }
   return gaps;
 }
 
@@ -64,7 +68,7 @@ export class CliBridge {
       probe.catch(() => this.#runtimes.delete(key));
     }
     const { version, capabilities } = await probe;
-    return { root: path.dirname(path.dirname(real)), cli: config.runtimeCli, real, version, capabilities };
+    return { cli: config.runtimeCli, real, version, capabilities, resources: capabilities.resources };
   }
 
   async #probe(real, config) {

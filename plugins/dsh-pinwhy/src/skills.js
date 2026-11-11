@@ -19,7 +19,7 @@ export function skillProvider(bridge, rank) {
     async list(options = {}) {
       options.signal?.throwIfAborted();
       const runtime = await bridge.runtime();
-      const root = await fs.realpath(path.join(runtime.root, 'skills', 'pinwhy'));
+      const root = await fs.realpath(runtime.resources.skill);
       const bodyPath = path.join(root, 'SKILL.md');
       const markdown = await fs.readFile(bodyPath, { encoding: 'utf8', signal: options.signal });
       const front = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(markdown);
@@ -28,7 +28,7 @@ export function skillProvider(bridge, rank) {
         name: 'pinwhy', description: field(front[1], 'description'), invocation,
         provider: PROVIDER, source: 'bundled', rank,
         resourceBase: { kind: 'directory', path: root },
-        locator: { bodyPath, cli: runtime.cli },
+        locator: { bodyPath, cli: runtime.resources.cli },
       }];
     },
     async get(candidate, options = {}) {

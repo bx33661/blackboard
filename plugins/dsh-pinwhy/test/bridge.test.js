@@ -47,13 +47,31 @@ test('runtime facts come from capabilities --json, probed once per resolved CLI'
   assert.equal(first.version, '9.9.9-fixture'); assert.equal(first.cli, cli);
   assert.equal(first.real, await fs.realpath(cli));
   assert.deepEqual(first.capabilities.writeTargets, capabilities().writeTargets);
+  assert.deepEqual(first.resources, { cli, skill: path.join(path.dirname(path.dirname(cli)), 'skills/pinwhy') });
   await fs.writeFile(path.join(path.dirname(cli), 'capabilities.json'), '{}');
   assert.equal((await bridge.runtime()).version, '9.9.9-fixture');
 });
 
+test('switching a stable CLI symlink reprobes resources without reusing the previous runtime', async (t) => {
+  const root = await temporary(t);
+  const first = await fakeRuntime(path.join(root, 'first'));
+  const second = await fakeRuntime(path.join(root, 'second'));
+  const current = path.join(root, 'current-cli.js');
+  await fs.symlink(first, current);
+  const bridge = new CliBridge(normalizeConfig({ runtimeCli: current }));
+  t.after(() => bridge.dispose());
+  assert.equal((await bridge.runtime()).resources.cli, first);
+  await fs.unlink(current);
+  await fs.symlink(second, current);
+  const runtime = await bridge.runtime();
+  assert.equal(runtime.real, await fs.realpath(second));
+  assert.equal(runtime.resources.cli, second);
+  assert.equal(runtime.resources.skill, path.join(path.dirname(path.dirname(second)), 'skills/pinwhy'));
+});
+
 for (const [command, code] of [['bad-json', 'INVALID_JSON'], ['scalar', 'INVALID_JSON'], ['failure', 'CLI_FAILED'], ['flood', 'OUTPUT_LIMIT']]) {
   test(`CLI ${command} is diagnosed as ${code}`, async (t) => {
-    const { bridge, scope } = await fixture(t, { maxOutputBytes: 1024 });
+    const { bridge, scope } = await fixture(t, { maxOutputBytes: 2048 });
     await assert.rejects(bridge.run(scope, [command]), { code });
   });
 }
@@ -106,6 +124,11 @@ for (const [label, declared, gap] of [
   ['an old optional-node schema', capabilities({ outputs: { ...capabilities().outputs, context: { shape: 'object', schema: 'pinwhy.context.v1' } } }), /output pinwhy\.context\.v2/],
   ['a missing command', capabilities({ commands: ['status'] }), /command context/],
   ['no write targets', capabilities({ writeTargets: undefined }), /writeTargets/],
+  ['no resource feature', capabilities({ features: { writeAttribution: true, cwdFlag: true, noInit: true } }), /feature resourcePaths/],
+  ['no resources', capabilities({ resources: undefined }), /absolute resources\.cli/],
+  ['a relative CLI resource', capabilities({ resources: { cli: 'bin/pinwhy.js', skill: '/skill' } }), /absolute resources\.cli/],
+  ['a relative Skill resource', capabilities({ resources: { cli: '/cli', skill: 'skills/pinwhy' } }), /absolute resources\.skill/],
+  ['a non-string Skill resource', capabilities({ resources: { cli: '/cli', skill: {} } }), /absolute resources\.skill/],
 ]) {
   test(`a runtime with ${label} is incompatible and nothing runs`, async (t) => {
     const root = await temporary(t), cli = await fakeRuntime(root, declared), project = await board(root);

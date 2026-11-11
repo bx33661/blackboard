@@ -7,6 +7,7 @@
 | 需要了解 | 文档 |
 | --- | --- |
 | 手动安装、CLI 示例、上下文预算、多 Agent、配置与服务管理 | [使用参考](USAGE.md) |
+| 四包选择、npm 安装与显式 cwd 的 SDK 示例（registry 示例需等待发布成功） | [npm 安装](USAGE.md#manual-install) · [SDK 使用](USAGE.md#sdk) |
 | 按 Claude Code、Codex 或其他宿主安装、恢复、打开 | [完整 Skill 的接入参考](../skills/pinwhy/references/setup.md) |
 | 节点、关系方向、风险、状态、可信度与检查点 | [记录语义](../skills/pinwhy/references/recording.md) |
 | 并行身份、项目归属与交接 | [并行 Agent](../skills/pinwhy/references/parallel-agents.md) |
@@ -35,6 +36,7 @@ Pinwhy `0.11.0` 从原 blackboard 切换命令、路径、环境变量与 schema
 | 范围 | 入口与限制 |
 | --- | --- |
 | 发布候选、Node 运行时矩阵、导出消费端 | [CI 说明](ci.md)：描述流程和实际覆盖，不把配置文件当成通过记录 |
+| 四个 npm 候选、manifest、真实隔离消费者安装与发布顺序 | [四包消费者验证](ci.md#四包-npm-消费者验证) · [发布与交接](../CONTRIBUTING.md#发布与交接) |
 | 合成性能测量 | [性能基线](performance.md)：含首轮实测的日期、环境和限制；数据不代表真实 Agent 恢复质量 |
 | 真实任务恢复试验 | [恢复对照试验](RECOVERY_EXPERIMENT.md)：预先约定的试验方案与试验时限制；不能代替当前代码检查 |
 | 当前方向与历史恢复结果 | [路线图](ROADMAP.md)：区分已完成能力、历史 exp1 观察和未承诺方向 |

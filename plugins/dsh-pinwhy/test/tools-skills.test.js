@@ -66,7 +66,9 @@ test('Skill provider reads upstream metadata and complete resource tree without 
   await fs.mkdir(path.join(skill, 'references'), { recursive: true });
   await fs.writeFile(path.join(skill, 'references/recording.md'), 'Original reference');
   await fs.writeFile(path.join(skill, 'SKILL.md'), '---\nname: pinwhy\ndescription: "Upstream description"\n---\n# Original\nnode "__PINWHY_CLI__"\n[record](references/recording.md)\n');
-  const provider = skillProvider({ runtime: async () => ({ root, cli: '/release/current/bin/pinwhy.js' }) }, 600);
+  const declaredSkill = path.join(root, 'current-skill');
+  await fs.symlink(skill, declaredSkill, 'dir');
+  const provider = skillProvider({ runtime: async () => ({ resources: { skill: declaredSkill, cli: '/release/current/bin/pinwhy.js' } }) }, 600);
   const [candidate] = await provider.list(), result = await provider.get(candidate);
   assert.equal(candidate.description, 'Upstream description');
   assert.equal(candidate.resourceBase.path, await fs.realpath(skill));

@@ -8,14 +8,14 @@
 
 ## 流程
 
-1. **构建一次**：Ubuntu / Node 24 先检查 publication hygiene，再执行 `npm ci`、`npm run check:types`、`npm run check:docs`、测试及前端 build；安装 Playwright Chromium 后，执行真实查看器交互与 3D 降级验证，再用真实 CLI 生成合成报告，在浏览器中渲染 Markdown/Mermaid，并用随库固定的 OASIS schema 校验 SARIF；收集 quick 合成性能报告，再 `npm pack --ignore-scripts`。本地 `npm run check` 合并类型、文档和 publication 检查，CI 将三项分开执行以明确失败位置。
-2. **同包多运行时验证**：将同一个 tarball 交给 Linux、macOS、Windows 的 Node 18 / 22 / 24 矩阵；不执行源码目录的 `npm ci`。
+1. **构建一次**：Ubuntu / Node 24 先检查 publication hygiene，再执行 `npm ci`、`npm run check:types`、`npm run check:docs`、测试及前端 build；安装 Playwright Chromium 后，执行真实查看器交互与 3D 降级验证，再用真实 CLI 生成合成报告，在浏览器中渲染 Markdown/Mermaid，并用随库固定的 OASIS schema 校验 SARIF；收集 quick 合成性能报告，再通过 `scripts/pack-packages.mjs --out-dir dist` 生成四个实际 tarball。本地 `npm run check` 合并类型、文档和 publication 检查，CI 将三项分开执行以明确失败位置。
+2. **同包多运行时验证**：将同一批四个 tarball 和 `manifest.json` 交给 Linux、macOS、Windows 的 Node 18 / 22 / 24 矩阵；分别检查完整运行时及 SDK、CLI 消费者，不执行源码目录的 `npm ci`。
 3. **插件独立验证**：DSH 单元测试与静态 manifest/syntax 检查单独运行在插件声明支持的 Node 22.19 / 24；不把 Host SDK 加到根包，不假装这就是实际 DSH 端到端运行。
 4. **原生启动器与服务边界**：Linux / macOS / Windows 的 Node 24 单独运行 doctor、启动器、Bash Hook、版本切换与服务回滚测试。启动器和参数解析在实际平台执行；服务管理器使用隔离的模拟适配，不注册真实用户任务。该 job 不需要安装开发依赖。
 
 Vite 8 的构建依赖要求 Node `^20.19.0 || >=22.12.0`。核心运行时仍是 Node ≥18；Node 18 只消费已构建的 public 产物，不承担前端构建。
 
-`pinwhy-release-candidate` artifact 保存 tarball、npm pack 清单、合成导出的渲染截图与带机器信息的 quick 基线，保留 14 天。性能报告是观测，不是跨共享 runner 的毫秒级门禁。任何完整性断言失败仍会使任务失败。
+`pinwhy-release-candidate` artifact 保存四个 tarball、带文件清单与完整性校验的 `manifest.json`、合成导出的渲染截图与带机器信息的 quick 基线，保留 14 天。性能报告是观测，不是跨共享 runner 的毫秒级门禁。任何完整性断言失败仍会使任务失败。
 
 `pinwhy-viewer-verification` 单独保存查看器截图、离线合成 HTML 与 `VERIFICATION.json`，保留 14 天。只要查看器步骤执行，后续上传步骤即使在验证失败时也会运行；失败报告记录已完成的检查、错误和浏览器诊断，能够截图的页面会额外保存失败现场。
 
@@ -43,6 +43,22 @@ node scripts/verify-package.mjs --source /absolute/path/to/baseline
 - context、doctor、lint、export 前后事件日志字节不变；doctor 分享报告不包含临时消费者路径。
 
 它不启动服务，不修改真实项目，不执行 release install/setup/hooks，不验证 OS 专属常驻服务。矩阵通过也不应被描述成所有平台服务功能都已测过。
+
+## 四包 npm 消费者验证
+
+发布候选另有多包入口，不将原有根产品 smoke 等同于四包验证：
+
+```bash
+npm run pack:packages
+npm run verify:npm-packages
+# 发布后：从公开 registry 安装对应版本，不使用本地 tarball 替代安装
+npm run verify:npm-packages -- --artifacts-dir dist/npm --registry https://registry.npmjs.org
+```
+
+打包入口为 `scripts/pack-packages.mjs`，产物为 `dist/npm/*.tgz` 与 `dist/npm/manifest.json`；`scripts/verify-npm-packages.mjs` 使用真实隔离消费者安装，验证 SDK 与命令入口的消费行为。SDK 从同一份 `lib/` 源码生成暂存产物，根包仍为完整零运行时依赖产品；官方 CLI 包精确依赖 `pinwhy@0.11.0` 并执行同一 CLI。候选生成、消费者通过与 registry 发布是分别记录的结果，不预先声称任何一个已经通过。
+
+发布顺序为 `pinwhy-core@0.11.0`、`pinwhy@0.11.0`、`pinwhy-cli@0.11.0`、`dsh-pinwhy@0.3.0`。DSH rc.2 兼容门禁保持不变。验证使用合成项目，不能启用真实 Hook、服务或迁移用户数据；npm 安装与 SDK import 本身也不执行这些接入动作。已有根产品验证器与源码不可变版本 / `current` 流程继续保留。
+
 
 ## 离线文档检查
 

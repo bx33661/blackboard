@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider } from '@xyflow/react';
 import { History } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -6,10 +6,9 @@ import { BoardGroup } from './BoardGroup';
 import { BrandMark } from './BrandMark';
 import { SecurityNode } from './SecurityNode';
 import { RoutedEdge } from './RoutedEdge';
-import { formatTime, typeLabel as typeLabelOf, type CanvasNode, type EdgeStyle } from './graph';
+import { formatTime, typeLabel as typeLabelOf, type CanvasNode } from './graph';
 import { EMPTY_FILTER, type NodeFilter } from './presentation';
 import { useGraphStream } from './use-graph-stream';
-import { usePref } from './use-pref';
 import { CanvasToolbar } from './panels/CanvasToolbar';
 import { CommandPalette } from './panels/CommandPalette';
 import { DigestDialog } from './panels/DigestDialog';
@@ -33,6 +32,7 @@ import { useWorkspacePresentation } from './workspace/use-workspace-presentation
 import { useWorkspaceFeedback } from './workspace/use-workspace-feedback';
 import { useWorkspaceScene } from './workspace/use-workspace-scene';
 import { useWorkspaceTimeline } from './workspace/use-workspace-timeline';
+import { useWorkspaceChrome, useWorkspaceShortcuts } from './workspace/use-workspace-chrome';
 import type { Scene3DProps } from './scene3d/shared';
 import type { ViewMode } from './types';
 
@@ -46,15 +46,6 @@ const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
     return <></>;
   },
 })));
-const THEME_KEY = 'pinwhy-theme-v3';
-
-const initialTheme = (): 'light' | 'dark' => {
-  try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === 'dark' || saved === 'light') return saved;
-  } catch { /* storage can be unavailable in sandboxed exports */ }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-};
 
 function Workspace() {
   const { snapshot: live, connection, syncedAt, isStatic, reload } = useGraphStream();
@@ -63,24 +54,17 @@ function Workspace() {
   const timeline = useWorkspaceTimeline(live, asOf, setAsOf, isStatic);
   const snapshot = timeline.snapshot;
   const [timelineOpen, setTimelineOpen] = useState(() => Boolean(asOf) && !isStatic);
-  const [showChanges, setShowChanges] = usePref('timeline-changes', true);
-  const [theme, setTheme] = useState<'light' | 'dark'>(initialTheme);
-  const [direction, setDirection] = usePref<'RIGHT' | 'DOWN'>('direction', 'RIGHT');
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
-  const [showMap, setShowMap] = usePref('minimap', false);
-  const [showLegend, setShowLegend] = usePref('legend-open', false);
-  const [edgeStyle, setEdgeStyle] = usePref<EdgeStyle>('edge-style', 'curve');
-  const [follow, setFollow] = usePref('follow', false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [digestOpen, setDigestOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const {
+    theme, setTheme, direction, setDirection, sidebarOpen, setSidebarOpen, closeSidebar,
+    showMap, setShowMap, showLegend, setShowLegend, edgeStyle, setEdgeStyle, follow, setFollow,
+    showChanges, setShowChanges, paletteOpen, setPaletteOpen, digestOpen, setDigestOpen,
+    newOpen, setNewOpen, shortcutsOpen, setShortcutsOpen,
+  } = useWorkspaceChrome();
   const [filter, setFilter] = useState<NodeFilter>(EMPTY_FILTER);
   const digestTrigger = useRef<HTMLButtonElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const flatRef = useRef<HTMLDivElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
-  const closeSidebar = useCallback(() => { setSidebarOpen(false); }, []);
 
   const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter, page === 'board');
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
@@ -105,25 +89,7 @@ function Workspace() {
   const openNoteNode = (id: string) => { setPage('board'); focusNode(id); };
   const changeView = (next: ViewMode) => { setPage('board'); switchMode(next); };
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
-  }, [theme]);
-
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setPaletteOpen((open) => !open);
-      } else if (page === 'board' && !event.metaKey && !event.ctrlKey && !event.altKey && !(event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]') && !document.querySelector('[role="dialog"]') && (event.key === '/' || event.key === '[' || event.key === '?')) {
-        event.preventDefault();
-        if (event.key === '/') setPaletteOpen(true); else if (event.key === '?') setShortcutsOpen(true); else setSidebarOpen((open) => !open);
-      } else if (page === 'board' && event.key === 'Escape' && !document.querySelector('[role="dialog"], [role="menu"]')) clearSelection();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [clearSelection, page]);
+  useWorkspaceShortcuts(page, clearSelection, setPaletteOpen, setShortcutsOpen, setSidebarOpen);
 
 
   if (!snapshot) {

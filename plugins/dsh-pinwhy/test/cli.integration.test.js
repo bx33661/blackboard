@@ -10,8 +10,16 @@ import { toolSpecifications } from '../src/tools.js';
 import { skillProvider } from '../src/skills.js';
 import { temporary, execution } from './helpers.js';
 
-test('real pinwhy CLI: all tools, two boards/identities, replay, read-only context and Skill assets', { skip: !process.env.PINWHY_TEST_CLI }, async (t) => {
-  const root = await temporary(t), runtimeCli = process.env.PINWHY_TEST_CLI;
+test('real pinwhy-cli wrapper: all tools, two boards/identities, replay, read-only context and dependency Skill assets', { skip: !process.env.PINWHY_TEST_CLI }, async (t) => {
+  const root = await temporary(t);
+  const declared = JSON.parse(execFileSync(process.execPath, [process.env.PINWHY_TEST_CLI, 'capabilities', '--json'], { encoding: 'utf8', env: { ...process.env, ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) } }));
+  const runtimeRoot = await fs.realpath(path.dirname(path.dirname(declared.resources.cli)));
+  const wrapperRoot = path.join(root, 'node_modules/pinwhy-cli');
+  await fs.mkdir(path.join(wrapperRoot, 'bin'), { recursive: true });
+  await fs.symlink(runtimeRoot, path.join(root, 'node_modules/pinwhy'), 'dir');
+  await fs.writeFile(path.join(wrapperRoot, 'package.json'), JSON.stringify({ type: 'module' }));
+  const runtimeCli = path.join(wrapperRoot, 'bin/pinwhy.js');
+  await fs.writeFile(runtimeCli, "import '../../pinwhy/bin/pinwhy.js';\n");
   const a = path.join(root, 'a'), b = path.join(root, 'b');
   for (const dir of [a, b]) {
     await fs.mkdir(dir);
@@ -19,6 +27,12 @@ test('real pinwhy CLI: all tools, two boards/identities, replay, read-only conte
   }
   const config = normalizeConfig({ runtimeCli, projects: [{ workspace: a }, { workspace: b }] });
   const bridge = new CliBridge(config); t.after(() => bridge.dispose());
+  const runtime = await bridge.runtime();
+  assert.equal(runtime.cli, runtimeCli);
+  assert.equal(runtime.real, await fs.realpath(runtimeCli));
+  assert.equal(await fs.realpath(runtime.resources.cli), path.join(runtimeRoot, 'bin/pinwhy.js'));
+  assert.notEqual(runtime.resources.cli, runtimeCli);
+  assert.equal(await fs.realpath(runtime.resources.skill), path.join(runtimeRoot, 'skills/pinwhy'));
   const specs = new Map(toolSpecifications(config, bridge).map((spec) => [spec.name, spec]));
   const call = (name, args, project = a, id = 'main') => specs.get(`pinwhy_${name}`).execute(args, execution(project, id));
   const n1 = (await call('node_add', { type: 'custom-research', title: '--enter', detail: '--json' })).data.node;
@@ -48,6 +62,10 @@ test('real pinwhy CLI: all tools, two boards/identities, replay, read-only conte
   const status = await call('status', {}); assert.equal(status.data.stats.total, 2);
   await call('cursor', { id: 'none' }); assert.equal((await call('context', {})).data.currentFocus, null);
   const provider = skillProvider(bridge, 600), [candidate] = await provider.list(), skill = await provider.get(candidate);
+  assert.equal(candidate.resourceBase.path, await fs.realpath(runtime.resources.skill));
+  assert.equal(candidate.locator.cli, runtime.resources.cli);
+  assert.ok(skill.content.includes(runtime.resources.cli));
+  assert.ok(!skill.content.includes(runtimeCli));
   assert.match(skill.content, /pinwhy/); assert.ok(!skill.content.includes('__PINWHY_CLI__'));
   for (const rel of [...skill.content.matchAll(/\]\((references\/[^)]+)\)/g)].map((m) => m[1])) await fs.access(path.join(candidate.resourceBase.path, rel.split('#')[0]));
 });

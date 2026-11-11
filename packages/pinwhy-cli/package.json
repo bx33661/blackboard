@@ -1,0 +1,17 @@
+{
+  "name": "pinwhy-cli",
+  "version": "0.11.0",
+  "private": true,
+  "description": "Official npm executable entry for Pinwhy's local Agent memory CLI and visual workspace.",
+  "type": "module",
+  "bin": { "pinwhy": "./bin/pinwhy.js" },
+  "files": ["bin/", "README.md", "LICENSE"],
+  "dependencies": { "pinwhy": "0.11.0" },
+  "engines": { "node": ">=18" },
+  "license": "MIT",
+  "homepage": "https://github.com/bx33661/pinwhy#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/bx33661/pinwhy.git", "directory": "packages/pinwhy-cli" },
+  "bugs": { "url": "https://github.com/bx33661/pinwhy/issues" },
+  "keywords": ["pinwhy", "agent-memory", "cli", "context", "local-first"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" }
+}

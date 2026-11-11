@@ -20,6 +20,10 @@ const OUTPUTS = path.join(FIXTURES, 'outputs');
 const CONTRACT_DOC = path.join(REPO, 'docs', 'CONTRACT.md');
 const UPDATE = process.env.UPDATE_CONTRACT === '1';
 const PACKAGE_VERSION = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
+const RESOURCE_PATHS = new Map([
+  [fs.realpathSync(CLI), '<runtime>/bin/pinwhy.js'],
+  [fs.realpathSync(path.join(REPO, 'skills', 'pinwhy')), '<runtime>/skills/pinwhy'],
+]);
 
 // Fixture times sit on 2026-01-01; anything later was written by the run itself.
 const FIXTURE_TIME_LIMIT = Date.UTC(2026, 0, 2);
@@ -278,6 +282,7 @@ function normalize(value, root, key) {
   if (key === 'nodeVersion') return '<node-version>';
   if (key === 'arch') return '<arch>';
   if (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(value) && Date.parse(value) > FIXTURE_TIME_LIMIT) return '<now-iso>';
+  if (RESOURCE_PATHS.has(value)) return RESOURCE_PATHS.get(value);
   // Paths under the temp root read the same on every platform.
   if (value.includes(root)) return value.replaceAll(root, '<root>').replaceAll('\\', '/');
   return value.replaceAll(`127.0.0.1:${PORT}`, '127.0.0.1:<port>');
@@ -388,6 +393,21 @@ function tableRows(doc, heading) {
 function capabilities() {
   return JSON.parse(spawnSync(process.execPath, [CLI, 'capabilities', '--json'], { encoding: 'utf8' }).stdout);
 }
+
+test('capabilities resource paths identify actual complete runtime resources before normalization', () => {
+  const declared = capabilities();
+  assert.equal(declared.features.resourcePaths, true);
+  assert.ok(path.isAbsolute(declared.resources.cli));
+  assert.ok(path.isAbsolute(declared.resources.skill));
+  assert.equal(fs.realpathSync(declared.resources.cli), fs.realpathSync(CLI));
+  assert.equal(fs.realpathSync(declared.resources.skill), fs.realpathSync(path.join(REPO, 'skills', 'pinwhy')));
+  assert.ok(fs.statSync(declared.resources.cli).isFile());
+  assert.ok(fs.statSync(path.join(declared.resources.skill, 'SKILL.md')).isFile());
+  assert.ok(fs.statSync(path.join(declared.resources.skill, 'references')).isDirectory());
+  assert.deepEqual(normalize(declared.resources, '/unused-contract-root'), {
+    cli: '<runtime>/bin/pinwhy.js', skill: '<runtime>/skills/pinwhy',
+  });
+});
 
 /** The capabilities.outputs entry a case answers to; `activity show` has its own. */
 const outputKey = (command, spec) => command === 'release' ? 'release check' : (command === 'activity' && spec.args[1] === 'show' ? 'activity show' : command);

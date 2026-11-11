@@ -29,7 +29,8 @@ export function capabilities(overrides = {}) {
   return {
     schema: 'pinwhy.capabilities.v1', schemaVersion: 1, version: '9.9.9-fixture',
     commands: Object.keys(outputs),
-    features: { writeAttribution: true, cwdFlag: true, noInit: true },
+    features: { writeAttribution: true, cwdFlag: true, noInit: true, resourcePaths: true },
+    resources: { cli: '/fixture/runtime/bin/pinwhy.js', skill: '/fixture/runtime/skills/pinwhy' },
     outputs: Object.fromEntries(Object.entries(outputs).map(([command, schema]) => [command, { shape: 'object', schema }])),
     writeTargets: [
       { path: '.pinwhy/events.jsonl', role: 'log' }, { path: '.pinwhy/lock', role: 'lock' },
@@ -39,11 +40,12 @@ export function capabilities(overrides = {}) {
   };
 }
 
-export async function fakeRuntime(root, declared = capabilities()) {
+export async function fakeRuntime(root, declared) {
   const runtime = path.join(root, 'runtime');
+  const cli = path.join(runtime, 'bin/pinwhy.js');
+  declared ??= capabilities({ resources: { cli, skill: path.join(runtime, 'skills/pinwhy') } });
   await fs.mkdir(path.join(runtime, 'bin'), { recursive: true });
   await fs.writeFile(path.join(runtime, 'bin/capabilities.json'), JSON.stringify(declared));
-  const cli = path.join(runtime, 'bin/pinwhy.js');
   await fs.writeFile(cli, `
 const args = process.argv.slice(2);
 switch (args[0]) {

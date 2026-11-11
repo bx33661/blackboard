@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { Link2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -6,55 +6,22 @@ import { cn } from '@/lib/utils';
 import * as api from '../api';
 import { confidenceLabel, matchesNode, severityLabel, statusLabel, typeLabel } from '../presentation';
 import { relationLabel } from '../graph';
-import { changeDraft, EMPTY_EDIT, existingLink, type EditableField, type EditDraft } from '../research-state';
 import type { BoardNode } from '../types';
 import { t } from '../i18n';
-import { useSessionDraft } from '../session-drafts';
+import { useNodeConnect, useNodeCreate, useNodeEdit } from './use-node-forms';
 
 const field = 'w-full rounded-md border border-strong bg-card px-2 text-[13px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring';
 
-/** Runs a write, reporting a failure next to the form instead of losing what was typed. */
-function useWrite() {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const run = async (action: () => Promise<unknown>) => {
-    setBusy(true); setError(null);
-    try { await action(); return true; }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)); return false; }
-    finally { setBusy(false); }
-  };
-  return { busy, error, run, clearError: () => setError(null) };
-}
 
 const Error_ = ({ message }: { message: string | null }) => message ? <p role="alert" className="m-0 text-xs text-destructive">{message}</p> : null;
 
 
 /** Only a person's changed fields are drafts; untouched fields always follow the live snapshot. */
 export function EditSection({ node, onReload }: { node: BoardNode; onReload: () => Promise<void> }) {
-  const [draft, setDraft] = useSessionDraft<EditDraft>(`edit:${node.id}`, EMPTY_EDIT);
+  const { draft, busy, error, change, discard, save, reloadDraft, reload, remove, startEditing } = useNodeEdit(node, onReload);
   const [confirming, setConfirming] = useState(false);
-  const { busy, error, run, clearError } = useWrite();
   const title = draft.fields.title ?? node.title;
   const detail = draft.fields.detail ?? node.detail ?? '';
-  const dirty = Object.keys(draft.fields).length > 0;
-  const change = (key: EditableField, value: string) => {
-    const next = changeDraft(draft, node, key, value);
-    setDraft(next, Object.keys(next.fields).length > 0);
-  };
-  const discard = () => { setDraft(EMPTY_EDIT, false); clearError(); };
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!title.trim() || draft.conflict) return;
-    if (!dirty) { discard(); return; }
-    const ok = await run(async () => {
-      try { await api.patchNode(node.id, { ...draft.fields, expected: draft.expected }); }
-      catch (e) {
-        if (e instanceof api.NodeConflict) setDraft({ ...draft, conflict: true }, true);
-        throw e;
-      }
-    });
-    if (ok) discard();
-  };
 
   return (
     <section className="mt-6 flex flex-col gap-3 border-t pt-4" aria-label={t('edit.label')}>
@@ -88,25 +55,23 @@ export function EditSection({ node, onReload }: { node: BoardNode; onReload: () 
           {draft.conflict && (
             <div role="alert" className="flex flex-col gap-2 text-xs text-destructive">
               <p className="m-0">{t('edit.conflict')}</p>
-              <Button type="button" variant="outline" size="sm" className="self-start" disabled={busy} onClick={async () => {
-                if (await run(onReload)) { setDraft({ ...EMPTY_EDIT, editing: true }, false); clearError(); }
-              }}>{t('edit.reload')}</Button>
+              <Button type="button" variant="outline" size="sm" className="self-start" disabled={busy} onClick={reloadDraft}>{t('edit.reload')}</Button>
             </div>
           )}
         </form>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setDraft({ ...draft, editing: true }, dirty)}><Pencil className="size-3.5" />{t('edit.editText')}</Button>
+          <Button variant="outline" size="sm" onClick={startEditing}><Pencil className="size-3.5" />{t('edit.editText')}</Button>
 
         </div>
       )}
       {!draft.conflict && <Error_ message={error} />}
-      {!draft.conflict && error === t('edit.conflict') && <Button size="sm" className="self-start" disabled={busy} onClick={async () => { if (await run(onReload)) clearError(); }}>{t('edit.reload')}</Button>}
+      {!draft.conflict && error === t('edit.conflict') && <Button size="sm" className="self-start" disabled={busy} onClick={reload}>{t('edit.reload')}</Button>}
       {draft.conflict && error && error !== t('edit.conflict') && <Error_ message={error} />}
       {confirming ? (
         <div className="flex items-center gap-2 text-xs">
           <span className="text-muted-foreground">{t('edit.confirmRemove')}</span>
-          <Button variant="outline" size="sm" className="text-destructive" disabled={busy} onClick={async () => { if (await run(() => api.removeNode(node.id))) discard(); }}>{t('edit.remove')}</Button>
+          <Button variant="outline" size="sm" className="text-destructive" disabled={busy} onClick={remove}>{t('edit.remove')}</Button>
           <Button size="sm" onClick={() => setConfirming(false)}>{t('common.cancel')}</Button>
         </div>
       ) : (
@@ -118,46 +83,25 @@ export function EditSection({ node, onReload }: { node: BoardNode; onReload: () 
 
 /** A new card, optionally tied to the selected one. */
 function NodeForm({ current, onDone, autoFocus }: { current?: BoardNode; onDone?: () => void; autoFocus?: boolean }) {
-  const [draft, setDraft] = useSessionDraft(`new:${current?.id || 'standalone'}`, { type: 'fact', title: '', link: 'related-to', createdId: '' });
+  const { draft, busy, error, change, discard, submit } = useNodeCreate(current, onDone);
   const { type, title, link, createdId } = draft;
-  const { busy, error, run, clearError } = useWrite();
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!title.trim()) return;
-    const ok = await run(async () => {
-      const node = createdId ? { id: createdId } : (await api.addNode({ type, title: title.trim() })).node;
-      setDraft({ ...draft, createdId: node.id }, true);
-      if (current) {
-        try {
-          const way = api.LINKS.find((item) => item.id === link)!;
-          await (way.from === 'new' ? api.addEdge(node.id, current.id, way.kind) : api.addEdge(current.id, node.id, way.kind));
-        } catch (e) {
-          // The node is already in the log; say so instead of letting a retry
-          // create a second orphan with the same title.
-          throw new Error(t('edit.linkFailed', { id: node.id, error: e instanceof Error ? e.message : String(e) }));
-        }
-      }
-    });
-    if (ok) { setDraft({ type: 'fact', title: '', link: 'related-to', createdId: '' }, false); onDone?.(); }
-  };
 
   return (
     <form className="flex flex-col gap-2" onSubmit={submit}>
       <div className="flex gap-2">
-        <select aria-label={t('edit.type')} className={cn(field, 'h-8 w-24 shrink-0')} value={type} disabled={busy || Boolean(createdId)} onChange={(e) => setDraft({ ...draft, type: e.target.value }, Boolean(title) || e.target.value !== 'fact' || link !== 'related-to')}>
+        <select aria-label={t('edit.type')} className={cn(field, 'h-8 w-24 shrink-0')} value={type} disabled={busy || Boolean(createdId)} onChange={(e) => change('type', e.target.value)}>
           {api.CREATABLE_TYPES.map((item) => <option key={item} value={item}>{typeLabel(item)}</option>)}
         </select>
-        <input aria-label={t('edit.newTitle')} className={cn(field, 'h-8')} value={title} disabled={busy || Boolean(createdId)} onChange={(e) => setDraft({ ...draft, title: e.target.value }, Boolean(e.target.value) || type !== 'fact' || link !== 'related-to')} placeholder={t('edit.newPlaceholder')} autoFocus={autoFocus} />
+        <input aria-label={t('edit.newTitle')} className={cn(field, 'h-8')} value={title} disabled={busy || Boolean(createdId)} onChange={(e) => change('title', e.target.value)} placeholder={t('edit.newPlaceholder')} autoFocus={autoFocus} />
       </div>
       {current && (
-        <select aria-label={t('edit.relation')} className={cn(field, 'h-8')} value={link} disabled={busy} onChange={(e) => setDraft({ ...draft, link: e.target.value }, Boolean(title || createdId) || type !== 'fact' || e.target.value !== 'related-to')}>
+        <select aria-label={t('edit.relation')} className={cn(field, 'h-8')} value={link} disabled={busy} onChange={(e) => change('link', e.target.value)}>
           {api.LINKS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       )}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" variant="default" size="sm" disabled={busy || !title.trim()}><Plus className="size-3.5" />{t('edit.add')}</Button>
-        <Button type="button" size="sm" disabled={busy} onClick={() => { setDraft({ type: 'fact', title: '', link: 'related-to', createdId: '' }, false); clearError(); }}>{t('edit.discard')}</Button>
+        <Button type="button" size="sm" disabled={busy} onClick={discard}>{t('edit.discard')}</Button>
         <span className="text-[11px] text-muted-foreground">{t('edit.humanNote')}</span>
       </div>
       <p className="m-0 text-[11px] text-muted-foreground">{t('edit.draftHint')}</p>
@@ -194,33 +138,20 @@ export function NewNodeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
 /** Connect existing records explicitly. Selection is UI state, never a cursor move. */
 export function ConnectSection({ node, byId, onReload }: { node: BoardNode; byId: Map<string, BoardNode>; onReload: () => Promise<void> }) {
-  const [draft, setDraft] = useSessionDraft(`connect:${node.id}`, { peerId: '', query: '', kind: 'related-to', direction: 'outgoing' as 'outgoing' | 'incoming' });
-  const [done, setDone] = useState(false);
-  const { busy, error, run } = useWrite();
+  const { draft, link, done, busy, error, change, submit } = useNodeConnect(node, byId, onReload);
   const peers = [...byId.values()].filter((peer) => peer.id !== node.id && (peer.id === draft.peerId || matchesNode(peer, draft.query)));
-  const link = existingLink(node.id, draft.peerId, draft.direction, draft.kind);
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!link || !byId.has(draft.peerId)) return;
-    if (await run(() => api.addEdge(link.from, link.to, link.kind))) {
-      setDraft({ peerId: '', query: '', kind: 'related-to', direction: 'outgoing' }, false);
-      setDone(true);
-      // Refresh failures must not offer a duplicate write: the relation is already committed.
-      await onReload().catch(() => {});
-    }
-  };
   return <section className="mt-5 flex flex-col gap-2 border-t pt-4" aria-label={t('connect.heading')}>
     <h3 className="m-0 text-xs font-medium text-muted-foreground">{t('connect.heading')}</h3>
     <form className="flex flex-col gap-2" onSubmit={submit}>
-      <input aria-label={t('connect.search')} placeholder={t('connect.search')} className={cn(field, 'h-8')} value={draft.query} disabled={busy} onChange={(e) => { setDraft({ ...draft, query: e.target.value }, Boolean(draft.peerId)); setDone(false); }} />
-      <select aria-label={t('connect.peer')} className={cn(field, 'h-8')} value={draft.peerId} disabled={busy} onChange={(e) => { setDraft({ ...draft, peerId: e.target.value }, Boolean(e.target.value)); setDone(false); }}>
+      <input aria-label={t('connect.search')} placeholder={t('connect.search')} className={cn(field, 'h-8')} value={draft.query} disabled={busy} onChange={(e) => change('query', e.target.value)} />
+      <select aria-label={t('connect.peer')} className={cn(field, 'h-8')} value={draft.peerId} disabled={busy} onChange={(e) => change('peerId', e.target.value)}>
         <option value="">{t('connect.peer')}</option>
         {peers.map((peer) => <option key={peer.id} value={peer.id}>{peer.id} · {peer.title}</option>)}
       </select>
-      <select aria-label={t('connect.kind')} className={cn(field, 'h-8')} value={draft.kind} disabled={busy} onChange={(e) => setDraft({ ...draft, kind: e.target.value }, Boolean(draft.peerId))}>
+      <select aria-label={t('connect.kind')} className={cn(field, 'h-8')} value={draft.kind} disabled={busy} onChange={(e) => change('kind', e.target.value)}>
         {['related-to', 'derived-from', 'supports', 'contradicts', 'depends-on', 'proves', 'caused-by', 'refines', 'duplicates', 'supersedes', 'resolves'].map((kind) => <option key={kind} value={kind}>{relationLabel(kind)}</option>)}
       </select>
-      <select aria-label={t('connect.direction')} className={cn(field, 'h-8')} value={draft.direction} disabled={busy} onChange={(e) => setDraft({ ...draft, direction: e.target.value as 'outgoing' | 'incoming' }, Boolean(draft.peerId))}>
+      <select aria-label={t('connect.direction')} className={cn(field, 'h-8')} value={draft.direction} disabled={busy} onChange={(e) => change('direction', e.target.value as 'outgoing' | 'incoming')}>
         <option value="outgoing">{t('connect.outgoing')}</option><option value="incoming">{t('connect.incoming')}</option>
       </select>
       {link && <p aria-label={t('connect.preview')} className="m-0 break-words rounded-md border bg-secondary p-2 font-mono text-xs">{link.from} — {relationLabel(link.kind)} → {link.to}</p>}

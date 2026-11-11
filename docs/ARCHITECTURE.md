@@ -2,7 +2,7 @@
 
 [文档目录](README.md) · [贡献指南](../CONTRIBUTING.md) · [工程原则](../AGENT.md) · [公开契约](CONTRACT.md)
 
-本文描述 Pinwhy `0.11.0` 的源码组织：CLI 支持代码、实时与离线图快照、实时推送与前端订阅、存储文件 I/O、HTTP 写入、批量写入和版本包发布各有明确边界，开发验证脚本复用公共辅助实现。模块路径是实现细节，宿主与脚本依赖的稳定接口只由[公开契约](CONTRACT.md)定义。
+本文描述当前开发代码（基于 Pinwhy `0.11.0`）的源码组织：CLI 支持代码、实时与离线图快照、实时推送与前端订阅、存储文件 I/O、批量输入准备、事务写入和版本包发布各有明确边界，开发验证脚本复用公共辅助实现。仓库内模块路径是实现细节；公开 SDK 只承诺 `pinwhy-core` 的根入口与导出的子路径，CLI 与 HTTP 接口由[公开契约](CONTRACT.md)定义。
 
 ## 数据如何流动
 
@@ -27,15 +27,19 @@ flowchart TD
 
 | 位置 | 维护职责与依赖边界 |
 | --- | --- |
-| `bin/pinwhy.js` | 唯一 CLI 入口；组装命令、调用领域模块、处理进程错误与退出状态 |
+| `bin/pinwhy.js` | 唯一可执行入口；解析自身根目录、稳定 CLI 路径与版本，启动一次命令调用 |
+| `lib/cli/invocation.js`、`lib/cli/run.js` | 单次调用的板目录、初始化策略、输出与错误边界；校验参数并分发命令，不持有跨调用共享状态 |
+| `lib/cli/query-commands.js`、`mutation-commands.js`、`file-commands.js`、`integration-commands.js` | 分别管理查询投影、显式写入、导入导出文件和宿主/服务/版本接入；通过明确的调用上下文组装，领域逻辑留在原有内核 |
+| `lib/cli/stdin.js` | 有界异步读取 stdin，保留大载荷与非阻塞管道语义 |
 | `lib/cli/args.js` | CLI 参数解析与选项约束 |
 | `lib/cli/help.js` | CLI 帮助文本 |
 | `lib/cli/format.js` | 终端颜色与人类可读的行格式；不决定 JSON schema |
 | `lib/contracts.js` | 纯常量：`OUTPUTS`、`WRITE_TARGETS`、`GRAPH_SCHEMA`；CLI 与投影共用，保持浏览器可用 |
 | `lib/model.js`、`lib/semantics.js` | CLI、服务、浏览器共用的回放与语义；不引入 Node-only API |
-| `lib/store.js` | 项目板发现、事件追加、缓存、游标与检查点；写锁内校验并读取一次日志，回执与工作图复用该快照。共享回放隔离会被 patch 修改的节点，保留原事件供历史投影使用。单条写入与 batch 共用执行函数，batch 在内存图上逐行验证后整体提交 |
+| `lib/core.js` | SDK 根 facade，选择导出 model/store/context/search/history/backup 能力；复用同一份领域实现 |
+| `lib/store.js` | SDK 公开存储入口与领域写入；集中管理写锁、请求缓冲与中断恢复，单条写入和 batch 共用执行函数。兼容的公开导出保留在此，内部文件操作直接依赖所属模块 |
 | `lib/batch.js` | `batch` 的 JSONL 解析：字段白名单、类型与批内引用检查，错误带输入行号；不写事件 |
-| `lib/storage/` | `file-lock.js` 管理跨进程锁与所有权；`event-file.js` 处理短读，并以有界内存回扫任意长度的未完成尾行。扫描失败不截断，读取失败不伪装为空日志 |
+| `lib/storage/` | `layout.js` 定义板目录与路径；`board.js` 管理发现、初始化、配置和可丢弃状态缓存；`event-log.js` 读取、按检查点截取、回放和追加事件；`input.js` 统一字段长度、位置与批量输入准备。`file-lock.js` 管理跨进程锁与所有权；`event-file.js` 处理短读和有界内存尾行修复。依赖保持单向，读取失败不伪装为空日志 |
 | `lib/context.js`、`lib/digest.js`、`lib/search.js`、`lib/history.js`、`lib/lint.js` | 由已记录的内容生成上下文、摘要、查询、追溯与提示；省略明确报告，不推断缺省维度 |
 | `lib/snapshot.js` | Node 运行时中的 `buildGraphSnapshot`；实时 HTTP / SSE 与离线 HTML 共用图、身份与有效焦点投影，通过选项保留各自的可写性和活动详情边界 |
 | `lib/server.js`、`lib/service.js` | loopback HTTP / SSE、读取路由、静态资产、服务端口与身份探测 |
@@ -52,7 +56,9 @@ flowchart TD
 | `web/src/` | React 工作台，读取 API / SSE 或离线快照，保留显式编辑、冲突草稿和 Agent 阅读视角 |
 | `public/` | Vite 从 `web/` 生成的分发资产，随根包提供给服务与离线导出 |
 | `plugins/dsh-pinwhy/` | 独立依赖、版本与测试的可选宿主适配；根包不导入插件或 Host SDK |
-| `scripts/`、`scripts/lib/` | 开发与验证入口；`environment.mjs` 隔离子进程的 PINWHY 环境，`sarif-validator.mjs` 共用官方 SARIF schema 校验；不是运行时依赖，不能从 `lib/` / `bin/` 反向导入 |
+| `packages/` | npm SDK 与官方 CLI 入口的包元数据和薄入口；SDK 实现从规范 `lib/` 源码生成暂存产物，不手工维护副本 |
+| `scripts/pack-packages.mjs`、`scripts/verify-npm-packages.mjs` | 四包打包与隔离消费者安装验证；生成 `dist/npm/*.tgz` 与 `manifest.json`，属于发布工具而非运行时 |
+| `scripts/`、`scripts/lib/` | 开发与验证入口；`environment.mjs` 隔离子进程的 PINWHY 环境，`npm.mjs` 统一 npm 入口查找与消费者配置隔离，`sarif-validator.mjs` 共用官方 SARIF schema 校验。打包器不依赖验证器入口；运行时不反向导入开发脚本 |
 | `test/`、`test/fixtures/` | 根包行为测试、公开契约固定输出、合成事件与官方校验 schema；不进入运行时包 |
 
 新功能按数据责任放进已有层。不要为内部模块改名保留转发文件；迁移所有内部调用方。公开接口需要兼容，内部实现路径不需要成为宿主依赖。
@@ -68,9 +74,10 @@ flowchart TD
 
 ## 前端如何分工
 
-`web/src/App.tsx` 组装面板、画布与局部界面状态。工作台数据、交互与视图控制沿现有 `web/src/workspace/` 分工：
+`web/src/App.tsx` 组装面板、画布与工作台状态。`panels/EditPanel.tsx` 负责表单呈现和删除确认，`panels/use-node-forms.ts` 负责编辑基准、冲突草稿、创建后连边重试与已有节点连接。工作台数据、交互与视图控制沿 `web/src/workspace/` 分工：
 
 - `selectors.ts`：纯快照索引、侧栏分组与筛选统计、Agent 阅读视角。
+- `use-workspace-chrome.ts`：浏览器偏好、主题持久化、面板开关与键盘快捷键；不参与板数据写入。
 - `use-workspace-data.ts`：派生数据和画布投影的 React memo 边界。
 - `use-workspace-location.ts`：读取 URL 初始值，并同步 Agent / view / node 地址；不承担依赖快照的节点选择与布局恢复。
 - `use-workspace-layout.ts`：共享节点与关系、异步 ELK 布局及取消、布局版本和拖动位置保留。
@@ -89,11 +96,15 @@ Topbar 从快照的可选 `meta.build` 展示版本与构建来源；旧快照�
 
 ## 适配与发布边界
 
-DSH 的 CLI 桥每次显式传 `--cwd`、`--agent`，写入另加 `--no-init`；兼容性和写入目标读取 `capabilities`。它不依赖内核的锁或缓存文件名。完整 Skill 仍按发布包结构从 CLI 包的 `skills/pinwhy/` 定位，这一处不是公开 CLI 契约；详见[插件说明](../plugins/dsh-pinwhy/README.md)。
+DSH 的 CLI 桥每次显式传 `--cwd`、`--agent`，写入另加 `--no-init`；兼容性、写入目标和资源位置均读取 `capabilities`。它不依赖内核的锁、缓存文件名或包安装目录结构。运行时声明 `features.resourcePaths: true` 和 `resources.cli` / `resources.skill` 绝对路径，插件据此读取完整 Skill，也支持 `pinwhy-cli` 薄入口与稳定 CLI 符号链接；详见[插件说明](../plugins/dsh-pinwhy/README.md)。
 
-根 npm 包按 `package.json.files` 分发 `bin/`、`lib/`、`skills/`、`public/` 与首页，零运行时依赖。前端及导出消费端验证依赖均为开发依赖；安装后的 Node 18 CLI 使用已构建产物。插件有自己的 npm 包和更高的宿主 Node 要求，根包安装不应拉入 Host SDK。
+根 npm 包 `pinwhy@0.11.0` 按 `package.json.files` 分发 `bin/`、`lib/`、`skills/`、`public/`、首页与根 `LICENSE`，是零运行时依赖的完整产品。前端及导出消费端验证依赖均为开发依赖；安装后的 Node 18 CLI 使用已构建产物。
 
-日常启动器、Skill、Hook 与常驻服务指向独立安装的 `current`。开发时只写独立合成演示板；[本地启动与验证](../CONTRIBUTING.md#local-development)列出实际命令。
+`pinwhy-core@0.11.0` 是 Node ≥ 18、零依赖 SDK。公开导出为 `.`、`/model`、`/store`、`/context`、`/search`、`/history`、`/backup`、`/contracts`；其中 `/model` 保持浏览器安全。SDK 根 facade 只选择领域函数，不拉入 CLI、HTTP 服务、Hook、安装器或宿主适配。打包时从唯一维护的 `lib/` 生成 SDK 暂存文件；修改源实现后重新打包，不直接编辑生成副本，也不为 SDK 建立第二套存储或回放实现。
+
+`pinwhy-cli@0.11.0` 精确依赖 `pinwhy@0.11.0`，薄入口执行根产品的真实 `bin/pinwhy.js`。两种全局安装都提供 `pinwhy` 命令，用户选择其中一种。`dsh-pinwhy@0.3.0` 仍为可选适配器，有自己的宿主 Node 要求与 DSH rc.2 兼容门禁，根包不拉入 Host SDK。
+
+安装 npm 包或导入 SDK 不启用 Hook、注册服务或迁移真实数据；这些动作由显式命令执行。现有源码 `release install`、不可变版本和 `current` 继续支持。通过该流程安装的日常启动器、Skill、Hook 与常驻服务指向独立安装的 `current`。开发时只写独立合成演示板；[本地启动与验证](../CONTRIBUTING.md#local-development)列出实际命令。
 
 Windows 启动器使用原生 `.cmd`，Claude Hook 显式使用 Git Bash；POSIX 启动器与 Hook 对可执行路径作 shell 转义。Windows current 使用无需管理员权限的 junction，替换失败恢复旧指向，成功后的清理失败另行报告；POSIX 继续原子替换符号链接。
 
