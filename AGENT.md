@@ -89,7 +89,7 @@ Pinwhy 不是行动前置条件，不替 Agent 决定下一步。具体体现，
 - 查看器、server snapshot、离线导出和将来的回放都只读事件日志的投影。
 - 只展示记录过的东西：不推断路径、不补全关系、不给节点打分或排序推荐。可读性改进（缩放、高亮、图例、线型）只改变看法，不改变数据。
 - 页面唯一的写入是用户显式编辑，受写接口防护约束（见"安全与隐私"）；选视角、拖时间轴、聚焦节点都不写事件、不移动游标。
-- 受众分开：CLI 和 `--json` 优先服务 Agent，讲究省 token、可恢复、字段稳定；CLI 人读输出通过静态面板、列表和差异提高可读性，网页提供交互浏览。给人的便利不进 `--json`，已有命令不接管键盘、不等待交互输入。
+- 受众分开：CLI 和 `--json` 优先服务 Agent，讲究省 token、可恢复、字段稳定；CLI 人读输出通过静态面板、列表和差异提高可读性，网页提供交互浏览。给人的便利不进 `--json`。仅 `skill install` 在交互终端且未显式指定目标时先选项目 / 当前用户全局范围，再提供默认全选的安装目标选择器；`--project` / `--user` 跳过范围选择。显式目标、`--all`、`--yes`、`--json` 和非交互调用不等待输入，未指定范围时保持项目默认，其他已有命令不接管键盘。
 
 ### Skill
 
@@ -138,7 +138,7 @@ Pinwhy 不是行动前置条件，不替 Agent 决定下一步。具体体现，
 - `scripts/lib/` 只共享开发验证辅助实现；运行时 `lib/` / `bin/` 不依赖 `scripts/`、`test/` 或插件。开发与测试职责、具体命令和生成产物规则见[贡献指南](CONTRIBUTING.md)。
 - `lib/storage/layout.js` 是路径定义叶模块，`event-log.js` 只依赖它，`board.js` 依赖路径与事件读取；`input.js` 负责输入准备，`store.js` 负责写锁、请求恢复和领域事务。内部调用直接依赖所属模块，公开 SDK 仍通过原有入口导出；拆分不得引入循环依赖或第二份回放实现。开发 npm 入口与消费者环境配置集中在 `scripts/lib/npm.mjs`，打包器不导入验证器入口。
 - Pinwhy `0.11.0`（DSH 插件 `0.3.0`）完成 breaking cutover：唯一 CLI 为 `pinwhy`（`bin/pinwhy.js`），只读取 `PINWHY_*` 与 `.pinwhy/`。不保留原 `blackboard` / `BLACKBOARD_*` / `.blackboard/` 或更早 `flow` / `FLOW_*` / `.flow/` 的入口、回退、别名或自动迁移。机器 schema 使用 `pinwhy.*`，形状及 v1/v2 后缀不变，`EVENT_VERSION = 1`。用户按[手动迁移说明](README.md#upgrade)停止写入、备份，仅在目标不存在时改名并退役旧接入；不覆盖或拼接共存数据，不改写事件正文、作者或回执。开发 Agent 不操作真实本地数据、宿主配置、全局安装或服务。
-- Skill 的唯一源是完整的 `skills/pinwhy/` 包：`SKILL.md` 保持聚焦，参考资料按需加载，`agents/openai.yaml` 与 `assets/` 承载展示信息。安装和发布必须包含完整目录，不恢复内嵌副本，也不只复制入口而遗漏资源。
+- Skill 的唯一源是完整的 `skills/pinwhy/` 包：`SKILL.md` 保持聚焦，参考资料按需加载，`agents/openai.yaml` 与 `assets/` 承载展示信息。安装和发布必须包含完整目录，不恢复内嵌副本，也不只复制入口而遗漏资源。宿主名称与安装路径统一在 `lib/skill-targets.js` 声明；支持通用 Agent Skills 的宿主共用 `.agents/skills/pinwhy/`，全选按物理目录安装一次，不增加专用适配或自动配置宿主 Hook。
 - 页面协作编辑只提交实际修改字段，并在事件写锁内核对字段基准；冲突保留草稿，不自动覆盖或合并。选择 Agent 阅读视角不写事件、不移动任何人的游标；实时与离线投影须保持同一身份语义。
 - 开发仓库与日常使用隔离：源码 `release install|use` 继续以不可变版本和 `<data>/pinwhy/current` 管理启动器、Skill、Hook 与常驻服务；npm 全局安装可选择完整 `pinwhy` 或官方 `pinwhy-cli` 入口，两者提供同一个命令，安装其中一个即可。必须安装真正的 Pinwhy 包，不把原 blackboard/flow 的不可变版本搬入新目录冒充新包。从 `current` 运行时 CLI 路径必须记录为 `current` 而不是具体版本；刷新接入只能由 current 指向的版本自己执行。开发中的代码只写演示黑板，不写真实项目数据。
 - 事件格式跨版本兼容：新字段、新操作保持 `EVENT_VERSION` 不变，旧版本忽略不认识的操作并在 `lint` 报告；只有旧版本按旧逻辑回放会得到错误投影时才提升 `EVENT_VERSION`。遇到更高版本的事件，回放跳过并报告，写入在锁内拒绝（防止 ID 冲突），读取不受影响。
