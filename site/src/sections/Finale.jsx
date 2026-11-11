@@ -4,7 +4,7 @@ import { DOCS, Icon, REPO, useCopyPrompt } from '../shared.jsx';
 export default function Finale() {
   const t = useT();
   const copyPrompt = useCopyPrompt();
-  const links = [DOCS, `${REPO}/blob/main/docs/CONTRACT.md`, `${REPO}/blob/main/docs/ARCHITECTURE.md`, `${REPO}/blob/main/CONTRIBUTING.md`, REPO];
+  const links = [DOCS, `${REPO}/blob/main/docs/README.md`, `${REPO}/blob/main/AGENT.md`, `${REPO}/blob/main/CONTRIBUTING.md`, REPO];
   return (
     <>
       <section className="finale" aria-labelledby="fin-title">

@@ -15,7 +15,7 @@
         "latestVersion": "9999.0.0",
         "status": "available",
         "source": "https://raw.githubusercontent.com/bx33661/pinwhy/main/package.json",
-        "updateUrl": "https://github.com/bx33661/pinwhy/blob/main/docs/USAGE.md#release"
+        "updateUrl": "https://github.com/bx33661/pinwhy/blob/main/README.md#release"
       }
     }
   ]
