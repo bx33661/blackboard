@@ -131,7 +131,7 @@ Pinwhy 不是行动前置条件，不替 Agent 决定下一步。具体体现，
 
 ## 工程边界
 
-- 完整根产品 `pinwhy@0.11.0` 与 SDK `pinwhy-core@0.11.0` 均支持 Node ≥ 18、零运行时依赖；前端依赖全部是 devDependencies，`public/` 带构建产物。`pinwhy-cli@0.11.0` 是精确依赖 `pinwhy@0.11.0` 的官方薄入口，执行同一个 CLI；不要复制命令实现。可选 `dsh-pinwhy@0.3.0` 保留 DSH rc.2 兼容门禁。
+- 完整根产品 `pinwhy@0.2.0` 与 SDK `pinwhy-core@0.2.0` 均支持 Node ≥ 18、零运行时依赖；前端依赖全部是 devDependencies，`public/` 带构建产物。`pinwhy-cli@0.2.0` 是精确依赖 `pinwhy@0.2.0` 的官方薄入口，执行同一个 CLI；不要复制命令实现。可选 `dsh-pinwhy@0.3.0` 保留 DSH rc.2 兼容门禁。
 - `lib/model.js` 必须保持无 Node-only API：被 CLI、server 和浏览器共用，也是 `pinwhy-core/model` 的浏览器安全入口。SDK 根 facade `lib/core.js` 只选择 model/store/context/search/history/backup 函数；公开子路径为 `/model`、`/store`、`/context`、`/search`、`/history`、`/backup`、`/contracts`。仓库内路径仍为实现细节。
 - 领域实现只维护在 `lib/`；SDK 由打包脚本从相同源码生成暂存产物，不手工维护第二份实现。`packages/` 只承载包元数据与薄入口，发布产物位于 `dist/npm/`。根 `LICENSE` 随完整产品分发。`npm install` 与导入 SDK 不启用 Hook、服务或真实数据迁移。
 - `lib/contracts.js` 是 CLI、服务和导出的共享契约常量；`bin/pinwhy.js` 只负责根目录与稳定 CLI 路径的启动组装，`lib/cli/` 管理单次调用上下文、分发、命令组、参数、帮助与终端呈现。命令组依赖明确的调用上下文，不创建共享可变单例；领域写入仍经过 store。实时与离线图快照共用 `lib/snapshot.js`，实时推送在 `lib/http/graph-stream.js`；版本包发布在 `lib/release/`。前端工作台派生数据、URL 状态与实时订阅在 `web/src/workspace/`。这些是内部路径，不向适配器承诺稳定性。

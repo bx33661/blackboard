@@ -100,15 +100,15 @@ Agent 应按当前宿主选择接入方式：Claude Code 使用其 Skill / Hook�
 
 | 包 | 版本 | 用途 |
 | --- | --- | --- |
-| `pinwhy` | `0.11.0` | 完整、自包含产品：CLI、工作台、Skill 与接入资源，零运行时依赖 |
-| `pinwhy-core` | `0.11.0` | Node ≥ 18、零依赖的 SDK；`pinwhy-core/model` 可在浏览器使用 |
-| `pinwhy-cli` | `0.11.0` | 官方命令入口，精确依赖 `pinwhy@0.11.0`，执行同一个真实 CLI |
+| `pinwhy` | `0.2.0` | 完整、自包含产品：CLI、工作台、Skill 与接入资源，零运行时依赖 |
+| `pinwhy-core` | `0.2.0` | Node ≥ 18、零依赖的 SDK；`pinwhy-core/model` 可在浏览器使用 |
+| `pinwhy-cli` | `0.2.0` | 官方命令入口，精确依赖 `pinwhy@0.2.0`，执行同一个真实 CLI |
 | `dsh-pinwhy` | `0.3.0` | 可选 DSH 适配器；保留 DSH rc.2 兼容门禁 |
 
 ```bash
 # 对应版本发布后，以下全局安装方式二选一；两者都提供 pinwhy 命令
-npm install -g pinwhy@0.11.0
-# 或：npm install -g pinwhy-cli@0.11.0
+npm install -g pinwhy@0.2.0
+# 或：npm install -g pinwhy-cli@0.2.0
 ```
 
 `npm install` 与导入 SDK 都不会启用 Hook、注册服务或迁移真实数据；这些接入动作需要显式执行。现有源码 `release install` 与不可变版本 / `current` 安装方式继续支持。SDK 示例见[使用参考](docs/USAGE.md#sdk)。
@@ -192,6 +192,8 @@ pinwhy export --out pinwhy.html
 <a id="release"></a>
 
 ## 版本与升级
+
+`0.2.0` 整合 CLI、存储和前端模块重构，SDK 与官方 CLI 入口同步发布；公开接口、机器 schema 和事件格式保持兼容。该版本按项目发布决定使用 `0.2.0`，在 SemVer 排序中低于此前的 `0.11.0`；已有安装需显式指定 `pinwhy@0.2.0`，`^0.11.0` 依赖不会自动切换到该版本。
 
 Pinwhy `0.11.0` 是从原 blackboard 的不兼容改名发布，DSH 插件独立发布为 `0.3.0`。新命令为 `pinwhy`，环境变量为 `PINWHY_*`，项目数据位于 `.pinwhy/`，稳定安装位于 `<data>/pinwhy/current`。机器 schema 改为 `pinwhy.*`，保留对象形状与 v1/v2 后缀，`EVENT_VERSION` 保持 `1`；没有旧名称别名、路径回退或自动迁移。
 

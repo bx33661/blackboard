@@ -88,7 +88,7 @@ Pinwhy `0.11.0` 是命名 breaking cutover，插件为 `0.3.0`：机器 schema �
 
 ## 发布与交接
 
-四个功能包的发布目标为 `pinwhy-core@0.11.0`、`pinwhy@0.11.0`、`pinwhy-cli@0.11.0` 与 `dsh-pinwhy@0.3.0`。包名和安装示例不表示已经发布；registry 消费必须等待对应版本发布成功。
+本轮发布 `pinwhy-core@0.2.0`、`pinwhy@0.2.0` 与 `pinwhy-cli@0.2.0`，四包验证继续包含已发布的 `dsh-pinwhy@0.3.0`。registry 消费必须等待对应版本发布成功；版本已存在且内容未变的插件沿用原发布。
 
 ```bash
 # 先按本地验证清单构建与检查，再生成全部候选

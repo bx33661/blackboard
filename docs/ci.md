@@ -55,9 +55,9 @@ npm run verify:npm-packages
 npm run verify:npm-packages -- --artifacts-dir dist/npm --registry https://registry.npmjs.org
 ```
 
-打包入口为 `scripts/pack-packages.mjs`，产物为 `dist/npm/*.tgz` 与 `dist/npm/manifest.json`；`scripts/verify-npm-packages.mjs` 使用真实隔离消费者安装，验证 SDK 与命令入口的消费行为。SDK 从同一份 `lib/` 源码生成暂存产物，根包仍为完整零运行时依赖产品；官方 CLI 包精确依赖 `pinwhy@0.11.0` 并执行同一 CLI。候选生成、消费者通过与 registry 发布是分别记录的结果，不预先声称任何一个已经通过。
+打包入口为 `scripts/pack-packages.mjs`，产物为 `dist/npm/*.tgz` 与 `dist/npm/manifest.json`；`scripts/verify-npm-packages.mjs` 使用真实隔离消费者安装，验证 SDK 与命令入口的消费行为。SDK 从同一份 `lib/` 源码生成暂存产物，根包仍为完整零运行时依赖产品；官方 CLI 包精确依赖 `pinwhy@0.2.0` 并执行同一 CLI。候选生成、消费者通过与 registry 发布是分别记录的结果，不预先声称任何一个已经通过。
 
-发布顺序为 `pinwhy-core@0.11.0`、`pinwhy@0.11.0`、`pinwhy-cli@0.11.0`、`dsh-pinwhy@0.3.0`。DSH rc.2 兼容门禁保持不变。验证使用合成项目，不能启用真实 Hook、服务或迁移用户数据；npm 安装与 SDK import 本身也不执行这些接入动作。已有根产品验证器与源码不可变版本 / `current` 流程继续保留。
+本轮发布顺序为 `pinwhy-core@0.2.0`、`pinwhy@0.2.0`、`pinwhy-cli@0.2.0`；四包矩阵同时验证 `dsh-pinwhy@0.3.0`，插件内容未变时复用其现有发布。DSH rc.2 兼容门禁保持不变。验证使用合成项目，不启用真实 Hook、服务或迁移用户数据；npm 安装与 SDK import 本身也不执行这些接入动作。已有根产品验证器与源码不可变版本 / `current` 流程继续保留。
 
 
 ## 离线文档检查

@@ -23,12 +23,12 @@ CLI 的帮助、命令回显、错误、诊断及 `digest` / `tail` / `context -
 以下 registry 命令依赖正式发布成功；这里不声明这些版本已经可下载。全局安装二选一，两种入口都提供同一个 `pinwhy` 命令：
 
 ```bash
-npm install -g pinwhy@0.11.0
-# 或：npm install -g pinwhy-cli@0.11.0
+npm install -g pinwhy@0.2.0
+# 或：npm install -g pinwhy-cli@0.2.0
 pinwhy --version
 ```
 
-`pinwhy` 是零运行时依赖的完整产品，包含 CLI、已构建工作台、完整 Skill 与接入资源。`pinwhy-cli` 精确依赖 `pinwhy@0.11.0` 并执行其真实 CLI。`dsh-pinwhy@0.3.0` 是单独选择的可选适配器，仍须通过 DSH rc.2 兼容门禁；根包不安装 Host SDK。
+`pinwhy` 是零运行时依赖的完整产品，包含 CLI、已构建工作台、完整 Skill 与接入资源。`pinwhy-cli` 精确依赖 `pinwhy@0.2.0` 并执行其真实 CLI。`dsh-pinwhy@0.3.0` 是单独选择的可选适配器，仍须通过 DSH rc.2 兼容门禁；根包不安装 Host SDK。
 
 安装 npm 包不会初始化项目、启用 Hook、注册服务或迁移真实数据。需要宿主接入时继续执行下文的显式操作。下面的源码安装与不可变版本 / `current` 路径继续支持。
 
@@ -123,10 +123,10 @@ JSON 使用 `pinwhy.doctor.v1`。报告生成成功时退出码为 0，问题等
 
 ## 在程序中使用 SDK
 
-`pinwhy-core@0.11.0` 面向 Node.js ≥ 18，零运行时依赖。下面的 registry 安装示例在该版本发布成功后可用：
+`pinwhy-core@0.2.0` 面向 Node.js ≥ 18，零运行时依赖。下面的 registry 安装示例在该版本发布成功后可用：
 
 ```bash
-npm install pinwhy-core@0.11.0
+npm install pinwhy-core@0.2.0
 ```
 
 根入口提供经过选择的 model、store、context、search、history 与 backup 函数；模块入口为 `pinwhy-core/model`、`/store`、`/context`、`/search`、`/history`、`/backup`、`/contracts`。只有 `/model` 明确承诺浏览器安全；使用文件存储的 SDK 入口需要 Node。SDK 从仓库唯一维护的 `lib/` 源码生成分发，不维护另一份实现。
@@ -500,7 +500,7 @@ pinwhy service uninstall           # 停止并删除本工具受管配置与注�
 
 Pinwhy `0.11.0` 是从原 blackboard 的不兼容命名切换；独立 DSH 插件版本为 `0.3.0`。CLI、包名、路径、环境变量与机器输出 schema 命名空间一起更新为 `pinwhy` / `PINWHY_*` / `.pinwhy/`。`pinwhy.*` 保留原对象形状及 v1/v2 后缀，`EVENT_VERSION = 1`；不提供旧 CLI、环境变量、路径别名或自动迁移。
 
-当前开发代码已完成代码质量与模块结构整理：CLI 的命令实现与进程入口分离，store 区分文件读写、输入准备和事务恢复，前端分离界面偏好与表单写入生命周期，发布工具统一 npm 配置隔离。公开 CLI/HTTP/SDK 接口、机器 schema 与事件格式保持不变；这是源码重构，不表示新的 npm 版本已经发布。具体责任边界见[架构说明](ARCHITECTURE.md)。
+`0.2.0` 完成代码质量与模块结构整理：CLI 的命令实现与进程入口分离，store 区分文件读写、输入准备和事务恢复，前端分离界面偏好与表单写入生命周期，发布工具统一 npm 配置隔离。公开 CLI/HTTP/SDK 接口、机器 schema 与事件格式保持不变。该版本号低于此前发布的 `0.11.0`，安装时显式指定 `@0.2.0`；已有 `^0.11.0` 依赖按 SemVer 保留原版本范围。具体责任边界见[架构说明](ARCHITECTURE.md)。
 
 以下 `0.7.0`–`0.10.1` 版本说明属于原 blackboard 的发布历史，并非 Pinwhy 的旧发布；其中原有 schema 名称保留原名。
 
@@ -523,8 +523,8 @@ Pinwhy `0.11.0` 是从原 blackboard 的不兼容命名切换；独立 DSH 插�
 
 ```text
 ~/.local/share/pinwhy/
-├── versions/0.11.0/   新安装的 Pinwhy 不可变版本
-└── current -> versions/0.11.0
+├── versions/0.2.0/   新安装的 Pinwhy 不可变版本
+└── current -> versions/0.2.0
 ```
 
 ```bash
@@ -533,7 +533,7 @@ Pinwhy `0.11.0` 是从原 blackboard 的不兼容命名切换；独立 DSH 插�
 node bin/pinwhy.js release install
 
 pinwhy release ls          # 已安装版本，* 为 current
-pinwhy release use 0.11.0  # 切换已安装的 Pinwhy 版本
+pinwhy release use 0.2.0   # 切换已安装的 Pinwhy 版本
 pinwhy --version           # 显示版本，以及运行的是 current 还是开发目录
 ```
 

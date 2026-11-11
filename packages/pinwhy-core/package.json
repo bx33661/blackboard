@@ -1,6 +1,6 @@
 {
   "name": "pinwhy-core",
-  "version": "0.11.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Event-sourced external memory SDK for AI agents: explicit nodes, evidence relations, replay and recoverable context.",
   "type": "module",

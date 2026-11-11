@@ -2,7 +2,7 @@
 
 [文档目录](README.md) · [贡献指南](../CONTRIBUTING.md) · [工程原则](../AGENT.md) · [公开契约](CONTRACT.md)
 
-本文描述当前开发代码（基于 Pinwhy `0.11.0`）的源码组织：CLI 支持代码、实时与离线图快照、实时推送与前端订阅、存储文件 I/O、批量输入准备、事务写入和版本包发布各有明确边界，开发验证脚本复用公共辅助实现。仓库内模块路径是实现细节；公开 SDK 只承诺 `pinwhy-core` 的根入口与导出的子路径，CLI 与 HTTP 接口由[公开契约](CONTRACT.md)定义。
+本文描述 Pinwhy `0.2.0` 的源码组织：CLI 支持代码、实时与离线图快照、实时推送与前端订阅、存储文件 I/O、批量输入准备、事务写入和版本包发布各有明确边界，开发验证脚本复用公共辅助实现。仓库内模块路径是实现细节；公开 SDK 只承诺 `pinwhy-core` 的根入口与导出的子路径，CLI 与 HTTP 接口由[公开契约](CONTRACT.md)定义。
 
 ## 数据如何流动
 
@@ -98,11 +98,11 @@ Topbar 从快照的可选 `meta.build` 展示版本与构建来源；旧快照�
 
 DSH 的 CLI 桥每次显式传 `--cwd`、`--agent`，写入另加 `--no-init`；兼容性、写入目标和资源位置均读取 `capabilities`。它不依赖内核的锁、缓存文件名或包安装目录结构。运行时声明 `features.resourcePaths: true` 和 `resources.cli` / `resources.skill` 绝对路径，插件据此读取完整 Skill，也支持 `pinwhy-cli` 薄入口与稳定 CLI 符号链接；详见[插件说明](../plugins/dsh-pinwhy/README.md)。
 
-根 npm 包 `pinwhy@0.11.0` 按 `package.json.files` 分发 `bin/`、`lib/`、`skills/`、`public/`、首页与根 `LICENSE`，是零运行时依赖的完整产品。前端及导出消费端验证依赖均为开发依赖；安装后的 Node 18 CLI 使用已构建产物。
+根 npm 包 `pinwhy@0.2.0` 按 `package.json.files` 分发 `bin/`、`lib/`、`skills/`、`public/`、首页与根 `LICENSE`，是零运行时依赖的完整产品。前端及导出消费端验证依赖均为开发依赖；安装后的 Node 18 CLI 使用已构建产物。
 
-`pinwhy-core@0.11.0` 是 Node ≥ 18、零依赖 SDK。公开导出为 `.`、`/model`、`/store`、`/context`、`/search`、`/history`、`/backup`、`/contracts`；其中 `/model` 保持浏览器安全。SDK 根 facade 只选择领域函数，不拉入 CLI、HTTP 服务、Hook、安装器或宿主适配。打包时从唯一维护的 `lib/` 生成 SDK 暂存文件；修改源实现后重新打包，不直接编辑生成副本，也不为 SDK 建立第二套存储或回放实现。
+`pinwhy-core@0.2.0` 是 Node ≥ 18、零依赖 SDK。公开导出为 `.`、`/model`、`/store`、`/context`、`/search`、`/history`、`/backup`、`/contracts`；其中 `/model` 保持浏览器安全。SDK 根 facade 只选择领域函数，不拉入 CLI、HTTP 服务、Hook、安装器或宿主适配。打包时从唯一维护的 `lib/` 生成 SDK 暂存文件；修改源实现后重新打包，不直接编辑生成副本，也不为 SDK 建立第二套存储或回放实现。
 
-`pinwhy-cli@0.11.0` 精确依赖 `pinwhy@0.11.0`，薄入口执行根产品的真实 `bin/pinwhy.js`。两种全局安装都提供 `pinwhy` 命令，用户选择其中一种。`dsh-pinwhy@0.3.0` 仍为可选适配器，有自己的宿主 Node 要求与 DSH rc.2 兼容门禁，根包不拉入 Host SDK。
+`pinwhy-cli@0.2.0` 精确依赖 `pinwhy@0.2.0`，薄入口执行根产品的真实 `bin/pinwhy.js`。两种全局安装都提供 `pinwhy` 命令，用户选择其中一种。`dsh-pinwhy@0.3.0` 仍为可选适配器，有自己的宿主 Node 要求与 DSH rc.2 兼容门禁，根包不拉入 Host SDK。
 
 安装 npm 包或导入 SDK 不启用 Hook、注册服务或迁移真实数据；这些动作由显式命令执行。现有源码 `release install`、不可变版本和 `current` 继续支持。通过该流程安装的日常启动器、Skill、Hook 与常驻服务指向独立安装的 `current`。开发时只写独立合成演示板；[本地启动与验证](../CONTRIBUTING.md#local-development)列出实际命令。
 
