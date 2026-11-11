@@ -837,10 +837,18 @@ test('a live lock owner is never evicted, a dead owner is', (t) => {
 test('releasing the lock leaves a lock taken over by someone else alone', (t) => {
   const dir = fixture(t);
   const lock = paths(dir).lock;
+  const name = `owner-${'b'.repeat(32)}`;
+  const token = `${process.pid}\n1\nother-owner\n`;
   withLock(() => {
-    fs.writeFileSync(lock, 'someone-else\n');
+    const [own] = fs.readdirSync(lock);
+    fs.unlinkSync(path.join(lock, own));
+    fs.rmdirSync(lock);
+    const replacement = fs.mkdtempSync(`${lock}.replacement-`);
+    fs.writeFileSync(path.join(replacement, name), token);
+    fs.renameSync(replacement, lock);
   }, dir);
-  assert.equal(fs.readFileSync(lock, 'utf8'), 'someone-else\n');
+  assert.deepEqual(fs.readdirSync(lock), [name]);
+  assert.equal(fs.readFileSync(path.join(lock, name), 'utf8'), token);
 });
 
 test('a failing state cache write does not fail an already-recorded node', (t) => {

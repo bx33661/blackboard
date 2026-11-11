@@ -60,6 +60,31 @@ test('doctor exposes corruption, future events and broken cache without repairin
   assert.equal(fs.existsSync(board.lock), false);
 });
 
+test('doctor and lint report invalid records and a torn tail without modifying the log', async t => {
+  const { cwd, board } = fixture(t);
+  const bytes = Buffer.concat([
+    Buffer.from('null\n{"op":"node","node":{"id":"n1","type":"note","title":"kept"}}\n'),
+    Buffer.from([0xff, 0x0a]),
+    Buffer.from('{"op":"patch"'),
+  ]);
+  fs.writeFileSync(board.events, bytes);
+  const { replay } = await import('../lib/storage/event-log.js');
+  const { lintGraph } = await import('../lib/lint.js');
+  const graph = replay(cwd);
+  const report = await diagnose({ cwd, cli: CLI });
+  const details = check(report, 'board.log').details;
+  assert.equal(check(report, 'board.log').status, 'error');
+  assert.equal(details.corruptLines, 1);
+  assert.equal(details.rejected, 1);
+  assert.equal(details.incompleteTailBytes, Buffer.byteLength('{"op":"patch"'));
+  const issues = lintGraph(graph).issues;
+  assert.equal(issues.find(issue => issue.code === 'log-integrity').rejected, details.rejected);
+  assert.equal(issues.find(issue => issue.code === 'log-tail').incompleteTailBytes, details.incompleteTailBytes);
+  assert.equal(graph.nodes.n1.title, 'kept');
+  assert.deepEqual(fs.readFileSync(board.events), bytes);
+  assert.equal(fs.existsSync(board.lock), false);
+});
+
 test('doctor distinguishes stale and unexpanded integrations from current installations', async t => {
   const { cwd } = fixture(t);
   installSkill({ cwd, cli: '/synthetic/old/bin/pinwhy.js', agent: 'codex' });

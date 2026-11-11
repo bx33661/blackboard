@@ -10,7 +10,7 @@
 - A cursor marks where each agent is looking; checkpoints save the scene; `pinwhy context` reads it back within a token budget.
 - The recovery pack is read-only and non-prescriptive: the agent decides the next step.
 - Severity, status and confidence are recorded separately and never inferred from each other.
-- The workspace (Context / Logic / Overview views, field notes, optional 2.5D view) listens on localhost only.
+- The workspace (Context / Logic / Overview views, optional 2.5D view) listens on localhost only.
 
 ## Set it up for the user
 

@@ -108,6 +108,35 @@ pinwhy setup --title "我的项目" --open
 
 这会创建或复用项目黑板，安装项目 Skill 和恢复 Hook，并配置用户级后台查看器。新安装的 Skill 需要按 Claude Code 的方式加载，必要时开启新会话。默认 Hook 会在会话开始时注入已有摘要、在压缩前保存检查点并刷新摘要。任务中的判断、证据和关系由 Agent 通过 Skill 写入。
 
+**选择 Skill 安装目标**
+
+只需要安装 Skill 时，在项目目录运行：
+
+```sh
+pinwhy skill install
+```
+
+交互安装分两步：先选择 **Project（项目范围，默认）** 或 **Global（当前用户的所有项目）**，用 ↑ / ↓ 移动、Enter 确认；再按安装目录选择宿主，默认全部勾选，用空格切换、`a` 全选或取消全选、Enter 安装。两步都显示实际路径，Esc 或 Ctrl+C 随时取消，最终确认前不会写入安装文件。项目范围安装到当前项目；全局范围安装到当前用户主目录下的 `.claude/skills/pinwhy/` 和 `.agents/skills/pinwhy/`，无需管理员权限。
+
+| 宿主 | 项目 Skill 目录 |
+| --- | --- |
+| Claude Code | `.claude/skills/pinwhy/` |
+| Codex、OMP、[Cursor](https://cursor.com/docs/skills)、[Gemini CLI](https://geminicli.com/docs/cli/skills/)、[OpenCode](https://opencode.ai/docs/skills/)、[GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) | `.agents/skills/pinwhy/`（共享一份安装） |
+
+也可以按宿主名称安装，例如：
+
+```sh
+pinwhy skill install --host cursor
+pinwhy skill install --host gemini --user
+pinwhy skill install --all
+```
+
+`--host` 支持 `claude`、`codex`、`omp`、`cursor`、`gemini`、`opencode`、`copilot`；`--claude` / `--codex` 仍可使用。`--all` 安装全部目录，`--yes` 跳过选择且未指定目标时安装全部。为兼容已有自动化，非交互调用或 `--json` 未指定目标时仍只安装 Claude Skill，且不会等待键盘输入。
+
+`--project` / `--user` 分别直接指定项目 / 全局范围，跳过范围选择。显式宿主、`--all`、`--yes`、`--json` 和非交互调用未指定范围时仍默认项目范围，脚本安装到全局时应加 `--user`。
+
+这些目标复用完整的 Pinwhy Skill 包。文件安装完成后，仍需按宿主机制加载；全局目录是否启用由宿主设置决定。
+
 **Codex**
 
 ```sh
@@ -172,7 +201,7 @@ pinwhy serve --open
 
 - **先选 Agent 视角。** 从“正在关注”和“待验证”了解它当前研究的问题。
 - **点开一个判断。** 查看详情、支持或反驳关系，并沿关系打开证据。需要了解变化时查看节点历史。
-- **按阅读目的切换视图。** 现场视图围绕关注点展开，全局视图用于找回其他方向。“项目手记”可连续阅读记录，“检查点时间线”可回看交接时的现场。
+- **按阅读目的切换视图。** 现场视图围绕关注点展开，逻辑视图沿显式关系查看证据，全局视图用于找回其他方向；检查点时间线可回看交接时的现场。
 
 你可以独立浏览节点、切换视角，也可以直接编辑记录或补充观察。人的记录同样会进入后续的恢复上下文。
 
@@ -265,6 +294,10 @@ pinwhy serve --port 0 --open
 **数据保存在什么地方？**
 
 保存在项目的 `.pinwhy/` 目录。新建黑板自带 Git 忽略规则，适合留在本地使用。分享报告或离线页面前，请检查其中的原文。
+
+**日志诊断提示损坏或尾行不完整？**
+
+先运行 `pinwhy doctor` 和 `pinwhy lint --json`。读取会跳过无效 UTF-8、损坏 JSON 和结构不合法的事件，并报告数量；仍保留原始文件中的字节，不会因为诊断而修复日志。尾部没有换行的字节单独报告，读取不把它当作已提交记录；写入可能仍在进行，先停止所有写入者再判断。修改或修复前先用 `pinwhy backup --out <新备份目录>` 保留原始数据；含损坏记录的备份可以保存，但恢复会拒绝损坏内容。下一次正常写入会移除未完成的尾行，再追加新事件。
 
 **怎么停止查看器？**
 

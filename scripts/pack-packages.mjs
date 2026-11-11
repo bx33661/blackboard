@@ -14,7 +14,7 @@ const ROOT = path.resolve(path.dirname(SELF), '..');
 const CORE_FILES = [
   'core.js', 'model.js', 'store.js', 'semantics.js', 'receipts.js', 'contracts.js',
   'context.js', 'search.js', 'history.js', 'backup.js',
-  'storage/file-lock.js', 'storage/event-file.js',
+  'storage/file-lock.js', 'storage/event-file.js', 'storage/event-codec.js',
   'storage/layout.js', 'storage/board.js', 'storage/event-log.js', 'storage/input.js',
 ];
 const json = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));

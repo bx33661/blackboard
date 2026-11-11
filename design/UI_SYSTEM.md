@@ -39,28 +39,7 @@ Dialog, Command, Slider, Kbd, Segmented/ToggleGroup) on Radix + cmdk. Official R
 Flow UI sources (BaseNode, LabeledGroupNode) are vendored in
 `web/src/components/react-flow/`. Panels are in `web/src/panels/`.
 Canvas and chrome colours come from CSS tokens in `web/src/styles.css`; Tailwind 4
-is compiled by `@tailwindcss/vite`. Field notes use a separately scoped stylesheet
-in `web/src/field-notes/field-notes.css`, also embedded in standalone exports.
-
-## Project field notes
-
-- A live service's bare root opens the project notebook. Existing `view`, `node`
-  and `asOf` links still open the canvas; `page=notes` explicitly opens the notebook.
-  Normal offline workspace exports retain their existing canvas entry.
-- The cover uses the recorded project title, latest checkpoint text and an explicitly
-  labelled graph preview (up to 12 nodes, only existing directed relations).
-  Chapters include every checkpoint summary, current node and explicit relation.
-  Authored text, source locations, tags, input-loss notices and independent dimensions
-  stay readable without generated summaries or inferred conclusions.
-- Cover title, introduction, mark and accent are reader preferences saved by project
-  in the local browser. Uploaded marks are PNG/JPEG/WebP up to 1 MiB. These settings
-  never modify the event log or Agent cursors.
-- Node and checkpoint actions return to the actual canvas. A historical notebook
-  waits for its requested snapshot; a failed lookup offers a return to the live board.
-- Export clones the rendered notebook into self-contained, script-free HTML with
-  embedded styling and images, working internal anchors, a project favicon and print
-  rules. Canvas actions are removed. Export includes the displayed snapshot, rather
-  than event history; the existing backup command retains full events.
+is compiled by `@tailwindcss/vite`.
 
 ## Reading the board
 

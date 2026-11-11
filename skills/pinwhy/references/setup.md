@@ -66,9 +66,17 @@ pinwhy status --cwd "/已确认项目"
 
 用户明确需要后台服务时，可运行 `pinwhy service install --cwd "/已确认项目"`；它不安装 Claude 接入。排查问题使用 `pinwhy doctor --cwd "/已确认项目"`，分享诊断可加 `--share --json`。
 
-## OMP、ZCode 等其他宿主
+## 单独安装 Skill
 
-复用同一份 `skills/pinwhy/`，由当前 Agent 按宿主自身的 Skill 机制完成接入，不为每个宿主维护安装命令或路径分支：
+人类在交互终端运行 `pinwhy skill install` 时，先选择 Project（项目范围，默认）或 Global（当前用户的所有项目），方向键移动、Enter 确认；再进入默认全选的目录选择器：Claude Code 使用 `.claude/skills/pinwhy/`；Codex、OMP、Cursor、Gemini CLI、OpenCode、GitHub Copilot CLI 共用 `.agents/skills/pinwhy/`。项目范围相对当前项目，全局范围相对用户主目录，两步均显示实际路径。共享目录只安装一次，不因多个宿主复制多份。方向键移动、空格勾选、`a` 切换全选、Enter 安装；任一步 Esc 或 Ctrl+C 取消，最终确认前不写入安装文件。
+
+Agent 和脚本应显式传 `--host <name>`、`--claude`、`--codex` 或 `--all`，不依赖终端选择。`--host` 接受 `claude`、`codex`、`omp`、`cursor`、`gemini`、`opencode`、`copilot`，例如 `pinwhy skill install --host opencode --cwd "/已确认项目"`。`--yes` 跳过交互，未指定目标时安装全部；`--json` 永不交互。为兼容旧调用，非交互或 `--json` 未指定目标时仍只安装 Claude Skill。`--project` / `--user` 显式指定项目 / 全局范围并跳过范围选择；显式目标、`--all`、`--yes`、`--json` 和非交互调用未指定范围时仍默认项目级。用户明确要求全局安装时才加 `--user`；全局 Skill 是否会被加载由宿主的发现规则决定。
+
+## 其他宿主与加载确认
+
+上述宿主优先使用 `skill install --host <name>` 安装同一份完整 Skill。OMP 可以显式读取 `skill://pinwhy`；Cursor 可在 Agent 聊天中通过 `/` 查找 Skill；Gemini CLI 与 Copilot CLI 可通过 `/skills reload` 刷新，并通过 `/skills list` 检查；OpenCode 可在提示中引用 `@pinwhy`。这些是宿主的加载机制，不由 Pinwhy 命令替代。官方目录约定见 [Cursor](https://cursor.com/docs/skills)、[Gemini CLI](https://geminicli.com/docs/cli/skills/)、[OpenCode](https://opencode.ai/docs/skills/)、[Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills)。
+
+其他宿主复用同一份 `skills/pinwhy/`，由当前 Agent 按宿主自身的 Skill 机制完成接入，不新增专用适配：
 
 - 定位实际 CLI 和源 Skill 包，复制完整目录，包含 references、agents 与 assets；在 Markdown 中将 CLI 占位符展开为真实绝对路径。
 - 安装到当前宿主支持的 Skill 目录，按其机制刷新或开启会话；已有黑板直接恢复，没有黑板且用户已同意接入时才初始化。

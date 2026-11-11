@@ -62,6 +62,24 @@ test('shared current and checkpoint projections retain the recorded pre-patch st
   assert.deepEqual(history.entries.find((entry) => entry.op === 'patch').changes.status, { before: 'open', after: 'refuted' });
 });
 
+test('history and checkpoint changes retain structural rejection and tail diagnostics from the source', t => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-history-integrity-'));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  ensure(cwd);
+  const events = [add(node('n1')), checkpoint(), { op: 'patch', id: 'n1', set: { title: 'changed' } }];
+  const bytes = `null\n${events.map(event => JSON.stringify(event)).join('\n')}\n{"op":`;
+  fs.writeFileSync(paths(cwd).events, bytes);
+  const source = readEvents(cwd);
+  const graph = replay(cwd, source);
+  for (const result of [buildNodeHistory(source.events, 'n1', source), buildCheckpointChanges(source.events, 'cp1', source)]) {
+    assert.equal(result.integrity.rejected, graph.integrity.rejected);
+    assert.equal(result.integrity.rejected, 1);
+    assert.equal(result.integrity.incompleteTailBytes, Buffer.byteLength('{"op":'));
+  }
+  assert.equal(graph.nodes.n1.title, 'changed');
+  assert.equal(fs.readFileSync(paths(cwd).events, 'utf8'), bytes);
+});
+
 test('history shows field values, recorded attribution, incident relations and removed nodes', () => {
   const events = researchEvents();
   const result = buildNodeHistory(events, 'hy1');

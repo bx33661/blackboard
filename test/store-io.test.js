@@ -24,7 +24,7 @@ function observeOpen(t, file, flags) {
   let descriptor;
   replace(t, 'openSync', (original) => function(target, mode, ...args) {
     const fd = original.call(this, target, mode, ...args);
-    if (target === file && mode === flags) descriptor = fd;
+    if ((typeof file === 'function' ? file(target) : target === file) && mode === flags) descriptor = fd;
     return fd;
   });
   t.after(() => {
@@ -33,6 +33,11 @@ function observeOpen(t, file, flags) {
     }
   });
   return () => descriptor;
+}
+
+function observeLockToken(t, lock) {
+  return observeOpen(t, (file) => typeof file === 'string'
+    && path.dirname(file).startsWith(`${lock}.`) && path.basename(file).startsWith('owner-'), 'wx');
 }
 
 for (const failingMethod of ['fstatSync', 'readSync']) {
@@ -100,7 +105,7 @@ for (const partial of [false, true]) {
   test(`a failed ${partial ? 'partial ' : ''}lock-token write closes and releases its own acquisition`, (t) => {
     const dir = fixture(t);
     const lock = paths(dir).lock;
-    const opened = observeOpen(t, lock, 'wx');
+    const opened = observeLockToken(t, lock);
     const restore = replace(t, 'writeFileSync', (original) => function(file, content, ...args) {
       if (file === opened()) {
         if (partial) original.call(this, file, content.slice(0, 4), ...args);
@@ -113,6 +118,7 @@ for (const partial of [false, true]) {
       assert.notEqual(opened(), undefined);
       assert.throws(() => fs.fstatSync(opened()), { code: 'EBADF' });
       assert.equal(fs.existsSync(lock), false);
+      assert.equal(fs.readdirSync(path.dirname(lock)).some((name) => name.startsWith(`${path.basename(lock)}.`)), false);
       assert.equal(readEvents(dir).events.length, 0);
     } finally {
       restore();
@@ -123,16 +129,17 @@ for (const partial of [false, true]) {
   });
 }
 
-for (const replaceInode of [false, true]) {
-  test(`a failed token write preserves another owner's ${replaceInode ? 'replacement file' : 'token'}`, (t) => {
+for (const legacy of [false, true]) {
+  test(`a failed token write preserves another owner's ${legacy ? 'legacy file' : 'published directory'}`, (t) => {
     const dir = fixture(t);
     const lock = paths(dir).lock;
-    const opened = observeOpen(t, lock, 'wx');
+    const opened = observeLockToken(t, lock);
     const otherToken = `${process.pid}\n1\nother-owner\n`;
+    const otherOwner = path.join(lock, `owner-${'b'.repeat(32)}`);
     const restore = replace(t, 'writeFileSync', (original) => function(file, content, ...args) {
       if (file === opened()) {
-        if (replaceInode) fs.unlinkSync(lock);
-        original.call(this, lock, otherToken);
+        if (!legacy) fs.mkdirSync(lock);
+        original.call(this, legacy ? lock : otherOwner, otherToken);
         throw Object.assign(new Error('synthetic token write failure'), { code: 'ENOSPC' });
       }
       return original.call(this, file, content, ...args);
@@ -140,19 +147,20 @@ for (const replaceInode of [false, true]) {
     try {
       assert.throws(() => addNode({ title: 'Failed acquisition' }, dir), { code: 'ENOSPC' });
       assert.throws(() => fs.fstatSync(opened()), { code: 'EBADF' });
-      assert.equal(fs.readFileSync(lock, 'utf8'), otherToken);
+      assert.equal(fs.readFileSync(legacy ? lock : otherOwner, 'utf8'), otherToken);
+      assert.equal(fs.readdirSync(path.dirname(lock)).some((name) => name.startsWith(`${path.basename(lock)}.`)), false);
     } finally {
       restore();
     }
     assert.throws(() => withLock(() => assert.fail('live owner must keep its lock'), dir, 1), /lock timeout/);
-    assert.equal(fs.readFileSync(lock, 'utf8'), otherToken);
+    assert.equal(fs.readFileSync(legacy ? lock : otherOwner, 'utf8'), otherToken);
   });
 }
 
 test('writable locks validate the acquired log and read-only locks remain available for newer events', (t) => {
   const dir = fixture(t);
   const lock = paths(dir).lock;
-  const opened = observeOpen(t, lock, 'wx');
+  const opened = observeLockToken(t, lock);
   let appended = false;
   const restore = replace(t, 'writeFileSync', (original) => function(file, content, ...args) {
     const result = original.call(this, file, content, ...args);
@@ -192,14 +200,17 @@ test('writable lock callbacks receive the current log while holding the lock', (
 
 test('event reads preserve empty, exhausted, incomplete and missing-file cursor results', (t) => {
   const dir = fixture(t);
-  const empty = (offset, truncated = false) => ({ events: [], corrupt: 0, future: 0, corruptAt: [], futureAt: [], offset, truncated });
+  const empty = (offset, truncated = false, incompleteTailBytes = 0) => ({
+    events: [], corrupt: 0, future: 0, corruptAt: [], futureAt: [], invalidRecords: 0, invalidAt: [],
+    incompleteTailBytes, invalidUtf8: false, invalidUtf8At: [], offset, truncated,
+  });
   assert.deepEqual(readEvents(dir), empty(0));
   addNode({ title: 'Complete event' }, dir);
   const size = fs.statSync(paths(dir).events).size;
   assert.deepEqual(readEvents(dir, size), empty(size));
   assert.deepEqual(readEvents(dir, size + 10), empty(size));
   fs.appendFileSync(paths(dir).events, '{"incomplete":');
-  assert.deepEqual(readEvents(dir, size), empty(size, true));
+  assert.deepEqual(readEvents(dir, size), empty(size, true, Buffer.byteLength('{"incomplete":')));
   fs.unlinkSync(paths(dir).events);
   assert.deepEqual(readEvents(dir, size), empty(size));
 });
@@ -268,6 +279,8 @@ for (const failure of ['error', 'eof']) {
     });
     try {
       assert.throws(() => addNode({ title: 'Must wait for repair' }, dir), { code: 'EIO' });
+      // The closed repair descriptor may be reused by the verification read.
+      restore();
       assert.deepEqual(fs.readFileSync(file), before);
       assert.equal(fs.existsSync(paths(dir).lock), false);
     } finally {

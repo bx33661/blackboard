@@ -21,11 +21,10 @@ type Options = {
   onNodesChange: OnNodesChange<CanvasNode>;
   closeSidebar: () => void;
   scene3d: boolean;
-  enabled: boolean;
 };
 
 /** A single selection drives the inspector, URL and both canvases, including hidden-node reveal. */
-export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d, enabled }: Options) {
+export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d }: Options) {
   const focusFrame = useRef<number | null>(null);
   const keyboardFrame = useRef<number | null>(null);
   useEffect(() => () => {
@@ -96,7 +95,6 @@ export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges
   }, [mode, clearSelection, setMode]);
 
   useEffect(() => {
-    if (!enabled) return;
     const onArrow = (event: KeyboardEvent) => {
       if (!selectedId || event.metaKey || event.ctrlKey || event.altKey || !event.key.startsWith('Arrow')) return;
       const target = event.target as HTMLElement | null;
@@ -118,7 +116,7 @@ export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges
     };
     window.addEventListener('keydown', onArrow, true);
     return () => window.removeEventListener('keydown', onArrow, true);
-  }, [enabled, selectedId, nodes, edges, focusNode, scene3d]);
+  }, [selectedId, nodes, edges, focusNode, scene3d]);
 
   return { selected: selectedId ? byId.get(selectedId) || null : null, focusNode, clearSelection, switchMode, handleNodesChange, onNodeClick };
 }

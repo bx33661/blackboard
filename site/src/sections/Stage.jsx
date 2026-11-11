@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Box, ListTree, MousePointerClick, NotebookPen, ScanSearch, Waypoints } from 'lucide-react';
+import { Box, ListTree, MousePointerClick, ScanSearch, Waypoints } from 'lucide-react';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { useSiteTheme } from '@/lib/theme';
 import { useLang } from '../i18n.jsx';
@@ -10,10 +10,10 @@ const CircuitScene = lazy(() => import('../scene/CircuitScene.jsx'));
 /* The real pinwhy workspace, exported offline from a synthetic demo board (site/scripts/make-demo.mjs). */
 const FRAME_W = 1280;
 const FRAME_H = 800;
-const TAB_IDS = ['context', 'logic', 'all', 'notes', 'board'];
+const TAB_IDS = ['context', 'logic', 'all', 'board'];
 // Same glyph families as the workspace's own view switch.
-const TAB_ICON = { context: ScanSearch, logic: Waypoints, all: ListTree, notes: NotebookPen, board: Box };
-const URLS = { context: 'view=context', logic: 'view=logic', all: 'view=all', notes: 'page=notes', board: 'view=context&scene=2.5d' };
+const TAB_ICON = { context: ScanSearch, logic: Waypoints, all: ListTree, board: Box };
+const URLS = { context: 'view=context', logic: 'view=logic', all: 'view=all', board: 'view=context&scene=2.5d' };
 
 function prepareWorkspaceStorage(theme, locale) {
   try {
@@ -76,14 +76,11 @@ function Workspace({ view, live, onLive }) {
   useEffect(() => {
     if (!ready || view === 'board') return undefined;
     const f = frame.current;
-    if (view === 'notes') { press(f, ws.notesOpen); return undefined; }
-    const onNotes = f.contentWindow.location.search.includes('page=notes');
-    if (onNotes) press(f, ws.notesBack);
     let inner;
     const timer = setTimeout(() => {
       press(f, ws[view]);
       inner = setTimeout(() => press(f, ws.fit), 650);
-    }, onNotes ? 250 : 0);
+    }, 0);
     return () => { clearTimeout(timer); clearTimeout(inner); };
   }, [view, ready, ws]);
 

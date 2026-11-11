@@ -5,10 +5,10 @@ import type { GraphSnapshot, ViewMode } from '../types';
 import { selectWorkspaceAgent, selectWorkspaceSnapshot } from './selectors';
 
 /** Keep snapshot catalogues stable when only the reader's view, selection or filters change. */
-export function useWorkspaceData(snapshot: GraphSnapshot | null, mode: ViewMode, agentId: string, filter: NodeFilter, canvasEnabled: boolean) {
+export function useWorkspaceData(snapshot: GraphSnapshot | null, mode: ViewMode, agentId: string, filter: NodeFilter) {
   const board = useMemo(() => selectWorkspaceSnapshot(snapshot), [snapshot]);
   const agent = useMemo(() => selectWorkspaceAgent(snapshot, board, agentId), [snapshot, board, agentId]);
-  const projection = useMemo(() => snapshot && canvasEnabled ? project(snapshot, mode, '', agentId) : null, [snapshot, mode, agentId, canvasEnabled]);
+  const projection = useMemo(() => snapshot ? project(snapshot, mode, '', agentId) : null, [snapshot, mode, agentId]);
   const results = useMemo(() => filterActive(filter) ? filterNodes(board.paletteNodes, filter) : null, [board.paletteNodes, filter]);
   const legend = useMemo(() => {
     const types = new Set<string>();
