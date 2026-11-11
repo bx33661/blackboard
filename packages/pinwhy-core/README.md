@@ -20,7 +20,7 @@ console.log(context);
 
 Creating a node does not implicitly add relations or move the cursor. `.pinwhy/events.jsonl` remains the only source of truth. Context is a read-only, non-prescriptive projection; import alone neither initializes a project nor installs host integrations or services. Store operations use the same file locking, event semantics and request receipts as the CLI. Pass the intended project path explicitly to filesystem operations.
 
-The root entry exports selected model, store, context, search, history and backup operations. Explicit module entries are `pinwhy-core/model`, `/store`, `/context`, `/search`, `/history`, `/backup` and `/contracts`. Only `/model` is browser-safe; the other entries require Node.js. Exports are ESM and retain the existing operation signatures documented in the [API contract](https://github.com/bx33661/pinwhy/blob/main/docs/CONTRACT.md).
+The root entry exports selected model, store, context, search, history and backup operations. Explicit module entries are `pinwhy-core/model`, `/store`, `/context`, `/search`, `/history`, `/backup` and `/contracts`. Only `/model` is browser-safe; the other entries require Node.js. Exports are ESM. The CLI declares its supported schemas and capabilities through `pinwhy capabilities --json`.
 
 Package artifacts are generated from the repository's canonical `lib/` sources by `npm run pack:packages`; no separate kernel copy is maintained here. `pinwhy` is the complete CLI/workspace product; `pinwhy-cli` is its alternate npm executable installation entry; `dsh-pinwhy` is the optional DeepSeek Harness adapter.
 

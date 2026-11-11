@@ -48,8 +48,8 @@ Keep any existing board records. Never point daily use at a development checkout
 ## Docs
 
 - [README](https://github.com/bx33661/pinwhy#readme): overview and quick start
-- [Usage reference](https://github.com/bx33661/pinwhy/blob/main/docs/USAGE.md): manual install, CLI, configuration, services, upgrades
+- [Usage reference](https://github.com/bx33661/pinwhy/blob/main/README.md#manual-install): installation and package selection
 - [Recording semantics](https://github.com/bx33661/pinwhy/blob/main/skills/pinwhy/references/recording.md): nodes, relations and cursor
 - [Parallel agents](https://github.com/bx33661/pinwhy/blob/main/skills/pinwhy/references/parallel-agents.md)
-- [Public contract](https://github.com/bx33661/pinwhy/blob/main/docs/CONTRACT.md): CLI / JSON / HTTP schemas
-- [Architecture](https://github.com/bx33661/pinwhy/blob/main/docs/ARCHITECTURE.md)
+- [Documentation index](https://github.com/bx33661/pinwhy/blob/main/docs/README.md)
+- [Engineering principles](https://github.com/bx33661/pinwhy/blob/main/AGENT.md)

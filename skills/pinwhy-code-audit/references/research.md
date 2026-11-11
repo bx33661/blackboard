@@ -48,4 +48,4 @@ Cloudflare 文章的内部统计、社区仓库的速度与案例数量都属于
 
 包结构遵循 [Agent Skills specification](https://agentskills.io/specification) 的渐进加载：入口只给选择方法和开始调查所需的内容，参考资料在相应任务出现时再读。[评估指导](https://agentskills.io/skill-creation/evaluating-skills)用于设计对照与基于实际输出的判分。
 
-pinwhy 的节点、关系、独立维度、能力协商、批内引用和回执以[公开契约](https://github.com/bx33661/pinwhy/blob/main/docs/CONTRACT.md)为准。只有场景包变更；底座、通用 Skill、查看器与安装器没有审计专用逻辑。
+pinwhy 的节点、关系、独立维度、批内引用和回执由内核统一定义，能力和输出 schema 通过 `pinwhy capabilities --json` 查询。只有场景包变更；底座、通用 Skill、查看器与安装器没有审计专用逻辑。

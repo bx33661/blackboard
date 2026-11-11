@@ -1,6 +1,10 @@
 .DS_Store
 node_modules/
 
+# Development documentation stays local; retain the public documentation index.
+/docs/*.md
+!/docs/README.md
+
 # Local pinwhy runtime data and generated previews
 .pinwhy/
 # Keep pre-rename local data private until explicitly migrated.

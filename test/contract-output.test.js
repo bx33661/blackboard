@@ -1,5 +1,5 @@
-// Fixed `--json` outputs: every command in docs/CONTRACT.md runs against the
-// fixture boards and must match its baseline in test/fixtures/contract/outputs/.
+// Fixed `--json` outputs run against fixture boards and must match their
+// baselines in test/fixtures/contract/outputs/.
 // A failing baseline means machine-readable output changed. Adding a field is
 // compatible; regenerate with UPDATE_CONTRACT=1 and review the diff. Changing a
 // meaning or type, or removing a field, needs a new schema version first.
@@ -17,7 +17,6 @@ const REPO = path.resolve(HERE, '..');
 const CLI = path.join(REPO, 'bin', 'pinwhy.js');
 const FIXTURES = path.join(HERE, 'fixtures', 'contract');
 const OUTPUTS = path.join(FIXTURES, 'outputs');
-const CONTRACT_DOC = path.join(REPO, 'docs', 'CONTRACT.md');
 const UPDATE = process.env.UPDATE_CONTRACT === '1';
 const PACKAGE_VERSION = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
 const RESOURCE_PATHS = new Map([
@@ -365,7 +364,7 @@ for (const [command, cases] of Object.entries(CASES)) {
     assert.ok(fs.existsSync(file), `missing baseline ${path.relative(REPO, file)}; run UPDATE_CONTRACT=1 npm test`);
     const expected = JSON.parse(fs.readFileSync(file, 'utf8'));
     const diff = firstDiff(actual, expected);
-    assert.ok(!diff, `${command} --json output changed at ${diff}\nSee docs/CONTRACT.md before updating the baseline.`);
+    assert.ok(!diff, `${command} --json output changed at ${diff}\nReview the output compatibility before updating the baseline.`);
   });
 }
 
@@ -375,20 +374,6 @@ test('contract output: runs are deterministic after normalization', (t) => {
   }
 });
 
-/** Rows of the markdown table that follows `heading` in CONTRACT.md. */
-function tableRows(doc, heading) {
-  const start = doc.indexOf(heading);
-  assert.ok(start >= 0, `CONTRACT.md lacks heading ${heading}`);
-  const rows = [];
-  for (const line of doc.slice(start + heading.length).split('\n')) {
-    if (line.startsWith('#')) break;
-    if (!line.startsWith('|')) { if (rows.length) break; continue; }
-    const cells = line.slice(1, -1).split('|').map((c) => c.trim());
-    if (cells.every((c) => /^-+$/.test(c))) continue;
-    rows.push(cells);
-  }
-  return rows.slice(1);
-}
 
 function capabilities() {
   return JSON.parse(spawnSync(process.execPath, [CLI, 'capabilities', '--json'], { encoding: 'utf8' }).stdout);
@@ -449,36 +434,3 @@ test('contract output: commands write only declared targets inside the project',
   }
 });
 
-const codeNames = (cell) => [...cell.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
-
-test('contract doc: command table matches baselines and capabilities', () => {
-  const doc = fs.readFileSync(CONTRACT_DOC, 'utf8');
-  const covered = tableRows(doc, '## 命令与固定输出');
-  const uncovered = tableRows(doc, '## 不在 v1 固定输出内的命令');
-
-  const files = fs.readdirSync(OUTPUTS).filter((f) => f.endsWith('.json')).sort();
-  const docFiles = covered.map((cells) => codeNames(cells[2])[0]).sort();
-  assert.deepEqual(docFiles, files.map((f) => `outputs/${f}`), 'every baseline file has exactly one table row');
-  assert.deepEqual(files.map((f) => f.slice(0, -5)).sort(), Object.keys(CASES).sort(), 'every baseline has cases in this test');
-
-  const named = [];
-  for (const cells of covered) {
-    const [command, ...aliases] = [...codeNames(cells[0]), ...codeNames(cells[1])];
-    named.push(command, ...aliases);
-    const used = new Set(CASES[command].map((spec) => spec.args[0]));
-    for (const name of [command, ...aliases]) {
-      assert.ok(used.has(name), `${name} (row ${command}) needs at least one case in ${command}.json`);
-    }
-  }
-  for (const cells of uncovered) named.push(...codeNames(cells[0]));
-
-  const { outputs } = capabilities();
-  for (const cells of covered) {
-    const command = codeNames(cells[0])[0];
-    const declared = outputs[command === 'release' ? 'release check' : command];
-    assert.equal(codeNames(cells[3])[0], declared.schema || declared.items, `${command} row names the schema capabilities declares`);
-  }
-
-  assert.deepEqual([...named].sort(), [...capabilities().commands].sort(),
-    'every command in capabilities appears once in CONTRACT.md, covered or explicitly not covered');
-});

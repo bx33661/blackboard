@@ -63,7 +63,7 @@ export function AboutDialog({ build, isStatic }: { build?: BuildInfo; isStatic: 
                   {failed && <p className="m-0 text-destructive">{t('update.failed')}</p>}
                   {update && <>
                     <p className="m-0 font-medium">{t(`update.${update.status}`, { version: update.latestVersion })}</p>
-                    {update.status === 'available' && <a className="inline-flex items-center gap-1 text-primary underline underline-offset-4" href={`${REPOSITORY}/blob/main/docs/USAGE.md#release`} target="_blank" rel="noopener noreferrer">{t('update.instructions')}<ExternalLink className="size-3" /></a>}
+                    {update.status === 'available' && <a className="inline-flex items-center gap-1 text-primary underline underline-offset-4" href={`${REPOSITORY}/blob/main/README.md#release`} target="_blank" rel="noopener noreferrer">{t('update.instructions')}<ExternalLink className="size-3" /></a>}
                   </>}
                 </div>
                 <p className="m-0 text-[11px] leading-5 text-muted-foreground">{t('update.source')}</p>
@@ -71,7 +71,7 @@ export function AboutDialog({ build, isStatic }: { build?: BuildInfo; isStatic: 
             </div>
           )}
           <div className="mt-7 flex items-center gap-3">
-            <Button asChild variant="outline" className="h-9 min-w-24"><a href={`${REPOSITORY}/blob/main/docs/USAGE.md`} target="_blank" rel="noopener noreferrer"><BookOpen />{t('about.docs')}</a></Button>
+            <Button asChild variant="outline" className="h-9 min-w-24"><a href={`${REPOSITORY}/blob/main/README.md`} target="_blank" rel="noopener noreferrer"><BookOpen />{t('about.docs')}</a></Button>
             <Button asChild variant="outline" className="h-9 min-w-24"><a href={REPOSITORY} target="_blank" rel="noopener noreferrer">GitHub<ExternalLink className="size-3.5" /></a></Button>
           </div>
           <p className="m-0 mt-5 text-[11px] text-muted-foreground">{t('about.license')}</p>

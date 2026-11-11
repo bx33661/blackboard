@@ -6,7 +6,7 @@ pinwhy 的可选 **DeepSeek Harness 适配器**，位于主仓库的 `plugins/ds
 DSH → dsh-pinwhy → 独立安装的 pinwhy CLI → 项目 .pinwhy/events.jsonl
 ```
 
-目标版本：DSH `0.2.1-rc.2`。pinwhy 不按版本号判断，而按 `capabilities --json` 检测：`schema` 为 `pinwhy.capabilities.v1`，`features` 含 `writeAttribution`、`cwdFlag`、`noInit`、`resourcePaths`，用到的 8 个命令输出声明为插件读取的 schema，并声明 `writeTargets` 和绝对资源路径 `resources.cli`、`resources.skill`，即 [公开契约](../../docs/CONTRACT.md) v1。缺少上述声明的构建会在诊断中报 RUNTIME_INCOMPATIBLE。Node 与 DSH 的运行要求一致：`^22.19.0 || >=24.0.0`。源码是可直接运行的 ESM，安装后不依赖构建或生命周期脚本。
+目标版本：DSH `0.2.1-rc.2`。pinwhy 不按版本号判断，而按 `capabilities --json` 检测：`schema` 为 `pinwhy.capabilities.v1`，`features` 含 `writeAttribution`、`cwdFlag`、`noInit`、`resourcePaths`，用到的 8 个命令输出声明为插件读取的 schema，并声明 `writeTargets` 和绝对资源路径 `resources.cli`、`resources.skill`。缺少上述声明的构建会在诊断中报 RUNTIME_INCOMPATIBLE。Node 与 DSH 的运行要求一致：`^22.19.0 || >=24.0.0`。源码是可直接运行的 ESM，安装后不依赖构建或生命周期脚本。
 
 ## 插件展示信息
 

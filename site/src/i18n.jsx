@@ -155,7 +155,7 @@ const zh = {
     ],
   },
   finale: { title: '接着做', lead: '下一次压缩之后，不必从头开始。复制一句话，把 Pinwhy 交给你的 Agent。', cta: '复制接入指令', docs: '阅读使用参考' },
-  footer: { tag: 'Agent 的外置记忆与可视化工作台', links: ['使用参考', '公开契约', '架构', '贡献指南', 'GitHub'], license: 'MIT 许可' },
+  footer: { tag: 'Agent 的外置记忆与可视化工作台', links: ['使用参考', '文档目录', '工程约定', '贡献指南', 'GitHub'], license: 'MIT 许可' },
 };
 
 /* ------------------------------------------------------------------ English */
@@ -310,7 +310,7 @@ const en = {
     ],
   },
   finale: { title: 'Pick up where you left off', lead: 'After the next compaction, you don’t start over. Copy one sentence and hand the board to your agent.', cta: 'Copy setup prompt', docs: 'Read the docs' },
-  footer: { tag: 'External memory and a visual workspace for AI agents', links: ['Usage', 'Contract', 'Architecture', 'Contributing', 'GitHub'], license: 'MIT License' },
+  footer: { tag: 'External memory and a visual workspace for AI agents', links: ['Usage', 'Docs', 'Principles', 'Contributing', 'GitHub'], license: 'MIT License' },
 };
 
 export const DICTS = { zh, en };

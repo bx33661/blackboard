@@ -4,7 +4,7 @@ import { siGithub } from 'simple-icons';
 import { useT } from './i18n.jsx';
 
 export const REPO = 'https://github.com/bx33661/pinwhy';
-export const DOCS = `${REPO}/blob/main/docs/USAGE.md`;
+export const DOCS = `${REPO}/blob/main/README.md`;
 
 
 export const reducedMotion = () =>
