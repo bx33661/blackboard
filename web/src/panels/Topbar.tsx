@@ -10,12 +10,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { AboutDialog } from './AboutDialog';
 import { ActivityPopover } from './ActivityPopover';
 import type { Connection } from '../use-graph-stream';
-import type { Activity, BuildInfo, ViewMode } from '../types';
+import type { Activity, BuildInfo, ViewMode, WorkspaceMode } from '../types';
 import { t } from '../i18n';
 
 type Props = {
   title: string;
   build?: BuildInfo;
+  workspace: WorkspaceMode;
+  onWorkspace: (workspace: WorkspaceMode) => void;
   mode: ViewMode;
   onMode: (mode: ViewMode) => void;
   agentId: string;
@@ -45,7 +47,7 @@ const CONNECTION = {
 } as const;
 
 export function Topbar(props: Props) {
-  const { title, build, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal, timelineOpen, onTimeline } = props;
+  const { title, build, workspace, onWorkspace, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal, timelineOpen, onTimeline } = props;
   const status = isStatic ? { label: t('topbar.static'), dot: 'bg-strong' } : CONNECTION[connection];
   return (
     <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b bg-background px-3 py-2 lg:h-12 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-4 lg:py-0">
@@ -74,12 +76,16 @@ export function Topbar(props: Props) {
         <span className="min-w-0 truncate text-sm text-subtle" title={title}>{title}</span>
       </div>
 
-      <div className="col-span-2 row-start-2 flex min-w-0 items-center justify-center gap-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
-        <Segmented<ViewMode> value={mode} onValueChange={onMode} aria-label={t('topbar.views')}>
+      <div className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center justify-center gap-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:flex-nowrap">
+        <Segmented<WorkspaceMode> value={workspace} onValueChange={onWorkspace} aria-label={t('workspace.label')}>
+          <SegmentedItem value="general">{t('workspace.general')}</SegmentedItem>
+          <SegmentedItem value="audit">{t('workspace.audit')}</SegmentedItem>
+        </Segmented>
+        {workspace === 'general' && <Segmented<ViewMode> value={mode} onValueChange={onMode} aria-label={t('topbar.views')}>
           <SegmentedItem value="context" aria-label={t('view.contextLabel')}><Focus /><span className="max-sm:hidden">{t('view.context')}</span></SegmentedItem>
           <SegmentedItem value="logic" aria-label={t('view.logicLabel')}><GitBranch /><span className="max-sm:hidden">{t('view.logic')}</span></SegmentedItem>
           <SegmentedItem value="all" aria-label={t('view.allLabel')}><ListTree /><span className="max-sm:hidden">{t('view.all')}</span></SegmentedItem>
-        </Segmented>
+        </Segmented>}
         {agentIds.length > 1 && (
           <Select.Root value={agentId} onValueChange={onAgent}>
             <Select.Trigger asChild aria-label={t('topbar.agent')} title={`${t('topbar.agentHint')}\n${agentId}`}>

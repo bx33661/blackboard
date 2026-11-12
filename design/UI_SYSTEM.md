@@ -1,6 +1,6 @@
 # Pinwhy UI
 
-Quiet tool chrome for exploration, with a paper-like document view for reading and sharing.
+Quiet tool chrome for exploration. General and security-audit modes are two reading surfaces over the same authored board.
 
 ## Layout
 
@@ -31,6 +31,19 @@ Quiet tool chrome for exploration, with a paper-like document view for reading a
   selecting a node never resizes or re-lays-out the canvas.
 - **⌘K command palette** (cmdk): jump to any node, switch view/theme, copy digest.
   Search no longer dims the canvas; it navigates.
+
+## Workspace modes
+
+- A top-level General / Security audit selector is separate from the general Context / Logic / Global view switch. General remains the default. Reader mode, issue, candidate, selected node, Agent and checkpoint are navigation state, never board events.
+- General retains its canvas, 2.5D sandbox and existing controls. Security audit starts with recorded questions/goals and their explicitly associated candidates, then presents a local argument graph. Opening evidence does not silently replace the chosen issue or candidate.
+- Audit support, counterevidence, necessary conditions and related records are separate reading groups. Relation direction and authored explanation remain visible; a weak association or a failed experiment is not automatically counterevidence. Unknown relation kinds and unassigned/custom records stay reachable.
+- Shared evidence and conditions keep one node identity. Show their other references as navigation rather than copying records. Do not infer issue membership, source versions, AND/OR conditions or verdicts from prose or graph reachability.
+- Both modes use the same Inspector, explicit editing, conflict drafts, search, live snapshot and checkpoint history. Checkpoint and offline views are read-only; changing modes preserves that boundary. Audit content is included in the main bundle so standalone HTML can render it without a server.
+- At overview zoom, uncertainty remains visible alongside severity. A suspected candidate must not appear confirmed because its detail header disappeared. A support family label must not claim that every support relation proves its conclusion.
+- Evidence and condition cards expose counts of authored incoming contradictions and necessary dependencies. A counterargument to evidence stays attached to that evidence; it is not silently promoted to counterevidence against the root. Indicators describe records, never automatically invalidate or confirm a claim.
+- Audit indexes belong to a snapshot and are reused across reader selections. Relation groups, issue candidates and record catalogues disclose their total and remaining counts, with explicit expansion and collapse. Hidden records remain reachable by search or links. Record order is authored order, not a confidence ranking.
+- Every explicit mutation carries an idempotency key. An uncertain outcome retains its original request and payload for receipt lookup or explicit retry; editing, duplicate submission and discard must not turn it into a new request. Recovery is session-local and warns before unload. Read-only checkpoints and offline pages never retry mutations. Related-node creation submits the node and its declared relation through one recoverable store request.
+
 
 ## Components
 

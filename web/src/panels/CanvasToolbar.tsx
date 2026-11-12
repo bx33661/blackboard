@@ -26,7 +26,7 @@ type Props = {
   onToggleLegend: () => void;
   edgeStyle: EdgeStyle;
   onEdgeStyle: (style: EdgeStyle) => void;
-  onScene3d: () => void;
+  onScene3d?: () => void;
 };
 
 /** One floating toolbar: framing, layout, and zoom live together. */
@@ -69,7 +69,7 @@ export function CanvasToolbar({ hasCurrent, canFollow, canExport, onExport, grou
         </Popover>
         {canExport && <IconButton label={t('toolbar.export')} onClick={onExport}><ImageDown /></IconButton>}
         <IconButton label={showMap ? t('toolbar.hideMap') : t('toolbar.showMap')} aria-pressed={showMap} onClick={onToggleMap}><MapIcon /></IconButton>
-        <IconButton data-scene3d-trigger label={t('toolbar.scene3d')} onClick={onScene3d}><Box /></IconButton>
+        {onScene3d && <IconButton data-scene3d-trigger label={t('toolbar.scene3d')} onClick={onScene3d}><Box /></IconButton>}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           <span className="mx-1 hidden h-4 w-px bg-border sm:block" />
           <IconButton label={t('toolbar.zoomOut')} onClick={() => zoomOut({ duration: motion })}><Minus /></IconButton>

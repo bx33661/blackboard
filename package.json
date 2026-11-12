@@ -46,6 +46,7 @@
     "verify:npm-packages": "node scripts/verify-npm-packages.mjs",
     "verify:api": "node scripts/verify-api.mjs",
     "verify:viewer": "node web/scripts/verify-viewer.mjs",
+    "verify:audit": "node web/scripts/verify-audit.mjs",
     "verify:exports:text": "node scripts/verify-text-exports.mjs",
     "verify:exports:sarif": "node scripts/verify-sarif.mjs",
     "verify:exports": "npm run verify:exports:text && npm run verify:exports:sarif"

@@ -15,11 +15,13 @@ type Options = {
   selectedId: string | null;
   mode: ViewMode;
   flash: (message: string) => void;
+  enabled?: boolean;
 };
 
 /** The sandbox shares layout and selection; only its presentation, focus and export differ. */
-export function useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode, flash }: Options) {
-  const [scene3d, setScene3d] = usePref('scene3d', false);
+export function useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode, flash, enabled = true }: Options) {
+  const [preferred3d, setScene3d] = usePref('scene3d', false);
+  const scene3d = enabled && preferred3d;
   const [exporting, setExporting] = useState(false);
   const sceneRef = useRef<Scene3DHandle>(null);
   const returnFocus = useRef<HTMLElement | null>(null);

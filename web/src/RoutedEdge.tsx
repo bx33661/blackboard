@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { BaseEdge, getBezierPath, getStraightPath, useStore, useStoreApi, type EdgeProps } from '@xyflow/react';
 import { labelPoint, roundedPath, routeValid, type EdgeRoute } from './edge-route';
 import { routeAround, type Rect } from './router';
@@ -16,9 +16,10 @@ const LABEL_ZOOM = .6;
 export const RoutedEdge = memo(function RoutedEdge(props: EdgeProps) {
   const { source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerStart, markerEnd, style, label, interactionWidth } = props;
   const { route, style: shape = 'curve', text, group, quiet } = (props.data || {}) as RoutedData;
+  const [interacting, setInteracting] = useState(false);
   // Weak, quiet links stay unnamed until focused; the strong families say what they are once readable.
   const named = useStore((state) => state.transform[2] >= LABEL_ZOOM);
-  const shown = label ?? (named && text && group !== 'link' && !quiet ? text : undefined);
+  const shown = label ?? ((named || interacting) && text && (!quiet || interacting) ? text : undefined);
   const sourcePos = useStore((state) => state.nodeLookup.get(source)?.internals.positionAbsolute);
   const targetPos = useStore((state) => state.nodeLookup.get(target)?.internals.positionAbsolute);
   const sourceRun = useStore((state) => state.nodeLookup.get(source)?.data.layoutRun as number | undefined);
@@ -55,5 +56,8 @@ export const RoutedEdge = memo(function RoutedEdge(props: EdgeProps) {
     // Boxed in on every side: a plain curve is the last resort.
     [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   }
-  return <BaseEdge path={path} labelX={labelX} labelY={labelY} label={shown} markerStart={markerStart} markerEnd={markerEnd} style={style} interactionWidth={interactionWidth} />;
+  return <g tabIndex={0} role="img" aria-label={text} onFocus={() => setInteracting(true)} onBlur={() => setInteracting(false)} onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}>
+    <title>{text}</title>
+    <BaseEdge path={path} labelX={labelX} labelY={labelY} label={shown} markerStart={markerStart} markerEnd={markerEnd} style={style} interactionWidth={interactionWidth} />
+  </g>;
 });

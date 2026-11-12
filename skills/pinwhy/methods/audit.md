@@ -45,7 +45,7 @@ pinwhy link "<候选ID>" "<目标ID>" --rel related-to --cwd "/已确认项目" 
 
 ### 证据怎么写
 
-一个节点放一份证据，用 fact/observation/result 单独记录，再用 `supports`、`contradicts` 连到结论，不把多份证据堆进候选的 `--detail`。这样每份证据都能被单独反驳或取代。代码位置用 `--at`；其余内容按需写进 `--detail`，每项一行，没有观察到的项不写：
+简单候选的证据可以先保留在 detail 中。证据被复用、出现争议、需要独立更新，或需要在论证图中单独复核时，用 fact/observation/result 独立记录，再用 `supports`、`contradicts` 连到它实际支持或反驳的论断；一个独立证据节点表达一项主要观察及其限制，不为填图把每个模板字段拆成节点。关系 `--label` 写清支持或反驳的范围。代码位置用 `--at`；其余内容按需写进 `--detail`，每项一行，没有观察到的项不写：
 
 ```text
 请求: GET https://example.test/api/v2/users（匿名）

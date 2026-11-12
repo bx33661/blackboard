@@ -7,6 +7,7 @@ import { values } from './types';
 import { matchesNode, presentNode } from './presentation';
 import { BOARD_GROUPS, groupFor } from './canvas-state';
 import { locale, t, tOptional } from './i18n';
+import type { AuditNodeRole } from './workspace/audit';
 export { typeLabel } from './presentation';
 
 export const NODE_W = 288;
@@ -35,6 +36,8 @@ export type CanvasNodeData = Record<string, unknown> & {
   group?: boolean;
   muted?: boolean;
   fresh?: boolean;
+  auditRoles?: AuditNodeRole[];
+  auditCounts?: { contradiction: number; condition: number };
   /** Set only while viewing a checkpoint: recorded in the span since the previous checkpoint. */
   change?: 'added' | 'updated';
   changeFields?: string[];
@@ -154,9 +157,9 @@ export function project(snapshot: GraphSnapshot, mode: ViewMode, query: string, 
       source: reversed ? edge.to : edge.from,
       target: reversed ? edge.from : edge.to,
       type: 'default',
-      label: relationLabel(edge.kind),
+      label: edge.label ? `${relationLabel(edge.kind)} · ${edge.label}` : relationLabel(edge.kind),
       className: `edge edge-${edge.kind} edge-g-${group}`,
-      data: { kind: edge.kind, group, reversed, quiet, text: relationLabel(edge.kind) },
+      data: { kind: edge.kind, group, reversed, quiet, text: edge.label ? `${relationLabel(edge.kind)} · ${edge.label}` : relationLabel(edge.kind) },
       animated: false,
       ...(reversed ? { markerStart: marker } : { markerEnd: marker }),
       style: { strokeWidth: important ? 1.75 : 1.5, strokeDasharray: RELATION_DASH[group] },

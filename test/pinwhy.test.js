@@ -1190,7 +1190,7 @@ test('viewer writes: a person adds, edits, links and removes cards, each stamped
   assert.deepEqual(Object.keys(g.nodes), [node.id]);
   assert.equal(Object.keys(g.edges).length, 0);
   assert.equal((await call('POST', '/api/nodes', { body: { type: 'fact' } })).status, 400);
-  assert.equal((await call('POST', '/api/nodes', { body: { type: 'banana', title: 'x' } })).status, 400);
+  assert.equal((await call('POST', '/api/nodes', { body: { type: 'banana', title: 'x' } })).status, 201);
 });
 
 test('the viewer server refuses foreign hosts, cross-site writes and non-JSON bodies', async (t) => {

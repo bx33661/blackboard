@@ -152,7 +152,7 @@ async function verify() {
   const context = await viewerContext();
   const page = await context.newPage();
   const pageErrors = []; page.on('pageerror', (e) => pageErrors.push(String(e)));
-  const writes = []; page.on('request', (req) => { if (req.url().includes('/api/') && !['GET', 'HEAD'].includes(req.method())) writes.push({ method: req.method(), url: req.url(), body: req.postDataJSON() }); });
+  const writes = []; page.on('request', (req) => { if (req.url().includes('/api/') && !['GET', 'HEAD'].includes(req.method())) writes.push({ method: req.method(), url: req.url(), body: req.postDataJSON(), requestId: req.headers()['idempotency-key'] }); });
   await page.goto(`${url}/?view=all&node=${hypothesis.id}`);
   const inspector = page.getByRole('complementary', { name: '节点详情' });
   await inspector.waitFor();
@@ -226,8 +226,10 @@ async function verify() {
   assert.deepEqual(graphAfterLink.cursors, graphBeforeLink.cursors);
   assert.equal(Object.keys(graphAfterLink.edges).length, Object.keys(graphBeforeLink.edges).length + 1);
   const newEvents = readEvents(board).events.slice(eventsBeforeLink);
-  assert.deepEqual(newEvents.map((event) => event.op), ['edge']);
-  assert.deepEqual(writes.at(-1).body, { from: hypothesis.id, to: evidence.id, kind: 'related-to' });
+  assert.deepEqual(newEvents.filter((event) => event.op !== 'receipt').map((event) => event.op), ['edge']);
+  assert.ok(writes.at(-1).requestId, 'browser mutations carry an idempotency key');
+  assert.equal(newEvents.filter((event) => event.op === 'receipt' && event.requestId === writes.at(-1).requestId).length, 1);
+  assert.deepEqual(writes.at(-1).body, { from: hypothesis.id, to: evidence.id, kind: 'related-to', rejectTruncation: true });
   ok('linking existing nodes emits exactly one edge event, default related-to, no new node or cursor mutation');
 
   await inspector.getByRole('button', { name: '修改节点', exact: true }).click();
@@ -236,7 +238,7 @@ async function verify() {
   await edit.getByLabel('风险', { exact: true }).selectOption('critical');
   await edit.getByLabel('可信度', { exact: true }).selectOption('confirmed');
   patchNode(hypothesis.id, { detail: 'Concurrent evidence retained' }, board, { by: 'agent:C' });
-  await page.waitForFunction(() => document.querySelector('textarea')?.value === 'Concurrent evidence retained');
+  await page.waitForFunction(() => document.querySelector('[aria-label="编辑节点"] textarea[aria-label="详情"]')?.value === 'Concurrent evidence retained');
   await edit.getByRole('button', { name: '保存', exact: true }).click();
   await edit.getByRole('button', { name: '修改节点', exact: true }).waitFor();
   const reviewed = replay(board).nodes[hypothesis.id];

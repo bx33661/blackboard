@@ -6,6 +6,11 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { ensure, paths, readEvents, addNode as storeAddNode } from '../lib/store.js';
+import { startServer } from '../lib/server.js';
+import { webcrypto } from 'node:crypto';
+
+globalThis.crypto ??= webcrypto;
 
 // Compile pure viewer modules without requiring a DOM or a specific Node TS loader.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-presenter-'));
@@ -23,7 +28,7 @@ resolveModuleExtensions(dir);
 fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
 const modulePath = path.join(dir, 'presentation.js');
 const { confidenceLabel, presentNode, nodeStateSummary, matchesNode, statusLabel, severityLabel, typeLabel } = await import(pathToFileURL(modulePath).href);
-const { changeDraft, EMPTY_EDIT, existingLink, sourceLocation, historyValue } = await import(pathToFileURL(path.join(dir, 'research-state.js')).href);
+const { changeDraft, EMPTY_EDIT, EMPTY_NEW, existingLink, parseTags, nodeInputFromDraft, nodePatchFromDraft, sourceLocation, historyValue } = await import(pathToFileURL(path.join(dir, 'research-state.js')).href);
 const api = await import(pathToFileURL(path.join(dir, 'api.js')).href);
 const { selectWorkspaceSnapshot, selectWorkspaceAgent } = await import(pathToFileURL(path.join(dir, 'workspace/selectors.js')).href);
 const node = { id: 'node-7', type: 'hypothesis', title: 'Gateway policy。Verify middleware next.', detail: 'Session boundary', status: 'open', severity: 'high', confidence: 'static-confirmed' };
@@ -130,62 +135,60 @@ test('API conflicts preserve structured conflicting fields instead of treating t
   } finally { globalThis.fetch = previous; }
 });
 
-test('invalid successful API responses reject with their HTTP status and an unconfirmed-outcome code', async () => {
+test('unreadable successful writes check the receipt once and preserve the unconfirmed operation', async () => {
   const previous = globalThis.fetch;
   const responses = [
-    new Response('{', { status: 200 }),
-    new Response('', { status: 201 }),
-    new Response('null', { status: 200 }),
-    new Response('[]', { status: 200 }),
+    new Response('{', { status: 200 }), new Response('', { status: 201 }),
+    new Response('null', { status: 200 }), new Response('[]', { status: 200 }),
     new Response('true', { status: 200 }),
     new Response(new ReadableStream({ start(controller) { controller.error(new Error('Interrupted body')); } }), { status: 200 }),
   ];
-  let requests = 0;
   try {
     for (const response of responses) {
-      globalThis.fetch = async () => { requests++; return response; };
-      await assert.rejects(api.patchNode('n', { title: 'Draft title' }), (error) => {
-        assert.ok(error instanceof Error);
-        assert.equal(error.code, 'invalid_response');
-        assert.equal(error.status, response.status);
-        assert.ok(error.message.length > 0);
-        assert.ok(error.message.includes(String(response.status)), 'the displayed diagnostic includes the HTTP status');
-        return true;
-      });
+      const operation = new api.WriteOperation();
+      const calls = [];
+      globalThis.fetch = async (url, init) => {
+        calls.push({ url, init });
+        return init.method === 'GET' ? new Response('{"error":"receipt_not_found"}', { status: 404 }) : response;
+      };
+      await assert.rejects(api.patchNode('n', { title: 'Draft title' }, operation), { code: 'write_unconfirmed' });
+      assert.equal(operation.locked, true);
+      assert.deepEqual(calls.map(({ init }) => init.method), ['PATCH', 'GET']);
+      assert.equal(calls[1].url, `/api/receipt?requestId=${calls[0].init.headers['Idempotency-Key']}`);
+      assert.equal(calls[1].init.body, undefined);
     }
-    assert.equal(requests, responses.length, 'an uncertain write must not be retried automatically');
   } finally { globalThis.fetch = previous; }
 });
 
-test('unstructured HTTP failures retain their status without exposing parse or envelope errors', async () => {
+test('unstructured server errors remain uncertain and never trigger an automatic second mutation', async () => {
   const previous = globalThis.fetch;
-  const bodies = ['<html>Bad gateway</html>', 'null', '[]', '42', '{"error":{"message":"upstream failed"}}', '{"error":7}'];
   try {
-    for (const body of bodies) {
-      globalThis.fetch = async () => new Response(body, { status: 502 });
-      await assert.rejects(api.patchNode('n', { title: 'Draft title' }), (error) => {
-        assert.ok(error instanceof Error);
-        assert.ok(!(error instanceof TypeError));
-        assert.equal(error.status, 502);
-        assert.ok(error.message.includes('502'));
-        assert.doesNotMatch(error.message, /\[object Object\]/);
-        return true;
-      });
+    for (const body of ['<html>Bad gateway</html>', 'null', '[]', '42', '{"error":{"message":"upstream failed"}}']) {
+      const operation = new api.WriteOperation();
+      const methods = [];
+      globalThis.fetch = async (_url, init) => { methods.push(init.method); return new Response(body, { status: 502 }); };
+      await assert.rejects(api.patchNode('n', { title: 'Draft title' }, operation), { code: 'write_unconfirmed' });
+      assert.equal(operation.locked, true);
+      assert.deepEqual(methods, ['PATCH', 'GET']);
     }
   } finally { globalThis.fetch = previous; }
 });
 
 test('well-formed API responses return their JSON result', async () => {
   const previous = globalThis.fetch;
-  globalThis.fetch = async () => new Response('{"node":{"id":"created-node"}}', { status: 201 });
-  try { assert.deepEqual(await api.addNode({ type: 'note', title: 'A note' }), { node: { id: 'created-node' } }); }
+  const result = { node: { id: 'created-node', type: 'note', title: 'A note' }, edges: [] };
+  globalThis.fetch = async () => new Response(JSON.stringify(result), { status: 201 });
+  try { assert.deepEqual(await api.addNode({ type: 'note', title: 'A note' }), result); }
   finally { globalThis.fetch = previous; }
 });
 
 test('viewer writes opt into rejecting truncated input while preserving the submitted fields and baselines', async () => {
   const previous = globalThis.fetch;
   const calls = [];
-  globalThis.fetch = async (url, init) => { calls.push({ url, body: JSON.parse(init.body) }); return { ok: true, json: async () => ({ node: { id: 'n1' } }) }; };
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => init.method === 'POST' ? { node: { id: 'n1', type: 'finding', title: 'Authored title' }, edges: [] } : { id: 'n/1', type: 'finding', title: 'Authored title' } };
+  };
   const create = { type: 'finding', title: 'Authored title', detail: 'Authored detail' };
   const patch = { detail: 'Changed detail', expected: { detail: 'Authored detail' } };
   try {
@@ -308,4 +311,243 @@ test('workspace catalogues are usable while the first snapshot is still loading'
   assert.deepEqual(agent.agentIds, ['agent:primary', 'agent:waiting']);
   assert.equal(agent.current, null);
   assert.equal(agent.digest, '');
+});
+
+test('metadata drafts serialize exact tags and source columns with unset baselines', () => {
+  const initial = { id: 'n', type: 'condition', title: 'Gate' };
+  let draft = changeDraft(EMPTY_EDIT, initial, 'tags', '["issue=q1","a,b","  spaced  ","line\\nbreak"]');
+  draft = changeDraft(draft, initial, 'at', 'src/gate.ts:12:7');
+  assert.deepEqual(nodePatchFromDraft(draft), {
+    tags: ['issue=q1', 'a,b', '  spaced  ', 'line\nbreak'], at: 'src/gate.ts:12:7',
+    expected: { tags: null, at: null },
+  });
+  const sourced = { ...initial, tags: ['a,b', 'same'], loc: { path: 'src/gate.ts', line: 12, column: 7 } };
+  draft = changeDraft(EMPTY_EDIT, sourced, 'tags', '[]');
+  draft = changeDraft(draft, sourced, 'at', '');
+  assert.deepEqual(nodePatchFromDraft(draft), { tags: [], at: null, expected: { tags: ['a,b', 'same'], at: 'src/gate.ts:12:7' } });
+  assert.deepEqual(changeDraft(EMPTY_EDIT, sourced, 'tags', '[ "a,b", "same" ]').fields, {}, 'formatting alone is not an edit');
+  assert.deepEqual(changeDraft(EMPTY_EDIT, initial, 'tags', '[]').fields, {}, 'an absent array displays empty without creating a write');
+  assert.deepEqual(parseTags(''), []);
+  for (const invalid of ['{', '{}', 'null', '[1]', '["ok",null]']) assert.throws(() => parseTags(invalid));
+});
+
+test('metadata edits keep first baselines across SSE updates and omit untouched fields', () => {
+  const initial = { ...node, tags: ['issue=q1', 'a,b'], loc: { path: 'src/a.ts', line: 3, column: 4 } };
+  let draft = changeDraft(EMPTY_EDIT, initial, 'tags', '["issue=q2","a,b"]');
+  draft = changeDraft(draft, initial, 'at', 'src/a.ts:3:9');
+  const live = { ...initial, title: 'Agent title', detail: 'Fresh evidence', severity: 'low', tags: ['agent-tag'], loc: { path: 'src/agent.ts', line: 8 } };
+  draft = changeDraft(draft, live, 'tags', '["issue=q3","a,b"]');
+  draft = changeDraft(draft, live, 'at', 'src/a.ts:3:12');
+  assert.deepEqual(nodePatchFromDraft(draft), {
+    tags: ['issue=q3', 'a,b'], at: 'src/a.ts:3:12',
+    expected: { tags: ['issue=q1', 'a,b'], at: 'src/a.ts:3:4' },
+  });
+  const titleOnly = changeDraft(EMPTY_EDIT, live, 'title', 'Human title');
+  assert.deepEqual(nodePatchFromDraft(titleOnly), { title: 'Human title', expected: { title: 'Agent title' } });
+});
+
+test('invalid tags remain in the draft until corrected without losing their baseline', () => {
+  const initial = { ...node, tags: ['original,tag'] };
+  const draft = changeDraft(EMPTY_EDIT, initial, 'tags', '["valid",3]');
+  assert.throws(() => nodePatchFromDraft(draft));
+  assert.deepEqual(draft.fields, { tags: '["valid",3]' });
+  assert.deepEqual(draft.expected, { tags: '["original,tag"]' });
+  const fixed = changeDraft(draft, { ...initial, tags: ['agent-tag'] }, 'tags', '["fixed,tag"]');
+  assert.deepEqual(nodePatchFromDraft(fixed), { tags: ['fixed,tag'], expected: { tags: ['original,tag'] } });
+});
+
+async function writeServer(t) {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pinwhy-viewer-writes-'));
+  ensure(cwd);
+  const server = await startServer({ cwd, port: 0 });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  t.after(async () => {
+    await new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); });
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+  return { cwd, base };
+}
+
+test('viewer resolves lost responses for all five commands using real committed receipts', async (t) => {
+  const { cwd, base } = await writeServer(t);
+  const originalFetch = globalThis.fetch;
+  const current = storeAddNode({ title: 'Current' }, cwd).node;
+  const requests = [];
+  try {
+    globalThis.fetch = async (url, init) => {
+      requests.push({ url, init });
+      const response = await originalFetch(`${base}${url}`, { ...init, headers: { ...init.headers, Origin: base } });
+      if (init.method !== 'GET') {
+        await response.arrayBuffer();
+        throw new Error('Connection lost after commit');
+      }
+      return response;
+    };
+    const ids = new Set();
+    async function lost(action) {
+      const operation = new api.WriteOperation();
+      let completed = 0;
+      operation.onSuccess = () => { completed++; };
+      const result = await action(operation);
+      assert.equal(completed, 1);
+      assert.equal(operation.locked, false);
+      const count = readEvents(cwd).events.length;
+      await operation.retry();
+      assert.equal(readEvents(cwd).events.length, count);
+      const writes = requests.filter(({ init }) => init.method !== 'GET');
+      const write = writes.at(-1);
+      const key = write.init.headers['Idempotency-Key'];
+      assert.ok(key);
+      assert.equal(ids.has(key), false);
+      ids.add(key);
+      if (write.init.method === 'DELETE') assert.equal(write.init.body, undefined);
+      return result;
+    }
+    const created = await lost((operation) => api.addNode(nodeInputFromDraft({ ...EMPTY_NEW, type: 'condition', title: 'New evidence', link: 'supports' }, current.id), operation));
+    assert.equal(created.edges[0].from, created.node.id);
+    assert.equal(created.edges[0].to, current.id);
+    const patched = await lost((operation) => api.patchNode(created.node.id, { title: 'Revised', expected: { title: 'New evidence' } }, operation));
+    assert.equal(patched.title, 'Revised');
+    const edge = await lost((operation) => api.addEdge(current.id, created.node.id, 'contradicts', 'Explicit disagreement', operation));
+    const removedEdge = await lost((operation) => api.removeEdge(edge.id, operation));
+    assert.equal(removedEdge.id, edge.id);
+    const removedNode = await lost((operation) => api.removeNode(created.node.id, operation));
+    assert.equal(removedNode.id, created.node.id);
+    assert.equal(requests.filter(({ init }) => init.method !== 'GET').length, 5);
+    assert.equal(readEvents(cwd).events.filter((event) => event.op === 'receipt').length, 5);
+    assert.equal(readEvents(cwd).events.filter((event) => event.op === 'node').length, 2);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('a missing or unreachable receipt retains immutable payload and ID until an explicit singleflight retry', async (t) => {
+  const { cwd, base } = await writeServer(t);
+  const originalFetch = globalThis.fetch;
+  const operation = new api.WriteOperation();
+  const input = { type: 'note', title: 'Original draft', tags: ['authored'] };
+  const writes = [];
+  let receiptMode = 'missing';
+  try {
+    globalThis.fetch = async (url, init) => {
+      if (init.method !== 'GET') { writes.push({ url, init }); throw new Error('No response before send'); }
+      if (receiptMode === 'unreachable') throw new Error('Receipt network unavailable');
+      return originalFetch(`${base}${url}`, init);
+    };
+    const first = api.addNode(input, operation);
+    const doubleClick = api.addNode(input, operation);
+    assert.equal(first, doubleClick);
+    await assert.rejects(first, { code: 'write_unconfirmed' });
+    const key = operation.requestId;
+    assert.equal(operation.locked, true);
+    assert.equal(writes.length, 1);
+    assert.equal(readEvents(cwd).events.length, 0);
+    input.title = 'Edited after submit';
+    input.tags.push('later');
+    await assert.rejects(api.addNode(input, operation));
+    assert.equal(operation.requestId, key);
+    await assert.rejects(operation.check(), { code: 'write_unconfirmed' });
+    receiptMode = 'unreachable';
+    await assert.rejects(operation.check(), { code: 'write_unconfirmed' });
+    assert.equal(operation.locked, true);
+    globalThis.fetch = async (url, init) => {
+      writes.push({ url, init });
+      return originalFetch(`${base}${url}`, { ...init, headers: { ...init.headers, Origin: base } });
+    };
+    const retry = operation.retry();
+    assert.equal(operation.retry(), retry);
+    const result = await retry;
+    assert.equal(result.node.title, 'Original draft');
+    assert.deepEqual(result.node.tags, ['authored']);
+    assert.equal(writes.length, 2);
+    assert.equal(writes[1].init.body, writes[0].init.body);
+    assert.equal(writes[1].init.headers['Idempotency-Key'], key);
+    assert.equal(operation.locked, false);
+    assert.deepEqual(readEvents(cwd).events.map((event) => event.op), ['node', 'receipt']);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('a partial real transaction remains pending on lookup and completes only on an identical explicit retry', async (t) => {
+  const { cwd, base } = await writeServer(t);
+  const current = storeAddNode({ title: 'Existing candidate' }, cwd).node;
+  const originalFetch = globalThis.fetch;
+  const operation = new api.WriteOperation();
+  const writes = [];
+  let interrupt = true;
+  try {
+    globalThis.fetch = async (url, init) => {
+      const response = await originalFetch(`${base}${url}`, { ...init, headers: { ...init.headers, Origin: base } });
+      if (init.method !== 'GET') {
+        writes.push(init);
+        if (interrupt) {
+          interrupt = false;
+          await response.arrayBuffer();
+          const lines = fs.readFileSync(paths(cwd).events, 'utf8').trimEnd().split('\n');
+          const first = lines.findIndex((line) => JSON.parse(line).request?.requestId === operation.requestId);
+          assert.ok(first >= 0);
+          fs.writeFileSync(paths(cwd).events, `${lines.slice(0, first + 1).join('\n')}\n`);
+          return new Response(JSON.stringify({ error: 'EIO after a partial append' }), { status: 400 });
+        }
+      }
+      return response;
+    };
+    await assert.rejects(api.addNode(nodeInputFromDraft({ ...EMPTY_NEW, title: 'Atomic relation', link: 'related-to' }, current.id), operation), { code: 'write_unconfirmed' });
+    const before = fs.readFileSync(paths(cwd).events, 'utf8');
+    await assert.rejects(operation.check(), { code: 'write_unconfirmed' });
+    assert.equal(fs.readFileSync(paths(cwd).events, 'utf8'), before);
+    assert.equal(operation.locked, true);
+    const result = await operation.retry();
+    assert.equal(result.edges.length, 1);
+    assert.equal(result.edges[0].from, current.id);
+    assert.equal(result.edges[0].to, result.node.id);
+    assert.equal(writes[0].body, writes[1].body);
+    assert.equal(writes[0].headers['Idempotency-Key'], writes[1].headers['Idempotency-Key']);
+    assert.deepEqual(readEvents(cwd).events.map((event) => event.op), ['node', 'node', 'edge', 'receipt']);
+    assert.equal(operation.locked, false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('definite validation rejection unlocks a corrected draft with a fresh identity', async (t) => {
+  const { cwd, base } = await writeServer(t);
+  const originalFetch = globalThis.fetch;
+  const writes = [];
+  const operation = new api.WriteOperation();
+  try {
+    globalThis.fetch = (url, init) => {
+      writes.push(init);
+      return originalFetch(`${base}${url}`, { ...init, headers: { ...init.headers, Origin: base } });
+    };
+    await assert.rejects(api.addNode({ type: 'note', title: 'Draft', detail: 'x'.repeat(20001) }, operation));
+    assert.equal(operation.locked, false);
+    assert.equal(readEvents(cwd).events.length, 0);
+    const result = await api.addNode({ type: 'note', title: 'Corrected' }, operation);
+    assert.equal(result.node.title, 'Corrected');
+    assert.notEqual(writes[0].headers['Idempotency-Key'], writes[1].headers['Idempotency-Key']);
+    assert.deepEqual(readEvents(cwd).events.map((event) => event.op), ['node', 'receipt']);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('mismatched receipt identity, command or result cannot release an unresolved write', async () => {
+  const originalFetch = globalThis.fetch;
+  const operation = new api.WriteOperation();
+  let completed = 0;
+  operation.onSuccess = () => { completed++; };
+  let override = { command: 'removeNode' };
+  try {
+    globalThis.fetch = async (_url, init) => {
+      if (init.method !== 'GET') throw new Error('No response');
+      return new Response(JSON.stringify({ schema: 'pinwhy.receipt-response.v1', readOnly: true,
+        receipt: { requestId: operation.requestId, command: 'addNode', status: 'committed',
+          result: { node: { id: 'n1', type: 'note', title: 'Original' }, edges: [] }, ...override } }));
+    };
+    await assert.rejects(api.addNode({ type: 'note', title: 'Original' }, operation), { code: 'write_unconfirmed' });
+    for (const invalid of [{ requestId: 'another-request' }, { result: { id: 'unrelated-edge' } }, { result: { node: { id: 'n1' }, edges: [] } }]) {
+      override = invalid;
+      await assert.rejects(operation.check(), { code: 'write_unconfirmed' });
+      assert.equal(operation.locked, true);
+      assert.equal(completed, 0);
+    }
+    override = {};
+    await operation.check();
+    assert.equal(operation.locked, false);
+    assert.equal(completed, 1);
+  } finally { globalThis.fetch = originalFetch; }
 });
