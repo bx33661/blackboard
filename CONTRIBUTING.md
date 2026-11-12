@@ -59,10 +59,11 @@ npm run verify:package
 ```bash
 npx playwright install chromium
 npm run verify:viewer
+npm run verify:audit
 npm run verify:exports
 ```
 
-`verify:viewer` 使用本地 Playwright/Chromium 操作合成黑板，覆盖工作区、2D/3D 切换与失败回退、离线导出及构建信息，并输出截图与结果。`verify:exports` 实际渲染 Markdown / Mermaid，并按官方 SARIF schema 校验 CLI 结果。可选 API 检查为 `npm run verify:api`，需要 Postman CLI；合成性能观测为 `npm run benchmark -- --quick`，显式 `--budget` 可检查本地延迟上限。
+`verify:viewer` 使用本地 Playwright/Chromium 操作合成黑板，覆盖工作区、2D/3D 切换与失败回退、离线导出及构建信息，并输出截图与结果。`verify:audit` 使用较大的合成审计板检查分组折叠、证据争议入口、共享引用、只读浏览与离线页面，并对真实写入请求注入响应丢失来验证回执恢复和原请求重试。`verify:exports` 实际渲染 Markdown / Mermaid，并按官方 SARIF schema 校验 CLI 结果。可选 API 检查为 `npm run verify:api`，需要 Postman CLI；合成性能观测为 `npm run benchmark -- --quick`，显式 `--budget` 可检查本地延迟上限。
 
 涉及 DSH 适配时，在插件目录按其[测试说明](plugins/dsh-pinwhy/README.md#测试)运行单元与静态检查；通过 `PINWHY_TEST_CLI` 明确指定本次内核执行真实 CLI 集成检查。真实 Host 验证和会发送模型请求的 `verify:e2e` 是分别执行的本地检查，不以单元测试结果代替。
 

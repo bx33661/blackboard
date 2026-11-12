@@ -198,3 +198,152 @@ test('read-only receipt lookup reports an interrupted plan without completing it
   assert.equal('_events' in result.body.receipt, false);
   assert.equal(hash(paths(cwd).events), before);
 });
+
+test('HTTP custom nodes preserve authored dimensions and relation labels through optimistic edits', async (t) => {
+  const cwd = fixture(t);
+  const { request } = await serverFixture(t, cwd);
+  const parent = addNode({ title: 'Parent' }, cwd).node;
+  const input = { type: 'condition', title: 'Explicit prerequisite', detail: 'Authored condition', tags: ['issue=n1', 'manual'],
+    at: 'src/auth.js:12:3', severity: 'high', confidence: 'suspected', parent: parent.id, relation: 'requires', label: 'Authored link',
+    requestId: 'condition-create', rejectTruncation: true };
+  const created = await request('POST', '/api/nodes', input);
+  assert.equal(created.status, 201);
+  assert.equal(created.body.node.type, 'condition');
+  assert.deepEqual(created.body.node.tags, input.tags);
+  assert.deepEqual(created.body.node.loc, { path: 'src/auth.js', line: 12, column: 3 });
+  assert.equal(created.body.node.severity, 'high');
+  assert.equal(created.body.node.confidence, 'suspected');
+  assert.equal(created.body.edge.label, input.label);
+  const beforeRetry = count(cwd);
+  assert.deepEqual(await request('POST', '/api/nodes', input), created);
+  assert.equal(count(cwd), beforeRetry);
+  const route = `/api/nodes/${created.body.node.id}`;
+  const patch = { tags: ['manual', 'reviewed'], at: 'src/auth.js:24:7', severity: 'medium', confidence: 'reproduced',
+    expected: { tags: input.tags, at: input.at, severity: 'high', confidence: 'suspected' }, requestId: 'condition-patch' };
+  const edited = await request('PATCH', route, patch);
+  assert.equal(edited.status, 200);
+  assert.deepEqual(edited.body.tags, patch.tags);
+  assert.deepEqual(edited.body.loc, { path: 'src/auth.js', line: 24, column: 7 });
+  assert.equal(edited.body.severity, 'medium');
+  assert.equal(edited.body.confidence, 'reproduced');
+  const afterPatch = count(cwd);
+  assert.deepEqual(await request('PATCH', route, patch), edited, 'retry resolves before stale originals');
+  assert.equal(count(cwd), afterPatch);
+  const stale = await request('PATCH', route, { tags: ['overwrite'], at: 'src/auth.js:99', expected: { tags: input.tags, at: input.at } });
+  assert.equal(stale.status, 409);
+  assert.deepEqual(stale.body.fields, ['tags', 'loc']);
+  assert.equal(count(cwd), afterPatch);
+  const cleared = await request('PATCH', route, { tags: null, at: '', severity: null, confidence: '',
+    expected: { tags: patch.tags, at: patch.at, severity: 'medium', confidence: 'reproduced' } });
+  assert.equal(cleared.status, 200);
+  assert.deepEqual(cleared.body.tags, []);
+  assert.equal(cleared.body.loc, null);
+  assert.equal(cleared.body.severity, null);
+  assert.equal(cleared.body.confidence, null);
+  const linked = await request('POST', '/api/edges', { from: created.body.node.id, to: parent.id, kind: 'documents', label: 'Separate authored label', requestId: 'label-link' });
+  assert.equal(linked.status, 201);
+  assert.equal(linked.body.label, 'Separate authored label');
+  const afterLink = count(cwd);
+  assert.deepEqual(await request('POST', '/api/edges', { from: created.body.node.id, to: parent.id, kind: 'documents', label: 'Separate authored label', requestId: 'label-link' }), linked);
+  const changedLabel = await request('POST', '/api/edges', { from: created.body.node.id, to: parent.id, kind: 'documents', label: 'Changed', requestId: 'label-link' });
+  assert.equal(changedLabel.status, 409);
+  assert.equal(changedLabel.body.code, 'request_id_conflict');
+  assert.equal(count(cwd), afterLink);
+  const graph = (await request('GET', '/api/graph')).body;
+  assert.ok(JSON.stringify(graph).includes('Separate authored label'));
+  assert.ok(JSON.stringify(graph).includes('Authored link'));
+});
+
+test('HTTP malformed authored fields fail before writing events or receipts', async (t) => {
+  const cwd = fixture(t);
+  const node = addNode({ title: 'Unchanged' }, cwd).node;
+  const { request } = await serverFixture(t, cwd);
+  const before = count(cwd);
+  const invalidCreates = [{ type: '' }, { type: '  ' }, { type: 42 }, { type: null }, { tags: 'tag' }, { tags: [1] },
+    { at: 12 }, { at: 'not a location' }, { severity: [] }, { confidence: false }, { label: 4 }, { parent: {} }, { relation: false }, { detail: [] },
+    { severity: 'invalid' }, { confidence: 'invalid' }, { label: 'No relation' }];
+  for (const [index, fields] of invalidCreates.entries()) {
+    const result = await request('POST', '/api/nodes', { title: 'Refused', ...fields, requestId: `bad-create-${index}` });
+    assert.equal(result.status, 400, JSON.stringify(fields));
+    assert.ok(result.body.error);
+    assert.equal(getReceipt(`bad-create-${index}`, cwd), null);
+  }
+  for (const fields of [{ tags: 'tag' }, { tags: [null] }, { at: {} }, { at: 'invalid' }, { confidence: 1 },
+    { tags: [], expected: { tags: 'old' } }, { at: '', expected: { at: {} } }, { at: '', expected: { at: 'invalid' } },
+    { at: '', expected: { loc: null } }, { title: 'New', expected: { tags: [] } }]) {
+    assert.equal((await request('PATCH', `/api/nodes/${node.id}`, fields)).status, 400, JSON.stringify(fields));
+  }
+  for (const fields of [{ label: 1 }, { kind: [] }, { from: {} }]) {
+    assert.equal((await request('POST', '/api/edges', { from: node.id, to: node.id, ...fields })).status, 400);
+  }
+  assert.equal(count(cwd), before);
+});
+
+test('HTTP read-only and strict label size guards cover expanded authored writes', async (t) => {
+  const cwd = fixture(t);
+  const a = addNode({ title: 'A' }, cwd).node;
+  const b = addNode({ title: 'B' }, cwd).node;
+  const before = count(cwd);
+  const { request } = await serverFixture(t, cwd);
+  for (const [route, body] of [
+    ['/api/nodes', { type: 'condition', title: 'Long label', parent: a.id, label: 'x'.repeat(501) }],
+    ['/api/edges', { from: a.id, to: b.id, label: 'x'.repeat(501) }],
+  ]) {
+    const result = await request('POST', route, { ...body, rejectTruncation: true });
+    assert.equal(result.status, 422);
+    assert.deepEqual(result.body.fields, ['label']);
+  }
+  const readonly = await serverFixture(t, cwd, true);
+  for (const [method, route, body] of [
+    ['POST', '/api/nodes', { type: 'condition', title: 'Refused', tags: ['manual'], at: 'a.js:1', severity: 'low', confidence: 'suspected' }],
+    ['PATCH', `/api/nodes/${a.id}`, { tags: ['manual'], at: 'a.js:1' }],
+    ['POST', '/api/edges', { from: a.id, to: b.id, label: 'Refused' }],
+  ]) {
+    const result = await readonly.request(method, route, body);
+    assert.equal(result.status, 403);
+    assert.equal(result.body.error, 'read_only');
+  }
+  assert.equal(count(cwd), before);
+});
+
+test('HTTP node creation atomically records either explicit relation direction and deduplicates the pair', async (t) => {
+  const cwd = fixture(t);
+  const current = addNode({ type: 'hypothesis', title: 'Existing candidate' }, cwd).node;
+  const { request } = await serverFixture(t, cwd);
+  for (const [field, kind] of [['target', 'supports'], ['parent', 'related-to']]) {
+    const before = count(cwd);
+    const body = { title: `Atomic ${field}`, [field]: current.id, relation: kind, label: 'Authored relation', rejectTruncation: true };
+    const key = `atomic-${field}`;
+    const created = await request('POST', '/api/nodes', body, key);
+    assert.equal(created.status, 201);
+    assert.equal(created.body.edges.length, 1);
+    const edge = created.body.edges[0];
+    assert.equal(edge.from, field === 'target' ? created.body.node.id : current.id);
+    assert.equal(edge.to, field === 'target' ? current.id : created.body.node.id);
+    assert.equal(edge.kind, kind);
+    assert.equal(edge.label, body.label);
+    assert.deepEqual(readEvents(cwd).events.slice(before).map((event) => event.op), ['node', 'edge', 'receipt']);
+    const after = count(cwd);
+    assert.deepEqual(await request('POST', '/api/nodes', body, key), created);
+    assert.equal(count(cwd), after);
+  }
+});
+
+test('invalid HTTP target inputs and mixed directions append no partial node or receipt', async (t) => {
+  const cwd = fixture(t);
+  const current = addNode({ title: 'Existing' }, cwd).node;
+  const { request } = await serverFixture(t, cwd);
+  const before = count(cwd);
+  const cases = [
+    { target: 42 }, { target: null }, { target: [] }, { target: '' }, { target: '  ' },
+    { target: 'missing-node' }, { target: current.id, parent: current.id },
+    { target: current.id, label: 'x'.repeat(501) },
+  ];
+  for (const [index, input] of cases.entries()) {
+    const key = `invalid-target-${index}`;
+    const response = await request('POST', '/api/nodes', { title: 'Must not exist', rejectTruncation: true, ...input }, key);
+    assert.ok(response.status >= 400 && response.status < 500);
+    assert.equal(count(cwd), before);
+    assert.equal(getReceipt(key, cwd), null);
+  }
+});

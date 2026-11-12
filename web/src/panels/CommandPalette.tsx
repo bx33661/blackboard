@@ -14,7 +14,7 @@ type Props = {
   theme: 'light' | 'dark';
   copied: boolean;
   onSelect: (id: string) => void;
-  onMode: (mode: ViewMode) => void;
+  onMode?: (mode: ViewMode) => void;
   onTheme: () => void;
   onCopyDigest: () => void;
   onExport: (() => void) | null;
@@ -33,9 +33,11 @@ export function CommandPalette({ open, onOpenChange, nodes, theme, copied, onSel
           <CommandList>
             <CommandEmpty>{t('palette.empty')}</CommandEmpty>
             <CommandGroup heading={t('palette.commands')}>
-              <CommandItem value={`${t('palette.toContext')} view context`} onSelect={run(() => onMode('context'))}><Focus className="size-4 text-muted-foreground" />{t('palette.toContext')}</CommandItem>
-              <CommandItem value={`${t('palette.toLogic')} view logic`} onSelect={run(() => onMode('logic'))}><GitBranch className="size-4 text-muted-foreground" />{t('palette.toLogic')}</CommandItem>
-              <CommandItem value={`${t('palette.toAll')} view all`} onSelect={run(() => onMode('all'))}><ListTree className="size-4 text-muted-foreground" />{t('palette.toAll')}</CommandItem>
+              {onMode && <>
+                <CommandItem value={`${t('palette.toContext')} view context`} onSelect={run(() => onMode('context'))}><Focus className="size-4 text-muted-foreground" />{t('palette.toContext')}</CommandItem>
+                <CommandItem value={`${t('palette.toLogic')} view logic`} onSelect={run(() => onMode('logic'))}><GitBranch className="size-4 text-muted-foreground" />{t('palette.toLogic')}</CommandItem>
+                <CommandItem value={`${t('palette.toAll')} view all`} onSelect={run(() => onMode('all'))}><ListTree className="size-4 text-muted-foreground" />{t('palette.toAll')}</CommandItem>
+              </>}
               <CommandItem value={`${theme === 'light' ? t('palette.toDarkTheme') : t('palette.toLightTheme')} theme`} onSelect={run(onTheme)}>
                 {theme === 'light' ? <Moon className="size-4 text-muted-foreground" /> : <Sun className="size-4 text-muted-foreground" />}
                 {theme === 'light' ? t('palette.toDarkTheme') : t('palette.toLightTheme')}

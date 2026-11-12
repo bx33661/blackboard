@@ -6,7 +6,7 @@ import { BoardGroup } from './BoardGroup';
 import { BrandMark } from './BrandMark';
 import { SecurityNode } from './SecurityNode';
 import { RoutedEdge } from './RoutedEdge';
-import { formatTime, typeLabel as typeLabelOf, type CanvasNode } from './graph';
+import { formatTime, project, typeLabel as typeLabelOf, type CanvasNode } from './graph';
 import { EMPTY_FILTER, type NodeFilter } from './presentation';
 import { useGraphStream } from './use-graph-stream';
 import { CanvasToolbar } from './panels/CanvasToolbar';
@@ -21,7 +21,7 @@ import { Sidebar } from './panels/Sidebar';
 import { Topbar } from './panels/Topbar';
 import { TimelineBar } from './panels/TimelineBar';
 import { locale, t } from './i18n';
-import { SessionDrafts } from './session-drafts';
+import { SessionDrafts, WriteRecovery } from './session-drafts';
 import { useWorkspaceData } from './workspace/use-workspace-data';
 import { useWorkspaceLocation } from './workspace/use-workspace-location';
 import { useWorkspaceLayout } from './workspace/use-workspace-layout';
@@ -32,6 +32,10 @@ import { useWorkspaceFeedback } from './workspace/use-workspace-feedback';
 import { useWorkspaceScene } from './workspace/use-workspace-scene';
 import { useWorkspaceTimeline } from './workspace/use-workspace-timeline';
 import { useWorkspaceChrome, useWorkspaceShortcuts } from './workspace/use-workspace-chrome';
+import { AuditNavigation } from './panels/AuditNavigation';
+import { AuditContext } from './panels/AuditContext';
+import { isAuditIssue } from './workspace/audit';
+import type { BoardNode } from './types';
 import type { Scene3DProps } from './scene3d/shared';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
@@ -47,7 +51,7 @@ const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
 
 function Workspace() {
   const { snapshot: live, connection, syncedAt, isStatic, reload } = useGraphStream();
-  const { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
+  const { workspace, navigateWorkspace, issueId, candidateId, agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
   // A checkpoint view replaces what every panel reads; the live stream keeps running underneath.
   const timeline = useWorkspaceTimeline(live, asOf, setAsOf, isStatic);
   const snapshot = timeline.snapshot;
@@ -64,23 +68,40 @@ function Workspace() {
   const flatRef = useRef<HTMLDivElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
 
-  const { board, agent, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter);
+  const auditMode = workspace === 'audit';
+  const canvasMode = auditMode ? 'logic' : mode;
+  const { board, agent, audit, expandAudit, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter, auditMode ? { issueId, candidateId, selectedId: selectedId ?? deepLink.current } : undefined);
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
   const { agentIds, digest, currentId, current, findings, openItems } = agent;
   // Stepping through checkpoints is not the Agent writing: only the live board pulses.
   const { fresh, notice, flash, linkCopied, copyNodeLink, copied, copyDigest, offlineShown } = useWorkspaceFeedback(timeline.active ? null : snapshot, allNodes, digest, agentId, connection, isStatic);
-  const { nodes, edges, onNodesChange, layoutRevision, layoutMode, laying } = useWorkspaceLayout(projection, mode, direction);
-  const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision, mode, follow, currentId, selectedId });
-  const { scene3d, sceneRef, openScene, closeScene, occlusion, exporting, exportImage } = useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode, flash });
+  const { nodes, edges, onNodesChange, layoutRevision, layoutMode, laying } = useWorkspaceLayout(projection, canvasMode, direction);
+  const { centerOnNode, motion } = useWorkspaceViewport({ viewportRef, pendingFocus, layoutRevision, mode: canvasMode, follow: follow && !auditMode, currentId, selectedId });
+  const { scene3d, sceneRef, openScene, closeScene, occlusion, exporting, exportImage } = useWorkspaceScene({ viewportRef, flatRef, inspectorRef, selectedId, mode: canvasMode, flash, enabled: !auditMode });
   // Resolve selection against the requested checkpoint, never its loading fallback.
   const { selected, focusNode, clearSelection, switchMode, handleNodesChange, onNodeClick } = useWorkspaceSelection({
     snapshot: timeline.active && !timeline.point ? null : snapshot,
     byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId,
-    deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d,
+    deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d, revealInGeneral: !auditMode,
   });
-  const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, mode, edgeStyle, showChanges && timeline.active ? timeline.changeMap : null);
+  const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, canvasMode, edgeStyle, showChanges && timeline.active ? timeline.changeMap : null);
 
   useWorkspaceShortcuts(clearSelection, setPaletteOpen, setShortcutsOpen, setSidebarOpen);
+  const openAuditArgument = (node: BoardNode) => {
+    navigateWorkspace(isAuditIssue(node) ? { issueId: node.id, candidateId: null, node: node.id } : { candidateId: node.id, node: node.id });
+    focusNode(node.id);
+    pendingFocus.current = node.id;
+  };
+  const chooseIssue = (id: string | null) => {
+    navigateWorkspace({ issueId: id, candidateId: null, node: id });
+    if (id) focusNode(id); else clearSelection();
+    pendingFocus.current = id;
+  };
+  const chooseCandidate = (id: string | null) => {
+    navigateWorkspace({ candidateId: id, node: id ?? issueId });
+    if (id ?? issueId) focusNode((id ?? issueId)!); else clearSelection();
+    pendingFocus.current = id ?? issueId;
+  };
 
 
   if (!snapshot) {
@@ -104,6 +125,12 @@ function Workspace() {
       <Topbar
         title={snapshot.meta.title || t('app.untitledTask')}
         build={snapshot.meta.build}
+        workspace={workspace}
+        onWorkspace={(next) => {
+          navigateWorkspace({ workspace: next });
+          if (selectedId) pendingFocus.current = selectedId;
+          if (next === 'general' && snapshot && selectedId && !project(snapshot, mode, '', agentId).nodes.some((node) => node.id === selectedId)) setMode('all');
+        }}
         mode={mode}
         onMode={switchMode}
         agentId={agentId}
@@ -133,6 +160,7 @@ function Workspace() {
           <>
             <button className="absolute inset-0 z-20 bg-black/20 lg:hidden" aria-label={t('app.closeNav')} onClick={() => setSidebarOpen(false)} />
             <aside className="z-30 w-64 shrink-0 border-r bg-background max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:shadow-float">
+              {audit ? <AuditNavigation audit={audit} selectedId={selectedId} onSelect={focusNode} onIssue={chooseIssue} onCandidate={chooseCandidate} onCandidateIssue={(id) => navigateWorkspace({ issueId: id })} onOpenArgument={openAuditArgument} onExpand={expandAudit} onSearch={() => { setPaletteOpen(true); closeSidebar(); }} /> :
               <Sidebar
                 current={current}
                 openItems={openItems}
@@ -147,12 +175,14 @@ function Workspace() {
                 onFilter={setFilter}
                 filterOptions={filterOptions}
                 results={results}
-              />
+              />}
             </aside>
           </>
         )}
 
-        <main ref={viewportRef} className="relative min-w-0 flex-1" aria-label={t('app.canvas')}>
+        <main ref={viewportRef} className="relative flex min-w-0 flex-1 flex-col" aria-label={t('app.canvas')}>
+          {audit && <AuditContext audit={audit} selected={selected} onNavigate={() => setSidebarOpen(true)} onSelect={focusNode} onOpenArgument={openAuditArgument} onExpand={expandAudit} />}
+          <div className="relative min-h-0 flex-1">
           <div ref={flatRef} className="absolute inset-0" inert={scene3d} aria-hidden={scene3d}>
           <ReactFlow
             nodes={displayNodes}
@@ -160,7 +190,15 @@ function Workspace() {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onNodesChange={handleNodesChange}
-            onNodeClick={onNodeClick}
+            onNodeClick={(event, node) => {
+              onNodeClick(event, node);
+              const detail = (event.target as Element).closest<HTMLButtonElement>('button[data-audit-detail]')?.dataset.auditDetail;
+              if (audit && (detail === 'contradiction' || detail === 'condition')) {
+                const context = audit.contexts.get(node.id);
+                if (context && !context.pages[detail].open) expandAudit(context.pages[detail].key, 'more', 0);
+                setSidebarOpen(true);
+              }
+            }}
             onPaneClick={clearSelection}
             nodesConnectable={false}
             deleteKeyCode={null}
@@ -175,11 +213,11 @@ function Workspace() {
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
             <CanvasToolbar
-              hasCurrent={Boolean(currentId)}
-              canFollow={!isStatic}
-              canExport={nodes.length > 0 && !exporting}
+              hasCurrent={!auditMode && Boolean(currentId)}
+              canFollow={!isStatic && !auditMode}
+              canExport={Boolean(projection?.nodes.length) && nodes.length > 0 && !exporting}
               onExport={exportImage}
-              grouped={mode === 'all'}
+              grouped={auditMode || canvasMode === 'all'}
               direction={direction}
               showMap={showMap}
               follow={follow}
@@ -192,7 +230,7 @@ function Workspace() {
               onToggleLegend={() => setShowLegend((open) => !open)}
               edgeStyle={edgeStyle}
               onEdgeStyle={setEdgeStyle}
-              onScene3d={openScene}
+              onScene3d={auditMode ? undefined : openScene}
             />
             {showMap && (
               <MiniMap
@@ -214,7 +252,7 @@ function Workspace() {
                 ref={sceneRef}
                 nodes={nodes}
                 edges={edges}
-                mode={mode}
+                mode={canvasMode}
                 layoutMode={layoutMode}
                 theme={theme}
                 selectedId={selectedId}
@@ -235,8 +273,8 @@ function Workspace() {
 
           {showLegend && nodes.length > 0 && <Legend types={legend.types} groups={legend.groups} onClose={() => setShowLegend(false)} />}
 
-          {projection && projection.nodes.length === 0 && (
-            <EmptyBoard viewEmpty={allNodes.length > 0} isStatic={isStatic} onShowAll={() => switchMode('all')} />
+          {projection && projection.nodes.length === 0 && (!auditMode || allNodes.length === 0) && (
+            <EmptyBoard viewEmpty={!auditMode && allNodes.length > 0} isStatic={isStatic} onShowAll={() => switchMode('all')} />
           )}
 
           <div className="pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 flex-col items-center gap-2">
@@ -275,6 +313,7 @@ function Workspace() {
           <p className="sr-only" role="status" aria-live="polite">{selected ? t('app.selected', { type: typeLabelOf(selected.type), title: selected.title }) : ''}</p>
 
           {selected && <Inspector panelRef={inspectorRef} node={selected} edges={allEdges} byId={byId} onClose={clearSelection} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
+          </div>
         </main>
       </div>
 
@@ -304,13 +343,14 @@ function Workspace() {
         theme={theme}
         copied={copied}
         onSelect={focusNode}
-        onMode={switchMode}
+        onMode={auditMode ? undefined : switchMode}
         onTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         onCopyDigest={copyDigest}
-        onExport={nodes.length > 0 && !exporting ? exportImage : null}
+        onExport={projection?.nodes.length && nodes.length > 0 && !exporting ? exportImage : null}
         onShortcuts={() => setShortcutsOpen(true)}
       />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <WriteRecovery writable={writable} />
       {writable && <NewNodeDialog open={newOpen} onOpenChange={setNewOpen} />}
       <DigestDialog open={digestOpen} onOpenChange={setDigestOpen} digest={digest} copied={copied} onCopy={copyDigest} returnFocus={digestTrigger} byId={byId} onFocus={focusNode} agentId={agentId} checkpoints={snapshot?.checkpoints} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />
     </div>

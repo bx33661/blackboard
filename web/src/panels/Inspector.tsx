@@ -8,7 +8,7 @@ import { NodeTypeIcon, TypeDot } from '../SecurityNode';
 import { formatTime, relationLabel, typeLabel } from '../graph';
 import { confidenceLabel, presentNode, severityLabel, statusLabel } from '../presentation';
 import { SeverityBadge } from '../SeverityBadge';
-import { removeEdge } from '../api';
+import { useEdgeRemoval } from './use-node-forms';
 import { AddSection, ConnectSection, EditSection } from './EditPanel';
 import type { BoardEdge, BoardNode } from '../types';
 import { t } from '../i18n';
@@ -92,7 +92,7 @@ export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, lin
                     {edge.inputTruncation && <div className="ml-7"><InputIntegrityNotice record={edge} /></div>}
                     {writable && (
                       <span className="absolute right-1 top-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/row:opacity-100">
-                        <IconButton label={t('inspector.unlink')} onClick={() => { removeEdge(edge.id).catch((e) => { window.alert(t('inspector.unlinkFailed', { error: e instanceof Error ? e.message : String(e) })); }); }}><Unlink /></IconButton>
+                        <RemoveRelation id={edge.id} />
                       </span>
                     )}
                   </li>
@@ -121,6 +121,14 @@ export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, lin
       </div>
     </aside>
   );
+}
+
+function RemoveRelation({ id }: { id: string }) {
+  const { busy, locked, error, remove } = useEdgeRemoval(id);
+  return <>
+    <IconButton label={t('inspector.unlink')} disabled={busy || locked} onClick={remove}><Unlink /></IconButton>
+    {error && <span role="alert" className="block max-w-64 text-xs text-destructive">{error}</span>}
+  </>;
 }
 
 /** Describe recorded input loss, without judging the claim or reconstructing missing text. */

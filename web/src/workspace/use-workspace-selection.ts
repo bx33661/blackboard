@@ -21,10 +21,11 @@ type Options = {
   onNodesChange: OnNodesChange<CanvasNode>;
   closeSidebar: () => void;
   scene3d: boolean;
+  revealInGeneral?: boolean;
 };
 
 /** A single selection drives the inspector, URL and both canvases, including hidden-node reveal. */
-export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d }: Options) {
+export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId, deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d, revealInGeneral = true }: Options) {
   const focusFrame = useRef<number | null>(null);
   const keyboardFrame = useRef<number | null>(null);
   useEffect(() => () => {
@@ -44,8 +45,8 @@ export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges
     }
     pendingFocus.current = target;
     setSelectedId(target);
-    if (!projection?.nodes.some((node) => node.id === target)) setMode('all');
-  }, [snapshot, byId, projection, deepLink, pendingFocus, setSelectedId, setMode]);
+    if (revealInGeneral && !projection?.nodes.some((node) => node.id === target)) setMode('all');
+  }, [snapshot, byId, projection, deepLink, pendingFocus, setSelectedId, setMode, revealInGeneral]);
 
   useEffect(() => {
     if (snapshot && selectedId && !byId.has(selectedId)) {
@@ -63,12 +64,12 @@ export function useWorkspaceSelection({ snapshot, byId, projection, nodes, edges
     if (window.innerWidth < 1024) closeSidebar();
     if (!projection?.nodes.some((node) => node.id === id)) {
       pendingFocus.current = id;
-      setMode('all');
+      if (revealInGeneral) setMode('all');
     } else {
       pendingFocus.current = null;
       focusFrame.current = requestAnimationFrame(() => { focusFrame.current = null; centerOnNode(id); });
     }
-  }, [projection, centerOnNode, setSelectedId, closeSidebar, pendingFocus, setMode]);
+  }, [projection, centerOnNode, setSelectedId, closeSidebar, pendingFocus, setMode, revealInGeneral]);
 
   const handleNodesChange: OnNodesChange<CanvasNode> = useCallback((changes) => {
     onNodesChange(changes);

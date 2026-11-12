@@ -9,7 +9,7 @@ import type { CanvasNode } from './graph';
 import { typeLabel } from './graph';
 import { BaseNode } from './components/react-flow/base-node';
 import { detailLevel } from './canvas-state';
-import { nodeStateSummary, presentNode, statusLabel } from './presentation';
+import { confidenceLabel, nodeStateSummary, presentNode, statusLabel } from './presentation';
 import { SeverityBadge } from './SeverityBadge';
 import { t } from './i18n';
 
@@ -94,9 +94,10 @@ export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeP
           <i className="size-1.5 rounded-full bg-white" />{t('node.current')}
         </span>
       )}
-      {overview && (rated || retired) && (
+      {overview && (rated || retired || item.confidence) && (
         <span className="zoom-chip at-right inline-flex items-center gap-1 text-[11px]">
           {retired && <span className="rounded-md border bg-card px-2 text-muted-foreground">{statusLabel(item.status)}</span>}
+          {item.confidence && <span className="rounded-md border bg-card px-2 text-foreground">{confidenceLabel(item.confidence)}</span>}
           {rated && <SeverityBadge severity={item.severity} className="px-2 text-[11px]" />}
         </span>
       )}
@@ -124,6 +125,11 @@ export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeP
           {item.severity && <SeverityBadge severity={item.severity} />}
         </header>
       )}
+      {data.auditRoles && <p className="m-0 truncate text-[11px] font-medium leading-4 text-muted-foreground" title={data.auditRoles.map((role) => t(`audit.${role}`)).join(' · ')}>{data.auditRoles.map((role) => t(`audit.${role}`)).join(' · ')}</p>}
+      {data.auditCounts && (data.auditCounts.contradiction > 0 || data.auditCounts.condition > 0) && <div className="flex flex-wrap gap-1 text-[11px] font-medium leading-4">
+        {data.auditCounts.contradiction > 0 && <button type="button" data-audit-detail="contradiction" aria-label={`${item.title || item.id} · ${t('audit.hasContradictions')} · ${data.auditCounts.contradiction}`} className="nodrag nopan rounded border border-foreground/40 bg-background px-1.5 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">{t('audit.hasContradictions')} · {data.auditCounts.contradiction}</button>}
+        {data.auditCounts.condition > 0 && <button type="button" data-audit-detail="condition" aria-label={`${item.title || item.id} · ${t('audit.hasConditions')} · ${data.auditCounts.condition}`} className="nodrag nopan rounded border border-foreground/40 bg-background px-1.5 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">{t('audit.hasConditions')} · {data.auditCounts.condition}</button>}
+      </div>}
       <h3
         title={item.title}
         className={cn(

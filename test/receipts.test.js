@@ -253,3 +253,41 @@ test('1000 independent request receipts project in one pass and survive cache lo
   assert.equal(log(dir), before);
   assert.equal(Object.keys(replay(dir).nodes).length, 1000);
 });
+
+test('optimistic tags and canonical locations compare stored values inside the mutation', (t) => {
+  const dir = fixture(t);
+  const node = addNode({ title: 'Original', tags: ['a', 'b'], at: 'src/a.js:1' }, dir).node;
+  const set = { tags: ['reviewed'], loc: { path: 'src/a.js', line: 2 } };
+  const expected = { tags: ['a', 'b'], loc: { path: 'src/a.js', line: 1 } };
+  const options = { expected, requestId: 'structured-originals' };
+  const edited = patchNode(node.id, set, dir, options);
+  assert.deepEqual(edited.tags, ['reviewed']);
+  assert.deepEqual(edited.loc, { path: 'src/a.js', line: 2 });
+  const before = log(dir);
+  assert.deepEqual(patchNode(node.id, set, dir, options), edited, 'same request retains its original result despite stale originals');
+  assert.equal(log(dir), before);
+  assert.throws(() => patchNode(node.id, { tags: ['overwrite'], loc: null }, dir, { expected }),
+    (error) => error.status === 409 && error.fields.join(',') === 'tags,loc');
+  assert.equal(log(dir), before);
+  assert.deepEqual(replay(dir).nodes[node.id].tags, ['reviewed']);
+  assert.deepEqual(replay(dir).nodes[node.id].loc, { path: 'src/a.js', line: 2 });
+});
+
+test('structured originals preserve tag order and absent canonical location fields', (t) => {
+  const dir = fixture(t);
+  const node = addNode({ title: 'Baseline', tags: ['a', 'b'], at: 'src/a.js' }, dir).node;
+  const before = log(dir);
+  for (const expected of [
+    { tags: ['b', 'a'] }, { tags: null }, { loc: { path: 'src/a.js', line: null } },
+    { loc: { path: 'src/a.js', column: null } }, { loc: null },
+  ]) {
+    assert.throws(() => patchNode(node.id, { detail: 'Must not append' }, dir, { expected }), (error) => error.status === 409);
+    assert.equal(log(dir), before);
+  }
+  const absent = addNode({ title: 'Unset tags and location' }, dir).node;
+  assert.deepEqual(patchNode(absent.id, { tags: [], loc: null }, dir, { expected: { tags: null, loc: null } }).tags, []);
+  const afterClear = log(dir);
+  assert.throws(() => patchNode(absent.id, { tags: ['new'] }, dir, { expected: { tags: null } }), (error) => error.status === 409);
+  assert.equal(log(dir), afterClear);
+  assert.deepEqual(patchNode(absent.id, { tags: ['new'] }, dir, { expected: { tags: [], loc: null } }).tags, ['new']);
+});

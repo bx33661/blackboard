@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ViewMode } from '../types';
+import type { ViewMode, WorkspaceMode } from '../types';
+
+type ReaderLocation = { workspace: WorkspaceMode; issueId: string | null; candidateId: string | null; node: string | null };
 
 /** Reader navigation lives in the address bar; restoring it never writes board events. */
 export function useWorkspaceLocation() {
@@ -7,40 +9,72 @@ export function useWorkspaceLocation() {
     const params = new URLSearchParams(location.search);
     const view = params.get('view');
     const mode: ViewMode = view === 'logic' || view === 'all' ? view : 'context';
-    // An offline export has no server to ask for another checkpoint; its own snapshot is all there is.
     const asOf = window.__PINWHY_DATA__ === undefined ? params.get('asOf') || null : null;
-    return { agentId: params.get('agent') || 'agent:primary', mode, node: params.get('node'), asOf };
+    const workspace: WorkspaceMode = params.get('workspace') === 'audit' ? 'audit' : 'general';
+    return { agentId: params.get('agent') || 'agent:primary', mode, workspace, issue: params.get('issue'), candidate: params.get('candidate'), node: params.get('node'), asOf };
   });
   const [agentId, setAgentId] = useState(initial.agentId);
   const [mode, setMode] = useState(initial.mode);
+  const [workspace, setWorkspace] = useState(initial.workspace);
+  const [issueId, setIssueId] = useState<string | null>(initial.issue);
+  const [candidateId, setCandidateId] = useState<string | null>(initial.candidate);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  /** The checkpoint the reader is looking back at; `null` is the live board. */
   const [asOf, setAsOf] = useState<string | null>(initial.asOf);
-  // Workspace resolves this once the snapshot and visible projection have arrived.
   const deepLink = useRef(initial.node);
   const pendingFocus = useRef<string | null>(null);
+
+  const navigateWorkspace = (patch: Partial<ReaderLocation>) => {
+    const url = new URL(location.href);
+    if (patch.workspace !== undefined) {
+      setWorkspace(patch.workspace);
+      if (patch.workspace === 'audit') url.searchParams.set('workspace', 'audit'); else url.searchParams.delete('workspace');
+    }
+    for (const [key, param, setter] of [
+      ['issueId', 'issue', setIssueId], ['candidateId', 'candidate', setCandidateId], ['node', 'node', setSelectedId],
+    ] as const) {
+      if (patch[key] === undefined) continue;
+      const value = patch[key] ?? null;
+      setter(value);
+      if (value) url.searchParams.set(param, value); else url.searchParams.delete(param);
+    }
+    if (url.href !== location.href) history.pushState(null, '', url);
+  };
+
+  useEffect(() => {
+    const restore = () => {
+      const params = new URLSearchParams(location.search);
+      const view = params.get('view');
+      setMode(view === 'logic' || view === 'all' ? view : 'context');
+      setAgentId(params.get('agent') || 'agent:primary');
+      setWorkspace(params.get('workspace') === 'audit' ? 'audit' : 'general');
+      setIssueId(params.get('issue'));
+      setCandidateId(params.get('candidate'));
+      const node = params.get('node');
+      deepLink.current = node;
+      pendingFocus.current = node;
+      setSelectedId(node);
+      if (window.__PINWHY_DATA__ === undefined) setAsOf(params.get('asOf'));
+    };
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, []);
 
   useEffect(() => {
     const url = new URL(location.href);
     url.searchParams.delete('page');
     url.searchParams.set('view', mode);
     url.searchParams.set('agent', agentId);
+    if (workspace === 'audit') url.searchParams.set('workspace', workspace); else url.searchParams.delete('workspace');
+    if (issueId) url.searchParams.set('issue', issueId); else url.searchParams.delete('issue');
+    if (candidateId) url.searchParams.set('candidate', candidateId); else url.searchParams.delete('candidate');
+    if (!deepLink.current || selectedId) {
+      if (selectedId) url.searchParams.set('node', selectedId); else url.searchParams.delete('node');
+    }
+    if (window.__PINWHY_DATA__ === undefined) {
+      if (asOf) url.searchParams.set('asOf', asOf); else url.searchParams.delete('asOf');
+    }
     history.replaceState(null, '', url);
-  }, [mode, agentId]);
+  }, [mode, agentId, workspace, issueId, candidateId, selectedId, asOf]);
 
-  useEffect(() => {
-    if (deepLink.current && !selectedId) return;
-    const url = new URL(location.href);
-    if (selectedId) url.searchParams.set('node', selectedId); else url.searchParams.delete('node');
-    history.replaceState(null, '', url);
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (window.__PINWHY_DATA__ !== undefined) return;
-    const url = new URL(location.href);
-    if (asOf) url.searchParams.set('asOf', asOf); else url.searchParams.delete('asOf');
-    history.replaceState(null, '', url);
-  }, [asOf]);
-
-  return { agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus };
+  return { workspace, navigateWorkspace, issueId, candidateId, agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus };
 }

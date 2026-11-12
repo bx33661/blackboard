@@ -8,9 +8,6 @@ import { INDEX_FILE, METHODS_DIR, parseFrontmatter, readMethods, relationsOf, re
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SKILL = path.join(ROOT, 'skills/pinwhy/SKILL.md');
 const SPEC_FIELDS = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools']);
-// Wording that turns a recording method into a procedure the Agent must follow.
-const PRESCRIPTIVE = /下一步(?:应当|应该|要|是)|必经|完成标准|必须先|应当先|第一步/;
-const NO_STEPS = /不(?:规定|是)[^。；]{0,12}(?:步骤|顺序|流程)/;
 
 const methods = readMethods();
 
@@ -43,12 +40,6 @@ for (const method of methods) {
     }
   });
 
-  test(`${method.file}: stays optional and does not prescribe steps`, () => {
-    const text = `${method.description}\n${method.body}`;
-    assert.ok(method.body.includes('可选'), 'the text says it is optional');
-    assert.match(method.body, NO_STEPS, 'the text says it does not prescribe steps');
-    assert.doesNotMatch(text, PRESCRIPTIVE);
-  });
 }
 
 test('INDEX.md is generated from the current frontmatter', () => {

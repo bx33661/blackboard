@@ -104,6 +104,7 @@ export type GraphSnapshot = {
 };
 
 export type ViewMode = 'context' | 'logic' | 'all';
+export type WorkspaceMode = 'general' | 'audit';
 
 export const values = <T,>(input: Record<string, T> | T[] | undefined): T[] =>
   Array.isArray(input) ? input : Object.values(input || {});

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useEdgesState, useNodesState, useUpdateNodeInternals, type Edge } from '@xyflow/react';
 import { layoutGraph, type CanvasNode, type Positions } from '../graph';
 import type { ViewMode } from '../types';
+import { layoutAudit } from './audit-layout';
 
-export type WorkspaceProjection = { nodes: CanvasNode[]; edges: Edge[] };
+export type WorkspaceProjection = { nodes: CanvasNode[]; edges: Edge[]; audit?: boolean };
 
 /** One layout supplies both canvases. Content refreshes keep dragged positions and routed edges. */
 export function useWorkspaceLayout(projection: WorkspaceProjection | null, mode: ViewMode, direction: 'RIGHT' | 'DOWN') {
@@ -26,7 +27,7 @@ export function useWorkspaceLayout(projection: WorkspaceProjection | null, mode:
 
   useEffect(() => {
     if (!projection) return;
-    const key = JSON.stringify([mode, direction, overviewColumns, projection.nodes.map((node) => node.id), projection.edges.map((edge) => [edge.id, edge.source, edge.target])]);
+    const key = JSON.stringify([mode, direction, overviewColumns, projection.audit, projection.nodes.map((node) => [node.id, node.data.auditRoles]), projection.edges.map((edge) => [edge.id, edge.source, edge.target])]);
     if (layoutKey.current === key) {
       const fresh = new Map(projection.nodes.map((node) => [node.id, node]));
       setNodes((previous) => previous.map((node) => {
@@ -40,9 +41,10 @@ export function useWorkspaceLayout(projection: WorkspaceProjection | null, mode:
       return;
     }
     let cancelled = false;
-    const viewKey = `${mode}:${direction}`;
+    const viewKey = `${projection.audit ? 'audit' : 'general'}:${mode}:${direction}`;
     const slow = window.setTimeout(() => setLaying(projection.nodes.length), 300);
-    layoutGraph(projection.nodes, projection.edges, direction, mode === 'all', overviewColumns, lastPositions.current.get(viewKey)).then((layouted) => {
+    const layout = projection.audit ? Promise.resolve(layoutAudit(projection.nodes, projection.edges)) : layoutGraph(projection.nodes, projection.edges, direction, mode === 'all', overviewColumns, lastPositions.current.get(viewKey));
+    layout.then((layouted) => {
       if (cancelled) return;
       lastPositions.current.set(viewKey, new Map(layouted.nodes.map((node) => [node.id, node.position])));
       layoutKey.current = key;
