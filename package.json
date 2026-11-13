@@ -30,6 +30,8 @@
     "test": "node --test \"test/*.test.js\"",
     "build": "vite build",
     "dev": "vite --host 127.0.0.1",
+    "site:dev": "npm --prefix site run dev",
+    "site:build": "npm --prefix site run build",
     "serve": "node bin/pinwhy.js serve",
     "export": "node bin/pinwhy.js export",
     "check": "npm run check:types && npm run check:docs && npm run check:publish",
