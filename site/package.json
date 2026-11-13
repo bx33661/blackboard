@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5180",
+    "dev": "vite --host --port 5180",
     "build": "vite build && node scripts/prerender.mjs",
     "build:client": "vite build",
     "demo": "node scripts/make-demo.mjs",
