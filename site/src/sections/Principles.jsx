@@ -16,7 +16,7 @@ export default function Principles() {
         <ol className="pr-list">
           {P.items.map(([title, desc, code], i) => (
             <li key={title} className="rv" style={{ '--d': `${i * 0.08}s` }}>
-              <span className="pr-n">{(() => { const I = ICONS[i]; return <span className="pr-ic"><I size={20} strokeWidth={1.6} aria-hidden="true" /></span>; })()}</span>
+              <span className="pr-n">{(() => { const I = ICONS[i]; return <span className="pr-ic"><I size={18} strokeWidth={1.7} aria-hidden="true" /></span>; })()}</span>
               <div className="pr-body">
                 <h3>{title}</h3>
                 <p>{desc}</p>

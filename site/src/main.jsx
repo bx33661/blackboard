@@ -2,10 +2,6 @@ import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import Lenis from 'lenis';
 import 'lenis/dist/lenis.css';
-import '@fontsource-variable/source-serif-4/opsz.css';
-import '@fontsource/noto-serif-sc/400.css';
-import '@fontsource/noto-serif-sc/600.css';
-import '@fontsource/noto-serif-sc/700.css';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './index.css';
@@ -86,7 +82,7 @@ function Nav() {
   const copyPrompt = useCopyPrompt();
 
   useEffect(() => {
-    const on = () => setScrolled(window.scrollY > window.innerHeight * 0.55);
+    const on = () => setScrolled(window.scrollY > 8);
     on();
     window.addEventListener('scroll', on, { passive: true });
     return () => window.removeEventListener('scroll', on);
@@ -116,7 +112,7 @@ function Nav() {
   };
 
   return (
-    <header className="nav">
+    <header className={`nav${scrolled || sheet ? ' scrolled' : ''}`}>
       <div className="nav-pill">
         <a className="nav-brand" href="#top" onClick={handleNav('home')} aria-label="Pinwhy Home">
           <img src="/mark.svg" alt="" />

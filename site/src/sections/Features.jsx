@@ -40,17 +40,22 @@ export default function Features() {
           <h2 className="h2" id="feat-title">{F.title}</h2>
           <p className="lead">{F.lead}</p>
         </div>
-        <div>
-          {rows.map((r) => (
-            <div key={r.k} className={`frow${r.local ? ' frow-local' : ''}`}>
-              <div className="fvis rv">
+        <div className="bento">
+          {rows.map((r, i) => (
+            <article
+              key={r.k}
+              className={`bento-card rv${i === 0 ? ' wide' : ''}${r.local ? ' is-local' : ''}`}
+              style={{ '--d': `${(i % 2) * 0.06}s` }}
+            >
+              <div className={`bento-vis${r.shot ? ` vis-${r.shot}` : ''}`}>
                 {r.local ? <Local T={F.local} /> : <Shot name={r.shot} alt={r.t} label={F.real} />}
               </div>
-              <div className="ftext rv" style={{ '--d': '.08s' }}>
-                <h3><small>{r.k}</small>{r.t}</h3>
-                <ul>{r.li.map((x, i) => <li key={i}>{x}</li>)}</ul>
+              <div className="bento-text">
+                <span className="bento-k">{r.k}</span>
+                <h3>{r.t}</h3>
+                <ul>{r.li.map((x, j) => <li key={j}>{x}</li>)}</ul>
               </div>
-            </div>
+            </article>
           ))}
         </div>
         <div className="stats rv">
