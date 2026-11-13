@@ -177,7 +177,7 @@ function Page() {
 
   useEffect(() => {
     const onMove = (e) => {
-      const card = e.target.closest?.('.bento-card, .pr-list li, .spotlights .rv.p-8');
+      const card = e.target.closest?.('.bento-card, .pr-list li, .sp-card, .hd');
       if (!card) return;
       const r = card.getBoundingClientRect();
       card.style.setProperty('--mx', `${e.clientX - r.left}px`);

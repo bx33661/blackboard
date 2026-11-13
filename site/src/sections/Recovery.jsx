@@ -73,7 +73,7 @@ export default function Recovery() {
           <div className="recovery-copy">
             <div className="kicker">{T.kicker}</div>
             <h2 className="h2" id="recovery-title">{T.title[0]}<br />{T.title[1]}</h2>
-            <ol className="steps">
+            <ol className="steps" style={{ '--p': p.toFixed(3) }}>
               {T.steps.map(([title, desc], i) => (
                 <li key={title} className={phase === i ? 'on' : phase > i ? 'done' : ''}>
                   <span className="k">0{i + 1}</span>
@@ -132,7 +132,8 @@ export default function Recovery() {
                 </div>
                 );
               })}
-              <div className="rb-eraser" style={{ left: `${wipe * 120 - 20}%`, opacity: phase === 1 && wipe < 1 ? 1 : 0 }} />
+              <div className="rb-eraser" style={{ left: `${wipe * 120 - 20}%`, opacity: phase === 1 && wipe < 1 ? 1 : 0 }}><i /></div>
+              <div className={`rb-restore${phase === 2 && restore > 0 && restore < 1 ? ' on' : ''}`} style={{ top: `${restore * 100}%` }} />
               <div className={`rb-lost${phase === 1 && wipe > 0.9 ? ' on' : ''}`}>
                 <span>context compacted</span>
                 <small>{T.lost}</small>

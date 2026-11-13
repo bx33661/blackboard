@@ -3,10 +3,19 @@ import { useT } from '../i18n.jsx';
 import { DOCS, Icon, REPO, useCopyPrompt } from '../shared.jsx';
 import DotWordmark from '../components/DotWordmark.jsx';
 
+const PIN_KEY = 'pinwhy-site-pins';
+
 export default function Finale() {
   const t = useT();
   const copyPrompt = useCopyPrompt();
-  const [pins, setPins] = useState(0);
+  const [pins, setPins] = useState(() => {
+    try { return Number(localStorage.getItem(PIN_KEY)) || 0; } catch { return 0; }
+  });
+  const addPin = () => setPins((n) => {
+    const next = n + 1;
+    try { localStorage.setItem(PIN_KEY, String(next)); } catch { /* counter stays in memory */ }
+    return next;
+  });
   const links = [DOCS, `${REPO}/blob/main/docs/README.md`, `${REPO}/blob/main/AGENT.md`, `${REPO}/blob/main/CONTRIBUTING.md`, REPO];
   const F = t.footer;
   const cols = [
@@ -50,7 +59,7 @@ export default function Finale() {
             <span>{F.play[0]}</span>
             <span aria-live="polite">{F.play[1]} <b>{pins}</b> {F.play[2]}</span>
           </p>
-          <DotWordmark text="Pinwhy" onPin={() => setPins((n) => n + 1)} />
+          <DotWordmark text="Pinwhy" onPin={addPin} />
         </div>
       </footer>
     </>

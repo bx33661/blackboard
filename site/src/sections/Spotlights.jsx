@@ -1,6 +1,28 @@
-import { ArrowRight, Boxes, CheckCircle2, Shield } from 'lucide-react';
+import { ArrowRight, Boxes, Shield } from 'lucide-react';
 import { useT } from '../i18n.jsx';
 import { useRoute } from '../router.jsx';
+
+function SpotCard({ data, icon: I, tone, onOpen, delay }) {
+  return (
+    <article className={`sp-card sp-${tone} rv`} style={{ '--d': delay }}>
+      <div className="sp-top">
+        <span className="sp-ico"><I size={18} strokeWidth={1.8} aria-hidden="true" /></span>
+        <span className="sp-kicker">{data.kicker}</span>
+      </div>
+      <h3 className="sp-title">{data.title}</h3>
+      <p className="sp-desc">{data.desc}</p>
+      <ol className="sp-list">
+        {data.features.map((f, i) => (
+          <li key={f}><span className="n">{String(i + 1).padStart(2, '0')}</span><span>{f}</span></li>
+        ))}
+      </ol>
+      <button type="button" onClick={onOpen} className="sp-cta">
+        <span>{data.cta}</span>
+        <ArrowRight size={15} aria-hidden="true" />
+      </button>
+    </article>
+  );
+}
 
 export default function Spotlights() {
   const t = useT();
@@ -16,68 +38,9 @@ export default function Spotlights() {
           <p className="lead">从长程代码安全审计，到 DeepSeek Harness 原生插件生态，为严苛的工程探索提供可复核的确定性记忆。</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
-          {/* Security Spotlight Card */}
-          <div className="rv p-8 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-[var(--card-shadow)] flex flex-col justify-between" style={{ '--d': '0.05s' }}>
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="p-2 rounded-lg bg-red-500/10 text-red-500">
-                  <Shield size={20} />
-                </span>
-                <span className="font-sans text-xs font-semibold uppercase text-red-500 tracking-wider">
-                  {S.security.kicker}
-                </span>
-              </div>
-              <h3 className="font-serif font-bold text-2xl text-[var(--ink)] mb-3">{S.security.title}</h3>
-              <p className="text-[var(--text)] text-sm leading-relaxed mb-6">{S.security.desc}</p>
-              <ul className="space-y-2 mb-6">
-                {S.security.features.map((f) => (
-                  <li key={f} className="text-xs text-[var(--muted)] flex items-center gap-2">
-                    <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <button
-              onClick={() => navigate('security')}
-              className="btn btn-solid w-full justify-center group"
-            >
-              <span>{S.security.cta}</span>
-              <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-
-          {/* DSH Spotlight Card */}
-          <div className="rv p-8 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-[var(--card-shadow)] flex flex-col justify-between" style={{ '--d': '0.12s' }}>
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="p-2 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
-                  <Boxes size={20} />
-                </span>
-                <span className="font-sans text-xs font-semibold uppercase text-[var(--accent)] tracking-wider">
-                  {S.dsh.kicker}
-                </span>
-              </div>
-              <h3 className="font-serif font-bold text-2xl text-[var(--ink)] mb-3">{S.dsh.title}</h3>
-              <p className="text-[var(--text)] text-sm leading-relaxed mb-6">{S.dsh.desc}</p>
-              <ul className="space-y-2 mb-6">
-                {S.dsh.features.map((f) => (
-                  <li key={f} className="text-xs text-[var(--muted)] flex items-center gap-2">
-                    <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <button
-              onClick={() => navigate('dsh')}
-              className="btn btn-solid w-full justify-center group"
-            >
-              <span>{S.dsh.cta}</span>
-              <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
+        <div className="sp-grid">
+          <SpotCard data={S.security} icon={Shield} tone="sec" onOpen={() => navigate('security')} delay="0.05s" />
+          <SpotCard data={S.dsh} icon={Boxes} tone="dsh" onOpen={() => navigate('dsh')} delay="0.12s" />
         </div>
       </div>
     </section>

@@ -9,6 +9,7 @@ import {
   siOpencode,
 } from 'simple-icons';
 import { BorderBeam } from '@/components/ui/border-beam';
+import HandoffDemo from '../components/HandoffDemo.jsx';
 import { useLang, useT } from '../i18n.jsx';
 import { Brand, Icon, REPO, useCopyPrompt } from '../shared.jsx';
 
@@ -165,6 +166,8 @@ export default function Hero() {
             </span>
           ))}
         </div>
+
+        <HandoffDemo />
       </div>
     </section>
   );
