@@ -9,6 +9,8 @@ import {
   siOpencode,
 } from 'simple-icons';
 import { BorderBeam } from '@/components/ui/border-beam';
+import HandoffDemo from '../components/HandoffDemo.jsx';
+import HeroField from '../components/HeroField.jsx';
 import { useLang, useT } from '../i18n.jsx';
 import { Brand, Icon, REPO, useCopyPrompt } from '../shared.jsx';
 
@@ -58,41 +60,39 @@ export default function Hero() {
   const activeAgent = AGENTS[agentIdx];
 
   return (
-    <section className="hero pt-16 pb-12 sm:pt-20 sm:pb-16" aria-labelledby="hero-title">
-      <div className="hero-paper" aria-hidden="true" />
+    <section className="hero" aria-labelledby="hero-title">
+      <HeroField />
       <div className="wrap">
         {/* Eyebrow Badge */}
         <div className="mb-6">
           <a
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--muted)] font-medium hover:border-[var(--line-2)] hover:text-[var(--ink)] transition-colors shadow-xs"
+            className="hero-eyebrow"
             href={t.hero.eyebrowHref}
             target="_blank"
             rel="noreferrer"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-[var(--ink)]">Pinwhy v0.2.0</span>
-            <span className="text-[var(--line-2)]">|</span>
+            <span className="hero-eyebrow-dot" />
+            <span className="hero-eyebrow-tag">Pinwhy v0.2.0</span>
             <span>{lang === 'zh' ? "安全审计模式与多宿主接入" : "Security audit mode & multi-host setup"}</span>
-            <ArrowRight size={13} className="text-[var(--muted)]" />
+            <ArrowRight size={13} className="hero-eyebrow-arrow" />
           </a>
         </div>
 
         {/* Multica-style Main Heading with Rotating Agent Pill */}
         <h1
           id="hero-title"
-          className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-[var(--ink)] leading-[1.12] max-w-5xl"
-          style={{ fontFamily: 'var(--sans)' }}
+          className="hero-title"
         >
           {lang === 'zh' ? (
             <>
               给{' '}
-              <span className="relative inline-flex items-center gap-[0.3em] rounded-full border border-emerald-500/25 bg-emerald-500/10 px-[0.38em] py-[0.04em] text-[var(--ink)] align-middle shadow-xs overflow-hidden">
-                <BorderBeam size={70} duration={4.5} colorFrom="#10b981" colorTo="#38bdf8" borderWidth={1.5} />
-                <span className="inline-flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
-                  {activeAgent.icon({ size: 22, className: 'shrink-0' })}
+              <span className="agent-pill relative inline-flex items-center gap-[0.28em] rounded-full px-[0.34em] py-[0.02em] text-[var(--ink)] align-middle overflow-hidden">
+                <BorderBeam size={90} duration={5} colorFrom="#f472b6" colorTo="#a78bfa" borderWidth={1.5} />
+                <span className="inline-flex items-center justify-center shrink-0 text-[var(--ink)]">
+                  {activeAgent.icon({ size: '0.62em', className: 'shrink-0' })}
                 </span>
                 <span
-                  className="transition-all duration-200 inline-block font-sans font-bold"
+                  className="transition-all duration-200 inline-block"
                   style={{
                     opacity: fading ? 0 : 1,
                     transform: fading ? 'translateY(4px)' : 'none',
@@ -106,13 +106,13 @@ export default function Hero() {
           ) : (
             <>
               Give{' '}
-              <span className="relative inline-flex items-center gap-[0.3em] rounded-full border border-emerald-500/25 bg-emerald-500/10 px-[0.38em] py-[0.04em] text-[var(--ink)] align-middle shadow-xs overflow-hidden">
-                <BorderBeam size={70} duration={4.5} colorFrom="#10b981" colorTo="#38bdf8" borderWidth={1.5} />
-                <span className="inline-flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
-                  {activeAgent.icon({ size: 22, className: 'shrink-0' })}
+              <span className="agent-pill relative inline-flex items-center gap-[0.28em] rounded-full px-[0.34em] py-[0.02em] text-[var(--ink)] align-middle overflow-hidden">
+                <BorderBeam size={90} duration={5} colorFrom="#f472b6" colorTo="#a78bfa" borderWidth={1.5} />
+                <span className="inline-flex items-center justify-center shrink-0 text-[var(--ink)]">
+                  {activeAgent.icon({ size: '0.62em', className: 'shrink-0' })}
                 </span>
                 <span
-                  className="transition-all duration-200 inline-block font-sans font-bold"
+                  className="transition-all duration-200 inline-block"
                   style={{
                     opacity: fading ? 0 : 1,
                     transform: fading ? 'translateY(4px)' : 'none',
@@ -126,17 +126,17 @@ export default function Hero() {
           )}
         </h1>
         {/* Subtitle */}
-        <p className="mt-6 text-lg sm:text-xl text-[var(--muted)] max-w-3xl leading-relaxed">
+        <p className="hero-sub">
           {lang === 'zh'
             ? "把关键判断、证据与未决问题留在项目里。上下文压缩或切换会话后，Agent 可以读回已有进展；人在工作台里，也能看清判断从何而来。"
             : "Keep key judgments, evidence, and open questions in your project. Agents can read back progress across sessions, while people can review the evidence behind each judgment."}
         </p>
 
         {/* CTA Buttons */}
-        <div className="mt-8 flex flex-wrap items-center gap-3.5">
+        <div className="hero-actions">
           <button
             onClick={copyPrompt}
-            className="h-12 px-6 rounded-xl bg-[var(--ink)] text-[var(--bg)] font-medium text-sm inline-flex items-center gap-2.5 shadow-sm hover:opacity-90 active:scale-[0.99] transition-all cursor-pointer"
+            className="btn btn-solid btn-lg"
           >
             <Copy size={16} />
             <span>{t.hero.cta}</span>
@@ -145,7 +145,7 @@ export default function Hero() {
             href={REPO}
             target="_blank"
             rel="noreferrer"
-            className="h-12 px-6 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] font-medium text-sm inline-flex items-center gap-2.5 hover:bg-[var(--surface-2)] transition-all"
+            className="btn btn-line btn-lg"
           >
             <Icon.github width="16" height="16" />
             <span>{t.hero.gh}</span>
@@ -153,20 +153,22 @@ export default function Hero() {
         </div>
 
         {/* Supported Hosts Bar */}
-        <div className="mt-12 pt-7 border-t border-[var(--line)] flex flex-wrap items-center gap-2.5 text-xs text-[var(--muted)]">
-          <span className="font-semibold text-[var(--ink)] mr-1">
+        <div className="hero-hosts">
+          <span className="hero-hosts-label">
             {lang === 'zh' ? "支持接入：" : "Works with:"}
           </span>
           {SUPPORTED_HOSTS.map((host) => (
             <span
               key={host.name}
-              className="px-3 py-1.5 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text)] font-sans text-xs inline-flex items-center gap-1.5 shadow-2xs hover:border-[var(--line-2)] transition-colors"
+              className="host-chip"
             >
-              {host.icon({ size: 14, className: 'shrink-0 opacity-80' })}
+              {host.icon({ size: 14, className: 'shrink-0' })}
               <span>{host.name}</span>
             </span>
           ))}
         </div>
+
+        <HandoffDemo />
       </div>
     </section>
   );

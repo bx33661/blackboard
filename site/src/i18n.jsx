@@ -26,6 +26,12 @@ const zh = {
     menu: '菜单',
     lang: 'Language',
     themes: { light: '浅色', dark: '深色', system: '跟随系统' },
+    palette: {
+      open: '命令面板', trigger: '搜索', placeholder: '搜索页面、命令或设置…', empty: '没有匹配的结果',
+      groups: { nav: '跳转', actions: '操作', prefs: '偏好' },
+      top: '回到顶部', copyCmd: '复制安装命令', github: '在 GitHub 上查看', langTo: 'Switch to English',
+      hint: { move: '选择', run: '执行', close: '关闭' },
+    },
   },
   hero: {
     eyebrow: "v0.2.0 · 安全审计工作台与多宿主接入",
@@ -421,6 +427,8 @@ const zh = {
     tag: 'Agent 的外置记忆与可视化工作台',
     links: ['使用参考', '文档目录', '工程约定', '贡献指南', 'GitHub'],
     license: 'MIT 许可',
+    cols: ['资源', '项目'],
+    play: ['在点阵上移动指针，点击钉下一枚线索', '本次已钉下', '枚'],
   },
 };
 
@@ -446,6 +454,12 @@ const en = {
     menu: 'Menu',
     lang: '语言',
     themes: { light: 'Light', dark: 'Dark', system: 'System' },
+    palette: {
+      open: 'Command palette', trigger: 'Search', placeholder: 'Search pages, commands, settings…', empty: 'No results',
+      groups: { nav: 'Go to', actions: 'Actions', prefs: 'Preferences' },
+      top: 'Back to top', copyCmd: 'Copy install command', github: 'View on GitHub', langTo: '切换到中文',
+      hint: { move: 'Select', run: 'Run', close: 'Close' },
+    },
   },
   hero: {
     eyebrow: "v0.2.0 · Security audit mode and multi-host setup",
@@ -841,6 +855,8 @@ const en = {
     tag: 'External memory and a visual workspace for AI agents',
     links: ['Usage', 'Docs', 'Principles', 'Contributing', 'GitHub'],
     license: 'MIT License',
+    cols: ['Resources', 'Project'],
+    play: ['Move across the grid, click to pin a clue', 'Pinned this visit', ''],
   },
 };
 
