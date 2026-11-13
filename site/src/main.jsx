@@ -176,6 +176,18 @@ function Page() {
   useReveal();
 
   useEffect(() => {
+    const onMove = (e) => {
+      const card = e.target.closest?.('.bento-card, .pr-list li, .spotlights .rv.p-8');
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      card.style.setProperty('--my', `${e.clientY - r.top}px`);
+    };
+    document.addEventListener('pointermove', onMove, { passive: true });
+    return () => document.removeEventListener('pointermove', onMove);
+  }, []);
+
+  useEffect(() => {
     if (reducedMotion()) return undefined;
     const lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
     lenisRef.current = lenis;

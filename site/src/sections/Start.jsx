@@ -80,7 +80,7 @@ function usePlayback(items, run) {
 export default function Start() {
   const { t, lang } = useLang();
   const S = t.start;
-  const tabs = [['auto', S.tabAuto], ...S.manual.hosts.map((h) => [h.id, h.name])];
+  const tabs = [['auto', S.tabAuto, S.auto.badge], ...S.manual.hosts.map((h) => [h.id, h.name, h.tag])];
   const [tab, setTab] = useState('auto');
   const win = useRef(null);
   const visible = useInViewport(win, '-15% 0px');
@@ -117,24 +117,35 @@ export default function Start() {
         </div>
 
         <div className="tw-stage rv">
-          <div className="tw-glow" aria-hidden="true" />
+          <div className="tw-rail" role="tablist" aria-label={S.manual.hostsAria} aria-orientation="vertical">
+            {tabs.map(([id, label, sub], idx) => (
+              <button key={id} role="tab" aria-selected={tab === id} className={`tw-host${tab === id ? ' on' : ''}`} onClick={() => setTab(id)}>
+                <span className="tw-host-ic">{TAB_ICON[id]}</span>
+                <span className="tw-host-tx">
+                  <b>{label}</b>
+                  {sub && <small>{sub}</small>}
+                </span>
+                <span className="tw-host-n" aria-hidden="true">{String(idx).padStart(2, '0')}</span>
+              </button>
+            ))}
+          </div>
+
           <div className="tw" ref={win}>
             <div className="tw-bar">
               <span className="tw-lights" aria-hidden="true"><i /><i /><i /></span>
-              <div className="tw-tabs" role="tablist" aria-label={S.manual.hostsAria}>
-                {tabs.map(([id, label]) => (
-                  <button key={id} role="tab" aria-selected={tab === id} className={`${tab === id ? 'on' : ''}${id === 'auto' ? ' star' : ''}`} onClick={() => setTab(id)}>
-                    <span className="ti">{TAB_ICON[id]}</span>{label}
-                  </button>
-                ))}
-              </div>
+              <span className="tw-title" aria-hidden="true">
+                <SquareTerminal size={13} strokeWidth={2} />pinwhy <i>—</i> {S.cwd}
+              </span>
               <button className={`tw-copy${flash === 'all' ? ' done' : ''}`} onClick={() => copy(all, 'all')}>
                 {flash === 'all' ? <Icon.check size={14} /> : <Icon.copy size={14} />}
                 <span>{flash === 'all' ? S.copied : tab === 'auto' ? S.copyPrompt : S.copyCmds}</span>
               </button>
             </div>
+            <div className="tw-progress" aria-hidden="true">
+              <i style={{ transform: `scaleX(${Math.min(1, shown / items.length)})` }} />
+            </div>
 
-            <div className="tw-body" ref={body} key={`${tab}-${lang}`}>
+            <div className={`tw-body${tab === 'auto' ? '' : ' tw-tl'}`} ref={body} key={`${tab}-${lang}`}>
               {items.slice(0, Math.min(items.length, shown + 1)).map((it, k) => {
                 const live = k === shown;
                 const text = (it.kind === 'cmd' || it.kind === 'prompt') && live ? it.text.slice(0, chars) : it.text;
@@ -182,8 +193,9 @@ export default function Start() {
             </div>
 
             <div className="tw-status">
-              <span><i className="tw-led" />{S.cwd}</span>
+              <span><i className={`tw-led${shown >= items.length ? '' : ' busy'}`} />{S.cwd}</span>
               <span className="tw-env">{S.env}</span>
+              <span className="tw-count">{String(Math.min(shown, items.length)).padStart(2, '0')}/{String(items.length).padStart(2, '0')}</span>
             </div>
           </div>
         </div>

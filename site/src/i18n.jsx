@@ -421,6 +421,8 @@ const zh = {
     tag: 'Agent 的外置记忆与可视化工作台',
     links: ['使用参考', '文档目录', '工程约定', '贡献指南', 'GitHub'],
     license: 'MIT 许可',
+    cols: ['资源', '项目'],
+    play: ['在点阵上移动指针，点击钉下一枚线索', '本次已钉下', '枚'],
   },
 };
 
@@ -841,6 +843,8 @@ const en = {
     tag: 'External memory and a visual workspace for AI agents',
     links: ['Usage', 'Docs', 'Principles', 'Contributing', 'GitHub'],
     license: 'MIT License',
+    cols: ['Resources', 'Project'],
+    play: ['Move across the grid, click to pin a clue', 'Pinned this visit', ''],
   },
 };
 
