@@ -84,14 +84,14 @@ export class CliBridge {
     return { version: String(capabilities.version ?? ''), capabilities };
   }
 
-  async run(scope, argv, signal, beforeSpawn, config = this.snapshot()) {
+  async run(scope, argv, signal, beforeSpawn, config = this.snapshot(), stdin) {
     this.#lifecycle.signal.throwIfAborted();
     signal?.throwIfAborted();
     const runtime = await this.runtime(config);
     await beforeSpawn?.(runtime);
     this.#lifecycle.signal.throwIfAborted();
     signal?.throwIfAborted();
-    const { data, diagnostics } = await this.#track(this.#execute([runtime.real, ...argv], scope.boardRoot, signal, config));
+    const { data, diagnostics } = await this.#track(this.#execute([runtime.real, ...argv], scope.boardRoot, signal, config, stdin));
     return { boardRoot: scope.boardRoot, agentId: scope.agentId, data, diagnostics };
   }
 
@@ -101,7 +101,7 @@ export class CliBridge {
     finally { this.#operations.delete(operation); }
   }
 
-  #execute(argv, cwd, signal, config) {
+  #execute(argv, cwd, signal, config, stdin) {
     return new Promise((resolve, reject) => {
       // Copy instead of changing process.env: each concurrent Session owns its identity and board.
       // Root and identity travel as flags; an inherited value must not pick another board or author.
@@ -114,8 +114,11 @@ export class CliBridge {
       // Desktop's executable is Electron, not a stand-alone node binary.
       if (process.versions.electron) env.ELECTRON_RUN_AS_NODE = '1';
       const child = spawn(config.nodeExecutable, argv, {
-        cwd, env, shell: false, stdio: ['ignore', 'pipe', 'pipe'],
+        cwd, env, shell: false, stdio: [stdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
       });
+      if (stdin) {
+        child.stdin.end(stdin, 'utf8');
+      }
       const stdout = [], stderr = [];
       let bytes = 0, failure, escalation;
       const stop = (code, message) => {

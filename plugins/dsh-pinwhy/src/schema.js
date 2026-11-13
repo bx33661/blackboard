@@ -11,6 +11,7 @@ export const Config = Schema.object({
     workspace: absolute().required().description('项目工作区绝对路径'),
     boardRoot: absolute().description('黑板根目录；省略时使用工作区'),
   })).default([]).description('显式启用的项目；保存配置不会初始化黑板').volatile(),
+  autoDiscover: Schema.boolean().default(false).description('可选：自动发现当前工作区或上级目录的已有 .pinwhy 黑板；不会初始化').volatile(),
   runtimeCli: absolute().description('pinwhy current/bin/pinwhy.js；省略时使用独立安装路径').volatile(),
   nodeExecutable: absolute().description('Node 可执行文件；省略时使用宿主运行时').volatile(),
   timeoutMs: integer(50, 120_000, 10_000).description('单次 CLI 超时（毫秒）'),

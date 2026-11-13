@@ -10,6 +10,7 @@ test('default runtime uses current and no project is enabled implicitly', () => 
   const c = normalizeConfig({}, { XDG_DATA_HOME: '/fixture/data' });
   assert.equal(c.runtimeCli, '/fixture/data/pinwhy/current/bin/pinwhy.js');
   assert.deepEqual(c.projects, []);
+  assert.equal(c.autoDiscover, false);
   assert.ok(Object.isFrozen(c.projects));
 });
 
@@ -62,4 +63,20 @@ test('explicit boardRoot and missing unrelated workspace are supported', async (
   const root = await temporary(t), a = await board(root, 'a'), b = await board(root, 'b');
   const config = normalizeConfig({ projects: [{ workspace: '/nonexistent-dsh-pinwhy' }, { workspace: a, boardRoot: b }] });
   assert.equal((await selectScope(config, execution(a))).boardRoot, b);
+});
+
+test('auto-discovery requires explicit opt-in before finding an initialized ancestor board', async (t) => {
+  const root = await temporary(t), project = await board(root, 'auto-project');
+  const sub = path.join(project, 'src/sub');
+  await fs.mkdir(sub, { recursive: true });
+  await assert.rejects(selectScope(normalizeConfig(), execution(project)), { code: 'NOT_ENABLED' });
+  await assert.rejects(selectScope(normalizeConfig(), execution(sub)), { code: 'NOT_ENABLED' });
+  // Directly in board root
+  const scope1 = await selectScope(normalizeConfig({ autoDiscover: true }), execution(project));
+  assert.equal(scope1.boardRoot, project);
+  // In a subdirectory of board root
+  const scope2 = await selectScope(normalizeConfig({ autoDiscover: true }), execution(sub));
+  assert.equal(scope2.boardRoot, project);
+  // When autoDiscover is disabled
+  await assert.rejects(selectScope(normalizeConfig({ autoDiscover: false }), execution(project)), { code: 'NOT_ENABLED' });
 });

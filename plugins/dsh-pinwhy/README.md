@@ -6,23 +6,25 @@ pinwhy 的可选 **DeepSeek Harness 适配器**，位于主仓库的 `plugins/ds
 DSH → dsh-pinwhy → 独立安装的 pinwhy CLI → 项目 .pinwhy/events.jsonl
 ```
 
-目标版本：DSH `0.2.1-rc.2`。pinwhy 不按版本号判断，而按 `capabilities --json` 检测：`schema` 为 `pinwhy.capabilities.v1`，`features` 含 `writeAttribution`、`cwdFlag`、`noInit`、`resourcePaths`，用到的 8 个命令输出声明为插件读取的 schema，并声明 `writeTargets` 和绝对资源路径 `resources.cli`、`resources.skill`。缺少上述声明的构建会在诊断中报 RUNTIME_INCOMPATIBLE。Node 与 DSH 的运行要求一致：`^22.19.0 || >=24.0.0`。源码是可直接运行的 ESM，安装后不依赖构建或生命周期脚本。
+目标版本：DSH `0.2.2-rc.2`，使用其原生主面板、会话视图与菜单扩展接口。pinwhy 不按版本号判断，而按 `capabilities --json` 检测：`schema` 为 `pinwhy.capabilities.v1`，`features` 含 `writeAttribution`、`cwdFlag`、`noInit`、`resourcePaths`，用到的核心命令输出声明为插件读取的 schema，并声明 `writeTargets` 和绝对资源路径 `resources.cli`、`resources.skill`。缺少上述声明的构建会在诊断中报 RUNTIME_INCOMPATIBLE。内置画板另需下文说明的临时查看服务能力。Node 与 DSH 的运行要求一致：`^22.19.0 || >=24.0.0`。源码是可直接运行的 ESM，安装后不依赖构建或生命周期脚本。
 
 ## 插件展示信息
 
-中文界面显示 **Pinwhy · 外置黑板**，英文界面显示 **Pinwhy · External Memory**；插件与所含组件共用名称、简介和黑底薄荷绿品牌图标。展示文字来自导出的 `locale/en.json`、`locale/zh.json`，图标来自包内 `assets/pinwhy-icon.svg`（复用主项目的 `design/pinwhy-logo/pinwhy-app-icon.svg`）。这些资源随插件独立打包，不依赖仓库外路径或网络加载。
+中文界面显示 **Pinwhy · 外置黑板**，英文界面显示 **Pinwhy · External Memory**；插件与所含组件共用名称、简介和品牌图标（浅色界面使用 Paper 浅底与深绿图标，深色界面使用墨黑底色与薄荷绿图标）。展示文字来自导出的 `locale/en.json`、`locale/zh.json`，图标来自包内 `assets/pinwhy-icon.svg`。这些资源随插件独立打包，不依赖仓库外路径或网络加载。
 
 包标识为 `dsh-pinwhy`，组件 ID 为 `pinwhy`；安装与 bundle 配置须使用新标识，并重新显式选择项目，不读取旧插件配置。源码链接安装修改后，重新进入插件页查看；宿主仍缓存旧元信息时，退出并重新打开 DSH。发布包安装需要更新插件包。项目主页、代码仓库子目录和问题反馈地址同时保存在 package.json 中；具体展示项由 DSH 界面决定。
 
 ## 已实现
 
-- 9 个结构化原生工具（原有 8 个读写工具 + 只读接入诊断）；参数校验和工具执行使用宿主提供的 SDK。
-- Skill provider 从已安装 pinwhy 的完整 Skill 包读取正文、元数据和参考资源，不维护副本。
-- 异步 CLI 桥接；每次调用独立绑定项目、身份、超时、输出上限和取消信号。
-- 写工具读取宿主实时 sandboxPolicy；read-only 阻止写入，workspace-write 核对黑板真实路径位于会话工作区内。
-- 禁用/HMR 时释放注册，并终止、等待未完成的 CLI 子进程。
+- **DSH 原生内置 Web 画板**：左侧「更多 → Pinwhy 画板」打开全局主面板，可选择已有项目会话；会话顶部「更多 → Pinwhy 画板」打开当前会话的全宽视图。支持宿主原生固定／取消固定入口，也在快捷键设置中注册「打开 Pinwhy 画板」（默认不绑定按键）。输入框不放置画板按钮。画板复用主项目 Web 工作台，支持 2D/3D、节点详情、关系、参与者现场及历史阅读。
+- **从黑板恢复并实时同步**：打开即读取完整快照，通过内核 SSE 接收变化，包括其他 CLI 或宿主的写入；聊天工具卡片只展示单次调用结果，不承担图状态重建。
+- **显式项目接入**：默认只接入配置中选择的项目；可从 DSH 已登记工作区添加项目，仍可手动填写绝对路径。自动发现已有黑板是默认关闭的可选设置；保存配置与发现黑板均不会初始化项目。
+- **11 个结构化原生工具**：涵盖基础读写、只读诊断、原子批量操作 (`pinwhy_batch`) 与关键词/过滤器记忆检索 (`pinwhy_search`)。
+- **Skill 提供者**：动态读取独立 CLI 暴露的 `SKILL.md` 并附着 DSH 适配指引，不复制代码副本。
+- **异步 CLI 进程边界**：子进程隔离，避免 Pinwhy 同步 I/O 与文件锁阻塞 DSH 事件循环；超时、取消与销毁优雅回收。
+- **安全沙箱无缝衔接**：对接 DSH `sandboxPolicy` 服务，严格核验 `writeTargets` 物理路径，拦截越界写入。
 
-本版不自动初始化项目、不安装 Claude/Codex Hook、不配置常驻服务、不采集工具活动，也不添加自动压缩 Hook 或内嵌图谱。移除本插件后，黑板数据和独立 CLI 保持可用。
+移除本插件后，黑板数据和独立 CLI 保持完全可用。
 
 ## 安装与启用
 
@@ -82,19 +84,42 @@ bundle 默认 `projects: []`，安装本身不启用任何项目。DSH 替换整
 - 在项目会话中输入“检查 pinwhy 接入状态”，可让 Agent 调用 `pinwhy_diagnose`。此工具在项目尚未启用时也可用，分别报告 CLI、项目/黑板、实际只读状态查询及当前宿主写策略，并给出处理提示；不自动修复、不写入或调整权限。
 - 所有 pinwhy 工具提供本地化标题、节点/关系摘要、项目与参与者身份、诊断事项、可展开的原始调用/结果和轨迹入口。卡片展示是持久结果上的投影，不是新的黑板事实源；错误或旧记录没有可识别元信息时保留原始结果，不显示成功摘要。
 
-这版只提供配置、显式诊断与展示，不启用自动恢复或自动检查点。安装过旧版源码链接时，重启 DSH 以刷新 Config 和 browser client 清单；发布包安装需更新包。仅提供 Host 的 headless profile 仍可使用全部工具，无需加载浏览器资源。
+画板是只读投影；Agent 写入继续使用原生工具并接受宿主写策略检查，不启用自动恢复或自动检查点。安装过旧版源码链接时，重启 DSH 以刷新 Config 和 browser client 清单；发布包安装需更新包。仅提供 Host 的 headless profile 仍可使用工具，无需加载浏览器资源。
+
+### 内置画板的数据与生命周期
+
+画板使用独立 Pinwhy CLI 提供的临时只读查看服务，要求运行时声明 `features.ephemeralViewer` 和 `outputs.serve.schema: pinwhy.viewer.v1`。不具备此能力的运行时会显示升级提示，已有工具与 Skill 不因此失效。
+
+打开画板时，DSH Host 根据真实 Session 的原始工作区选择黑板；浏览器只传 Session ID，不能指定任意目录或命令。每个 Session 使用独立的临时端口与不可猜测的路径，同一 Session 再次打开会复用服务。Web 端通过 DSH 的认证路由转发页面、资源和实时流，桌面端直接嵌入本机地址；不需要另开浏览器，也不把宿主凭据传给 Pinwhy 服务。
+
+服务使用 `serve --read-only --ephemeral --json --port=0 --base-path=...`，不修改项目的查看器端口配置、不初始化黑板，也不占用或停止用户已有查看服务。Session 关闭或插件卸载时回收子进程；宿主退出关闭输入管道时，临时服务也随之退出。
+
+画板明确区分加载、接入错误和真实空黑板。全局面板保留打开时的会话选择，并在读取期间持有该 Session 引用；切换 Session 会清除旧绑定，迟到的打开结果不能覆盖新 Session。画板中的选中、高亮和视角只属于阅读状态，节点创建、查看和卡片重放都不会伪造参与者游标。
+
+全局会话选择器按项目工作区分组，组内沿用宿主列表顺序；空会话标注「新会话」，当前持有的会话仍可保留选择。悬停选择器可查看工作区完整路径。标题与选择器按主面板实际宽度换行，侧栏展开时也不会横向挤出。
+
+加载提示覆盖服务连接与画板页面加载两个阶段；「重新加载」会重新加载当前画板文档，即使临时服务和地址被复用。接入错误提供明确的「重新连接」按钮和可展开的错误详情。加载指示遵循系统减少动态效果设置。
+
+工具卡片的「在画板中查看」按调用所属 Session 打开并定位记录节点，不使用当前聊天会话代替；记录的黑板身份与当前绑定不一致时拒绝定位。切换阅读视角和定位均不写事件、不移动参与者游标。
+
+内嵌画板通过宿主公开的主题和语言服务同步明暗、界面语言、文字／代码字体及字号；宿主设置只作用于内嵌页面，不覆盖独立查看器偏好。画板支持的语言为简体中文、繁体中文、英语和日语，其他宿主语言回退英语；记录正文始终保留原文。
+
+用户在实时画板的节点详情中显式选择引用后，插件按所属 Session 重新只读获取完整节点，将原始记录作为引用插入该会话的现有草稿，并返回该会话。引用不替换原有草稿、不自动发送、不移动黑板游标、不推断关系；历史／离线画板不提供此动作。读取失败、取消或当前输入状态拒绝编辑时如实报告，不自动重试写入。
+
+入口的固定状态交由 DSH 管理，依照宿主语义在插件重载后重置；快捷键绑定由宿主按设备保存。插件不维护第二套导航偏好或键盘监听器。
 
 ## 配置
 
 | 字段 | 默认值 | 含义 |
 | --- | --- | --- |
-| `projects` | `[]` | 显式项目数组；每项有绝对路径 `workspace`、可选 `boardRoot`，后者默认同 workspace |
+| `autoDiscover` | `false` | 用户显式启用后，在没有项目白名单时查找当前工作区或祖先目录的已有黑板；不会初始化 |
+| `projects` | `[]` | 显式项目白名单数组；每项有绝对路径 `workspace`、可选 `boardRoot` |
 | `runtimeCli` | 独立安装的 current CLI | 绝对脚本路径；支持自定义数据目录 |
 | `nodeExecutable` | 宿主 process.execPath | Node 绝对路径；桌面 Electron 自动使用 Node 模式启动子进程 |
 | `timeoutMs` | `10000` | 50–120000 毫秒 |
 | `maxOutputBytes` | `1048576` | stdout + stderr 合计上限，1024–16777216 字节 |
 
-项目匹配以原始 `session.header.cwd` 为锚点，使用真实路径和最近的已配置祖先；当前会话 cd 不会悄悄切换黑板。嵌套配置优先于外层配置；相同真实目录的别名配置产生明确错误。配置一个仓库即允许其原始会话子目录使用同一黑板；需要隔离的嵌套工作区应另行配置。
+项目匹配优先遵循 `projects` 显式白名单；没有显式项目且用户启用 `autoDiscover` 时，才向上查找最近的有效 `.pinwhy` 黑板。当前会话工作区以原始 `session.header.cwd` 为锚点。旧配置中明确保存的 `autoDiscover: true` 继续生效；未保存该字段的配置采用显式接入默认值。
 
 写入身份固定为 `dsh:<session.id>`，恢复同一会话沿用该身份，子会话使用独立游标。context 的可选 agentId 只用于显式读取其他参与者现场。身份标识不构成权限隔离。
 
@@ -111,6 +136,8 @@ bundle 默认 `projects: []`，安装本身不启用任何项目。DSH 替换整
 | `pinwhy_link` | from、to、relation；label 可选 | 写入显式有向关系，支持自定义关系 |
 | `pinwhy_cursor` | id；reason 可选 | 明确移动到节点或 none，不提供 next 自动选择 |
 | `pinwhy_checkpoint` | summary | 保存显式交接检查点 |
+| `pinwhy_search` | query、type、status、severity、confidence、tags、limit 可选 | 结构化搜索黑板节点，只读 |
+| `pinwhy_batch` | operations、requestId 可选 | 原子批量执行一组 node/link/edit 操作，全部成功或全部不写入 |
 
 原有 8 个读写工具的成功结果保持规范 JSON envelope：
 
@@ -148,6 +175,7 @@ npm run check
 PINWHY_TEST_CLI=/absolute/path/to/pinwhy/current/bin/pinwhy.js npm test
 npm run verify:profile
 npm run verify:settings
+PINWHY_TEST_CLI=/absolute/path/to/pinwhy/bin/pinwhy.js npm run verify:viewer
 ```
 
 SDK 注册验证可使用正常 npm 开发依赖环境，或使用桌面附带 runtime（macOS 示例）：
@@ -166,6 +194,8 @@ scripts/verify-dsh.mjs
 `verify:settings` 在独立 DSH_HOME 中通过真实宿主 settings/configEditor 保存配置，检查新调用即时生效、插件实例身份不变、非法值/过期修订号不落盘、重启恢复，以及诊断前后事件内容不变。设置 DSH_PLUGIN_PACKAGE 为 tgz 可检查发布产物；不发送模型请求。
 
 `verify:profile` 另用临时 DSH_HOME 实际安装、启动和移除 bundle；创建真实会话，核对 read-only 拒绝写入、workspace-write 允许写入和 Skill 发现。它使用 PATH 中的 dsh，或 DSH_BIN 指定的可执行文件。设置 DSH_PLUGIN_PACKAGE 为 tgz 的绝对路径即可验证打包产物；测试结束移除整个临时 home。
+
+`verify:viewer` 使用临时 DSH Web profile、真实宿主菜单及 Playwright，检查两处菜单入口、全宽布局、大图初始可读性、会话切换、关系与证据阅读、只读浏览、外部 CLI 实时更新、宿主主题同步，以及 2D/3D 实际渲染；不发送模型请求。它需要开发环境中的 Playwright 和 Chromium。`PINWHY_CANVAS_OUTPUT` 可指定截图输出目录，验证不修改已有 DSH_HOME 或真实项目。
 
 ### 真实模型端到端验收（显式运行）
 

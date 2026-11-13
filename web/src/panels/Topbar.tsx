@@ -1,9 +1,10 @@
-import type { RefObject } from 'react';
-import { Check, ChevronDown, FileText, Focus, GitBranch, History, ListTree, Moon, PanelLeft, Plus, Search, Sun, Users } from 'lucide-react';
+import { useState, type RefObject } from 'react';
+import { Check, ChevronDown, FileText, Focus, GitBranch, History, ListTree, Moon, MoreHorizontal, PanelLeft, Plus, Search, Sun, Users } from 'lucide-react';
 import { Select } from 'radix-ui';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Segmented, SegmentedItem } from '@/components/ui/segmented';
 import { IconButton } from '@/components/icon-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -38,6 +39,11 @@ type Props = {
   timelineOpen: boolean;
   /** Absent where there is no server to replay the log (offline HTML). */
   onTimeline?: () => void;
+  /**
+   * A host page frames the board: one compact row, no product chrome (about, version, appearance —
+   * the host owns those), and the remaining controls grouped so none of them become unreachable.
+   */
+  compact?: boolean;
 };
 
 const CONNECTION = {
@@ -46,9 +52,85 @@ const CONNECTION = {
   offline: { label: t('topbar.offline'), dot: 'bg-destructive' },
 } as const;
 
+/** The three canvas views are the same choice in both presentations. */
+function ViewSwitcher({ mode, onMode }: { mode: ViewMode; onMode: (mode: ViewMode) => void }) {
+  return (
+    <Segmented<ViewMode> value={mode} onValueChange={onMode} aria-label={t('topbar.views')}>
+      <SegmentedItem value="context" aria-label={t('view.contextLabel')}><Focus /><span className="max-sm:hidden">{t('view.context')}</span></SegmentedItem>
+      <SegmentedItem value="logic" aria-label={t('view.logicLabel')}><GitBranch /><span className="max-sm:hidden">{t('view.logic')}</span></SegmentedItem>
+      <SegmentedItem value="all" aria-label={t('view.allLabel')}><ListTree /><span className="max-sm:hidden">{t('view.all')}</span></SegmentedItem>
+    </Segmented>
+  );
+}
+
+const MENU_ROW = 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground outline-none transition-colors hover:bg-accent focus-visible:bg-accent';
+
 export function Topbar(props: Props) {
-  const { title, build, workspace, onWorkspace, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal, timelineOpen, onTimeline } = props;
+  const { title, build, workspace, onWorkspace, mode, onMode, agentId, agentIds, onAgent, theme, onTheme, connection, isStatic, sidebarOpen, onToggleSidebar, onSearch, onDigest, onNew, digestRef, activities, activityTotal, timelineOpen, onTimeline, compact } = props;
   const status = isStatic ? { label: t('topbar.static'), dot: 'bg-strong' } : CONNECTION[connection];
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  if (compact) {
+    // A framed board gets one row at any width: the host already renders the page heading,
+    // version, about and appearance switch, so repeating them here would be a second header.
+    return (
+      <header data-presentation="embedded" className="flex h-11 shrink-0 items-center gap-1.5 border-b bg-background px-2">
+        <IconButton label={sidebarOpen ? t('topbar.collapseNav') : t('topbar.expandNav')} aria-pressed={sidebarOpen} onClick={onToggleSidebar}><PanelLeft /></IconButton>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="min-w-0 truncate text-[13px] font-medium text-subtle" title={title}>{title}</span>
+          <span role="status" title={status.label} className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <i className={cn('size-1.5 rounded-full', status.dot)} /><span className="max-xl:sr-only">{status.label}</span>
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <IconButton label={t('topbar.search')} onClick={onSearch}><Search /></IconButton>
+          {workspace === 'general' && <ViewSwitcher mode={mode} onMode={onMode} />}
+          <ActivityPopover activities={activities} total={activityTotal} />
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger asChild ref={digestRef}>
+              <Button size="icon-sm" aria-label={t('palette.commands')} title={t('palette.commands')} aria-haspopup="menu" data-compact-menu><MoreHorizontal /></Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" sideOffset={6} collisionPadding={8} className="w-60 p-1.5" data-compact-menu-content>
+              <p className="m-0 px-2 pb-1.5 text-xs font-medium text-muted-foreground">{t('workspace.label')}</p>
+              <Segmented<WorkspaceMode> className="w-full" value={workspace} onValueChange={(next) => { onWorkspace(next); setMenuOpen(false); }} aria-label={t('workspace.label')}>
+                <SegmentedItem className="flex-1 justify-center" value="general">{t('workspace.general')}</SegmentedItem>
+                <SegmentedItem className="flex-1 justify-center" value="audit">{t('workspace.audit')}</SegmentedItem>
+              </Segmented>
+              {agentIds.length > 1 && (
+                <>
+                  <p className="m-0 px-2 pt-3 pb-1.5 text-xs font-medium text-muted-foreground">{t('topbar.agent')}</p>
+                  <div className="max-h-44 overflow-y-auto">
+                    {agentIds.map((id) => (
+                      <button key={id} type="button" title={id} aria-pressed={id === agentId} className={MENU_ROW} onClick={() => { onAgent(id); setMenuOpen(false); }}>
+                        <span className="min-w-0 flex-1 truncate text-left">{id.replace(/^agent:/, '')}</span>
+                        {id === agentId && <Check className="size-3.5 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="my-1.5 h-px bg-border" />
+              <button type="button" className={MENU_ROW} onClick={() => { setMenuOpen(false); onDigest(); }}>
+                <FileText className="size-3.5 shrink-0" /><span className="flex-1 text-left">{t('topbar.digest')}</span>
+              </button>
+              {onTimeline && (
+                <button type="button" className={MENU_ROW} aria-pressed={timelineOpen} onClick={() => { setMenuOpen(false); onTimeline(); }}>
+                  <History className="size-3.5 shrink-0" /><span className="flex-1 text-left">{timelineOpen ? t('timeline.close') : t('timeline.open')}</span>
+                  {timelineOpen && <Check className="size-3.5 shrink-0" />}
+                </button>
+              )}
+              {onNew && (
+                <button type="button" className={MENU_ROW} onClick={() => { setMenuOpen(false); onNew(); }}>
+                  <Plus className="size-3.5 shrink-0" /><span className="flex-1 text-left">{t('topbar.new')}</span>
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b bg-background px-3 py-2 lg:h-12 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-4 lg:py-0">
       <div className="flex min-w-0 items-center gap-2">

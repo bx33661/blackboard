@@ -32,11 +32,13 @@ import { useWorkspaceFeedback } from './workspace/use-workspace-feedback';
 import { useWorkspaceScene } from './workspace/use-workspace-scene';
 import { useWorkspaceTimeline } from './workspace/use-workspace-timeline';
 import { useWorkspaceChrome, useWorkspaceShortcuts } from './workspace/use-workspace-chrome';
+import { useEmbedHost } from './workspace/use-embed-host';
 import { AuditNavigation } from './panels/AuditNavigation';
 import { AuditContext } from './panels/AuditContext';
 import { isAuditIssue } from './workspace/audit';
 import type { BoardNode } from './types';
 import type { Scene3DProps } from './scene3d/shared';
+import { readPresentation } from './embedded';
 
 const nodeTypes = { security: SecurityNode, boardGroup: BoardGroup };
 const edgeTypes = { routed: RoutedEdge };
@@ -50,6 +52,7 @@ const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
 })));
 
 function Workspace() {
+  const [presentation] = useState(() => readPresentation(location.search));
   const { snapshot: live, connection, syncedAt, isStatic, reload } = useGraphStream();
   const { workspace, navigateWorkspace, issueId, candidateId, agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
   // A checkpoint view replaces what every panel reads; the live stream keeps running underneath.
@@ -60,8 +63,8 @@ function Workspace() {
     theme, setTheme, direction, setDirection, sidebarOpen, setSidebarOpen, closeSidebar,
     showMap, setShowMap, showLegend, setShowLegend, edgeStyle, setEdgeStyle, follow, setFollow,
     showChanges, setShowChanges, paletteOpen, setPaletteOpen, digestOpen, setDigestOpen,
-    newOpen, setNewOpen, shortcutsOpen, setShortcutsOpen,
-  } = useWorkspaceChrome();
+    newOpen, setNewOpen, shortcutsOpen, setShortcutsOpen, setFonts: setHostFonts,
+  } = useWorkspaceChrome({ embedded: presentation.embedded, appearance: presentation.appearance, fonts: presentation.fonts });
   const [filter, setFilter] = useState<NodeFilter>(EMPTY_FILTER);
   const digestTrigger = useRef<HTMLButtonElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -83,6 +86,25 @@ function Workspace() {
     snapshot: timeline.active && !timeline.point ? null : snapshot,
     byId, projection, nodes, edges, mode, setMode, selectedId, setSelectedId,
     deepLink, pendingFocus, centerOnNode, onNodesChange, closeSidebar, scene3d, revealInGeneral: !auditMode,
+  });
+  // A bare host can navigate and restyle; only `reference=1` offers the explicit reference action,
+  // and never over a checkpoint or a static export, where the canonical node may differ.
+  const referenceEnabled = presentation.embedded && presentation.reference && window.parent !== window && !isStatic && !timeline.active;
+  const reference = useEmbedHost({
+    embedded: presentation.embedded,
+    enabled: referenceEnabled,
+    onAppearance: setTheme,
+    onFonts: setHostFonts,
+    onNavigate: (id) => {
+      // A host can navigate before the first snapshot or a requested checkpoint has loaded.
+      if (!snapshot || (timeline.active && !timeline.point)) {
+        deepLink.current = id;
+        pendingFocus.current = id;
+      } else if (byId.has(id)) {
+        deepLink.current = null;
+        focusNode(id);
+      }
+    },
   });
   const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, canvasMode, edgeStyle, showChanges && timeline.active ? timeline.changeMap : null);
 
@@ -123,6 +145,7 @@ function Workspace() {
   return (
     <div className="flex h-full flex-col">
       <Topbar
+        compact={presentation.embedded}
         title={snapshot.meta.title || t('app.untitledTask')}
         build={snapshot.meta.build}
         workspace={workspace}
@@ -210,6 +233,7 @@ function Workspace() {
             fitViewOptions={{ padding: .14, minZoom: .08, maxZoom: 1 }}
             onMove={(_, viewport) => viewportRef.current?.style.setProperty('--zoom', String(viewport.zoom))}
             proOptions={{ hideAttribution: true }}
+            onlyRenderVisibleElements
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
             <CanvasToolbar
@@ -312,7 +336,7 @@ function Workspace() {
 
           <p className="sr-only" role="status" aria-live="polite">{selected ? t('app.selected', { type: typeLabelOf(selected.type), title: selected.title }) : ''}</p>
 
-          {selected && <Inspector panelRef={inspectorRef} node={selected} edges={allEdges} byId={byId} onClose={clearSelection} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
+          {selected && <Inspector panelRef={inspectorRef} node={selected} edges={allEdges} byId={byId} onClose={clearSelection} onFocus={focusNode} onCopyLink={copyNodeLink} linkCopied={linkCopied} reference={referenceEnabled ? { status: reference.status, message: reference.message, nodeId: reference.nodeId, onRequest: reference.request } : undefined} writable={writable} onReload={reload} isStatic={isStatic} connected={connection === 'live'} revision={syncedAt} />}
           </div>
         </main>
       </div>

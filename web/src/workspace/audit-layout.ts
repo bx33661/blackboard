@@ -15,8 +15,9 @@ export function layoutAudit(nodes: CanvasNode[], edges: Edge[]) {
       const roles = node.data.auditRoles ?? ['related'];
       const lane = lanes.find((role) => roles.includes(role)) ?? 'related';
       const y = nextY.get(lane)!;
-      nextY.set(lane, y + Number(node.style?.height ?? NODE_H) + 72);
-      return { ...node, position: { x: x[lane], y }, data: { ...node.data, direction: 'RIGHT' as const } };
+      const height = Number(node.style?.height ?? node.height ?? NODE_H);
+      nextY.set(lane, y + height + 72);
+      return { ...node, width: NODE_W, height, initialWidth: NODE_W, initialHeight: height, position: { x: x[lane], y }, data: { ...node.data, direction: 'RIGHT' as const } };
     }),
     edges: edges.map((edge) => ({ ...edge, data: { ...edge.data, route: undefined } })),
   };

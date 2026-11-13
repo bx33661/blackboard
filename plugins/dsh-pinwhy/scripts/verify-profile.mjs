@@ -28,23 +28,27 @@ export function apply(ctx, config) {
   ctx.effect(() => ctx.appReady.onReady(() => {
     (async () => {
       const schemas = ctx.tools.schemas().filter(s => s.name.startsWith('pinwhy_'));
-      assert.equal(schemas.length, 9);
+      assert.equal(schemas.length, 11);
       const agent = await ctx.agentLoop.create('loader-probe', {}, { cwd: config.project });
-      const result = await ctx.tools.execute({ callId: 'loader-probe', name: 'pinwhy_context', arguments: {}, agent, signal: new AbortController().signal });
+      const call = async (name, args) => {
+        const batch = await ctx.tools.execute({ calls: [{ callId: 'probe-' + name, name, arguments: args }], agent, signal: new AbortController().signal });
+        return batch.results[0].result;
+      };
+      const result = await call('pinwhy_context', {});
       assert.ok(!result.isError, JSON.stringify(result));
       assert.equal(result.value.data.policy.nextStepSelection, 'agent-controlled');
       agent.session.append('sandbox/mode', { mode: 'read-only' });
       const writeArgs = { type: 'note', title: 'Live policy verification' };
-      const denied = await ctx.tools.execute({ callId: 'loader-denied', name: 'pinwhy_node_add', arguments: writeArgs, agent, signal: new AbortController().signal });
+      const denied = await call('pinwhy_node_add', writeArgs);
       assert.equal(denied.isError, true);
       assert.match(denied.error.message, /WRITE_POLICY/);
       agent.session.append('sandbox/mode', { mode: 'workspace-write' });
-      const added = await ctx.tools.execute({ callId: 'loader-write', name: 'pinwhy_node_add', arguments: writeArgs, agent, signal: new AbortController().signal });
+      const added = await call('pinwhy_node_add', writeArgs);
       assert.ok(!added.isError, JSON.stringify(added));
       assert.equal(added.value.data.node.title, writeArgs.title);
       const skills = await ctx.skills.list({ cwd: config.project });
       assert.ok(skills.some(s => s.name === 'pinwhy'));
-      console.log('DSH_LOADER_PROBE: 9 native tools; live Session read/write; read-only enforcement; Skill discovery PASS');
+      console.log('DSH_LOADER_PROBE: 11 native tools; live Session read/write; read-only enforcement; Skill discovery PASS');
       ctx.appExit(0);
     })().catch(error => { console.error(error); ctx.appExit(1); });
   }));

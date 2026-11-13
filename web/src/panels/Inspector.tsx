@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import { Collapsible } from 'radix-ui';
-import { Check, ArrowDownLeft, ArrowUpRight, ChevronRight, Link2, Unlink, X } from 'lucide-react';
+import { Check, ArrowDownLeft, ArrowUpRight, ChevronRight, Link2, Loader2, MessageSquareQuote, Unlink, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconButton } from '@/components/icon-button';
 import { Kbd } from '@/components/ui/kbd';
@@ -15,6 +15,16 @@ import { t } from '../i18n';
 import { sourceLocation } from '../research-state';
 import { NodeHistorySection, type HistoryAvailability } from './HistoryPanel';
 
+/** The framed host's explicit reference affordance; absent on standalone, historical and static pages. */
+export type ReferenceAction = {
+  status: 'idle' | 'pending' | 'done' | 'error';
+  /** Host explanation for a failure; `null` means the host did not answer in time. */
+  message: string | null;
+  /** Feedback belongs to the node it was requested for; another node starts from rest. */
+  nodeId: string | null;
+  onRequest: (id: string) => void;
+};
+
 type Props = HistoryAvailability & {
   node: BoardNode;
   edges: BoardEdge[];
@@ -23,14 +33,20 @@ type Props = HistoryAvailability & {
   onFocus: (id: string) => void;
   onCopyLink?: () => void;
   linkCopied?: boolean;
+  /** Only a framed host configured with `reference=1` offers this. */
+  reference?: ReferenceAction;
   /** The server accepts edits from this page. */
   writable?: boolean;
   onReload: () => Promise<void>;
   panelRef?: Ref<HTMLElement>;
 };
 
-export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, linkCopied, writable, onReload, isStatic, connected, revision, panelRef }: Props) {
+export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, linkCopied, reference, writable, onReload, isStatic, connected, revision, panelRef }: Props) {
   const relations = edges.filter((edge) => edge.from === node.id || edge.to === node.id);
+  const referenceStatus = reference && reference.nodeId === node.id ? reference.status : 'idle';
+  const referenceLabel = referenceStatus === 'pending' ? t('inspector.referencePending')
+    : referenceStatus === 'done' ? t('inspector.referenceDone')
+      : referenceStatus === 'error' ? t('inspector.referenceRetry') : t('inspector.reference');
   return (
     <aside
       ref={panelRef}
@@ -41,10 +57,30 @@ export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, lin
         <span className="text-muted-foreground"><NodeTypeIcon type={node.type} size={14} /></span>
         <span className="text-[13px] font-medium">{typeLabel(node.type)}</span>
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground" title={node.id}>{node.id}</span>
+        {reference && (
+          <IconButton
+            label={referenceLabel}
+            onClick={() => reference.onRequest(node.id)}
+            disabled={reference.status === 'pending'}
+          >
+            {referenceStatus === 'pending' ? <Loader2 className="animate-spin" /> : referenceStatus === 'done' ? <Check /> : <MessageSquareQuote />}
+          </IconButton>
+        )}
         {onCopyLink && <IconButton label={linkCopied ? t('inspector.linkCopied') : t('inspector.copyLink')} onClick={onCopyLink}>{linkCopied ? <Check /> : <Link2 />}</IconButton>}
         <Kbd className="hidden sm:inline-flex">Esc</Kbd>
         <IconButton label={t('inspector.close')} onClick={onClose}><X /></IconButton>
       </header>
+
+      {reference && referenceStatus !== 'idle' && (
+        <p
+          role="status"
+          className={cn('m-0 shrink-0 border-b px-3.5 py-1.5 text-[11px] leading-4', referenceStatus === 'error' ? 'text-destructive' : 'text-muted-foreground')}
+        >
+          {referenceStatus === 'pending' ? t('inspector.referencePending')
+            : referenceStatus === 'done' ? t('inspector.referenceDone')
+              : t('inspector.referenceFailed', { error: reference.message || t('inspector.referenceTimeout') })}
+        </p>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <InputIntegrityNotice record={node} />

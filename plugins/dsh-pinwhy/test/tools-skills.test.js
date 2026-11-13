@@ -8,10 +8,10 @@ import { skillProvider } from '../src/skills.js';
 import { mount } from '../src/plugin.js';
 import { temporary, board, execution } from './helpers.js';
 
-test('nine fixed tools expose no arbitrary project, shell, initialization or next-step selector', () => {
+test('fixed tools expose no arbitrary project, shell, initialization or next-step selector', () => {
   const specs = toolSpecifications(normalizeConfig(), {});
-  assert.equal(specs.length, 9);
-  assert.equal(new Set(specs.map((s) => s.name)).size, 9);
+  assert.equal(specs.length, 11);
+  assert.equal(new Set(specs.map((s) => s.name)).size, 11);
   for (const s of specs) {
     for (const forbidden of ['cwd', 'boardRoot', 'command', 'shell']) assert.equal(s.parameters[forbidden], undefined);
     assert.ok(s.output.schema);
@@ -61,6 +61,37 @@ test('reject invalid context and implicit next cursor selection', async (t) => {
   await assert.rejects(specs.find((s) => s.name === 'pinwhy_node_patch').execute({ id: 'n1', tags: [] }, execution(project)), /clearing tags/);
 });
 
+test('search and batch tools execute correctly with arguments and stdin serialization', async (t) => {
+  const root = await temporary(t), project = await board(root), calls = [];
+  const runtime = { capabilities: { writeTargets: [] } };
+  const bridge = {
+    run: async (scope, argv, _signal, beforeSpawn, _config, stdin) => {
+      await beforeSpawn?.(runtime);
+      calls.push({ argv, stdin });
+      return { data: { total: 1 } };
+    },
+  };
+  const specs = new Map(toolSpecifications(normalizeConfig({ projects: [{ workspace: project }] }), bridge,
+    async () => {}).map(s => [s.name, s]));
+
+  // Search
+  await specs.get('pinwhy_search').execute({ query: 'auth bypass', type: 'vuln', limit: 5 }, execution(project));
+  assert.deepEqual(calls[0].argv, ['search', `--cwd=${project}`, '--type=vuln', '--limit=5', '--json', '--', 'auth bypass']);
+
+  // Batch
+  const ops = [
+    { op: 'node', type: 'finding', title: 'Token leaked' },
+    { op: 'link', from: 'n1', to: 'n2', rel: 'causes' },
+  ];
+  await specs.get('pinwhy_batch').execute({ operations: ops, requestId: 'req-1' }, execution(project));
+  assert.equal(calls[1].argv[0], 'batch');
+  assert.ok(calls[1].argv.includes('--request-id=req-1'));
+  assert.equal(calls[1].stdin, `${JSON.stringify(ops[0])}\n${JSON.stringify(ops[1])}\n`);
+
+  // Invalid batch
+  await assert.rejects(specs.get('pinwhy_batch').execute({ operations: [] }, execution(project)), /non-empty/);
+});
+
 test('Skill provider reads upstream metadata and complete resource tree without writing files', async (t) => {
   const root = await temporary(t), skill = path.join(root, 'skills/pinwhy');
   await fs.mkdir(path.join(skill, 'references'), { recursive: true });
@@ -81,8 +112,8 @@ test('Skill provider reads upstream metadata and complete resource tree without 
 
 test('mounting an unconfigured plugin only registers effects, tools and provider', async (t) => {
   const root = await temporary(t), tools = [], providers = [], cleanup = [];
-  const ctx = { tools: { register: (spec) => tools.push(spec) }, skills: { registerProvider: (p) => providers.push(p) }, effect: (factory) => cleanup.push(factory()) };
+  const ctx = { tools: { register: (spec) => tools.push(spec) }, skills: { registerProvider: (p) => providers.push(p) }, effect: (factory) => cleanup.push(factory()), inject: () => {} };
   mount(ctx, {}, { defineTool: (spec) => spec, bundledSkillRank: 600 });
-  assert.equal(tools.length, 9); assert.equal(providers.length, 1); assert.deepEqual(await fs.readdir(root), []);
+  assert.equal(tools.length, 11); assert.equal(providers.length, 1); assert.deepEqual(await fs.readdir(root), []);
   for (const dispose of cleanup) await dispose();
 });

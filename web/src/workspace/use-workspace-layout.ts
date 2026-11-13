@@ -32,7 +32,17 @@ export function useWorkspaceLayout(projection: WorkspaceProjection | null, mode:
       const fresh = new Map(projection.nodes.map((node) => [node.id, node]));
       setNodes((previous) => previous.map((node) => {
         const next = fresh.get(node.id);
-        return next ? { ...node, style: next.style, data: { ...node.data, ...next.data } } : node;
+        if (!next) return node;
+        const style = mode === 'all'
+          ? { ...next.style, width: node.style?.width ?? node.width, height: node.style?.height ?? node.height }
+          : { ...node.style, ...next.style };
+        return {
+          ...node,
+          style,
+          width: node.width ?? next.width,
+          height: node.height ?? next.height,
+          data: { ...next.data, ...node.data, item: next.data.item, dimmed: next.data.dimmed, current: next.data.current, agents: next.data.agents },
+        };
       }));
       setEdges((previous) => {
         const routes = new Map(previous.map((edge) => [edge.id, (edge.data as { route?: unknown } | undefined)?.route]));

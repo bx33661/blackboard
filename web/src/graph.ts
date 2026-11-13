@@ -128,19 +128,26 @@ export function project(snapshot: GraphSnapshot, mode: ViewMode, query: string, 
     watching.set(cursor.to, [...(watching.get(cursor.to) || []), cursor.agentId.replace(/^agent:/, '')]);
   }
 
-  const flowNodes: CanvasNode[] = nodes.map((item) => ({
-    id: item.id,
-    type: 'security',
-    position: { x: 0, y: 0 },
-    style: { width: NODE_W, height: presentNode(item).summary ? NODE_H : NODE_H_TITLE },
-    data: {
-      item,
-      current: item.id === current,
-      dimmed: Boolean(q) && !matchesNode(item, q),
-      degree: degree.get(item.id) || 0,
-      agents: watching.get(item.id),
-    },
-  }));
+  const flowNodes: CanvasNode[] = nodes.map((item) => {
+    const height = presentNode(item).summary ? NODE_H : NODE_H_TITLE;
+    return {
+      id: item.id,
+      type: 'security',
+      position: { x: 0, y: 0 },
+      width: NODE_W,
+      height,
+      initialWidth: NODE_W,
+      initialHeight: height,
+      style: { width: NODE_W, height },
+      data: {
+        item,
+        current: item.id === current,
+        dimmed: Boolean(q) && !matchesNode(item, q),
+        degree: degree.get(item.id) || 0,
+        agents: watching.get(item.id),
+      },
+    };
+  });
 
   // A weak relation is only drawn without a selection when it is all that ties one of its cards to the board.
   const strong = new Set(edges.filter((edge) => !WEAK_RELATIONS.has(edge.kind)).flatMap((edge) => [edge.from, edge.to]));
@@ -191,11 +198,18 @@ export function gridLayout(nodes: CanvasNode[], edges: Edge[], direction: 'RIGHT
   const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
   const rowHeight = NODE_H + 40;
   return {
-    nodes: nodes.map((node, index) => ({
-      ...node,
-      data: { ...node.data, direction },
-      position: { x: (index % columns) * (NODE_W + 48), y: Math.floor(index / columns) * rowHeight },
-    })),
+    nodes: nodes.map((node, index) => {
+      const height = Number(node.style?.height || node.height || NODE_H);
+      return {
+        ...node,
+        width: NODE_W,
+        height,
+        initialWidth: NODE_W,
+        initialHeight: height,
+        data: { ...node.data, direction },
+        position: { x: (index % columns) * (NODE_W + 48), y: Math.floor(index / columns) * rowHeight },
+      };
+    }),
     edges,
   };
 }
@@ -289,7 +303,18 @@ async function elkLayout(nodes: CanvasNode[], edges: Edge[], direction: 'RIGHT' 
   const sections = new Map(((result.edges || []) as ElkExtendedEdge[]).map((edge) => [edge.id, edge.sections?.[0]]));
   const at = (id: string) => ({ x: positions.get(id)?.x || 0, y: positions.get(id)?.y || 0 });
   return {
-    nodes: nodes.map((node) => ({ ...node, data: { ...node.data, direction, layoutRun: run }, position: at(node.id) })),
+    nodes: nodes.map((node) => {
+      const height = Number(node.style?.height || node.height || NODE_H);
+      return {
+        ...node,
+        width: NODE_W,
+        height,
+        initialWidth: NODE_W,
+        initialHeight: height,
+        data: { ...node.data, direction, layoutRun: run },
+        position: at(node.id),
+      };
+    }),
     // ELK's own routes keep long edges clear of the nodes between their ends.
     edges: edges.map((edge) => {
       const section = sections.get(edge.id);
@@ -358,9 +383,9 @@ export function layoutOverview(nodes: CanvasNode[], edges: Edge[], overviewColum
     const width = widths[col];
     const height = top + Math.ceil(group.nodes.length / count) * (H + gap) - gap + pad;
     const id = `__display_group_${group.id}`;
-    frames.push({ id, type: 'boardGroup', position: { x: col ? widths[0] + 56 : 0, y: columns[col] }, style: { width, height }, draggable: false, selectable: false, focusable: false,
+    frames.push({ id, type: 'boardGroup', position: { x: col ? widths[0] + 56 : 0, y: columns[col] }, width, height, initialWidth: width, initialHeight: height, style: { width, height }, draggable: false, selectable: false, focusable: false,
       data: { item: { id, type: 'display-group', title: group.title }, current: false, dimmed: false, degree: 0, group: true, groupCount: group.nodes.length, groupSubtitle: group.subtitle, groupColor: group.color }, zIndex: -1 });
-    group.nodes.forEach((node, i) => children.push({ ...node, parentId: id, extent: 'parent', position: { x: pad + (i % count) * (W + gap), y: top + Math.floor(i / count) * (H + gap) }, style: { width: W, height: H }, data: { ...node.data, compact: true, direction: 'RIGHT' } }));
+    group.nodes.forEach((node, i) => children.push({ ...node, parentId: id, extent: 'parent', position: { x: pad + (i % count) * (W + gap), y: top + Math.floor(i / count) * (H + gap) }, width: W, height: H, initialWidth: W, initialHeight: H, style: { width: W, height: H }, data: { ...node.data, compact: true, direction: 'RIGHT' } }));
     columns[col] += height + 56;
   }
   return { nodes: [...frames, ...children], edges };

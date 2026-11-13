@@ -169,6 +169,8 @@ export const ja: Messages = {
   'inspector.inputTruncated': 'この入力は保存時に切り詰められました。以下のフィールドは元の全文ではありません。',
   'inspector.inputLengths': '{field}：元の長さ {original} 文字 / 保存済み {stored} 文字',
   'inspector.relationLabel': '関係の説明',
+  'inspector.reference': "このノードを引用", 'inspector.referencePending': "引用しています…", 'inspector.referenceDone': "引用しました", 'inspector.referenceRetry': "もう一度引用",
+  'inspector.referenceFailed': "引用できませんでした：{error}", 'inspector.referenceTimeout': "ホストが応答しませんでした",
 
   'filter.label': 'ノードを絞り込む', 'filter.labelActive': '絞り込み（{n} 件有効）',
   'filter.type': '種類', 'filter.status': '状態', 'filter.confidence': '確度', 'filter.risk': 'リスク',

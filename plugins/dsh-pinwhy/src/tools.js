@@ -105,12 +105,50 @@ const operations = [
     access: 'write',
     command: (args) => ['checkpoint', '--json', `--summary=${text(args.summary, 'summary')}`],
   },
+  {
+    name: 'pinwhy_search', description: 'Search recorded board nodes by keywords and filters without moving any cursor. Read-only.',
+    parameters: {
+      query: str('Search keywords to match across title and details.'),
+      type: str('Filter by node semantic type.'),
+      status: str('Filter by recorded status (open, active, done, blocked, etc.).'),
+      severity: str('Filter by recorded severity (critical, high, medium, low, info).'),
+      confidence: str('Filter by confidence level.'),
+      tags: { type: 'array', items: { type: 'string' } },
+      limit: { type: 'integer', description: 'Maximum number of results to return (1..1000).' },
+    },
+    access: 'path',
+    command(args) {
+      const flags = [...options(args, { type: 'type', status: 'status', severity: 'sev', confidence: 'confidence' }), ...tags(args)];
+      if (args.limit !== undefined) {
+        if (!Number.isSafeInteger(args.limit) || args.limit < 1 || args.limit > 1000) throw new TypeError('limit must be an integer in 1..1000');
+        flags.push(`--limit=${args.limit}`);
+      }
+      const positionals = args.query ? [text(args.query, 'query')] : [];
+      return ['search', ...flags, '--json', ...(positionals.length ? ['--', ...positionals] : [])];
+    },
+  },
+  {
+    name: 'pinwhy_batch', description: 'Atomically execute multiple node, link, or edit operations. All succeed or none are written.',
+    parameters: {
+      operations: { type: 'array', items: { type: 'json' }, description: 'Array of operation objects, e.g. { op: "node", type: "...", title: "..." }', required: true },
+      requestId: str('Optional idempotent request identifier.'),
+    },
+    access: 'write',
+    command(args) {
+      if (!Array.isArray(args.operations) || !args.operations.length) throw new TypeError('operations must be a non-empty array');
+      const reqId = args.requestId ? text(args.requestId, 'requestId') : `dsh-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      return ['batch', '--json', `--request-id=${reqId}`];
+    },
+    input(args) {
+      return args.operations.map((op) => JSON.stringify(op)).join('\n') + '\n';
+    },
+  },
 ];
 
 /** Runtime-neutral specs are wrapped by the host's own defineTool, never a vendored SDK. */
 export function toolSpecifications(config, bridge, authorizeWrite) {
   const snapshot = () => typeof config === 'function' ? config() : config;
-  const result = operations.map(({ command, validate, access, agent, ...spec }) => ({
+  const result = operations.map(({ command, validate, access, agent, input, ...spec }) => ({
     ...spec,
     ...presenters(spec.name),
     output: {
@@ -121,9 +159,10 @@ export function toolSpecifications(config, bridge, authorizeWrite) {
     async execute(args, exec) {
       const current = snapshot();
       const argv = command(args), participant = agent?.(args);
+      const stdin = input?.(args);
       const scope = await selectScope(current, exec);
       const result = await bridge.run(scope, bound(argv, scope, access, participant), exec.signal,
-        access === 'write' && authorizeWrite ? (runtime) => authorizeWrite(scope, exec, runtime) : undefined, current);
+        access === 'write' && authorizeWrite ? (runtime) => authorizeWrite(scope, exec, runtime) : undefined, current, stdin);
       validate?.(result.data);
       return result;
     },

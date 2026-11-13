@@ -133,14 +133,14 @@
   *, ::before, ::after { border-color: var(--line); }
   html, body, #root { height: 100%; }
   /* Han characters differ by region; give each interface language its own CJK face. */
-  html:lang(zh-HK) body { font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "PingFang HK", "Microsoft JhengHei", sans-serif; }
-  html:lang(ja) body { font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif; }
+  html:lang(zh-HK) body { font-family: var(--pinwhy-font-sans, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "PingFang HK", "Microsoft JhengHei", sans-serif); }
+  html:lang(ja) body { font-family: var(--pinwhy-font-sans, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif); }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 14px;
+    font-family: var(--pinwhy-font-sans, var(--font-sans));
+    font-size: var(--pinwhy-font-size, 14px);
     line-height: 1.5;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
@@ -271,3 +271,8 @@
 }
 .zoom-chip.at-right { right: 8px; transform-origin: right center; }
 .zoom-chip.at-left { left: 8px; transform-origin: left center; }
+
+/* ---- Host embedding --------------------------------------------------- */
+/* Tailwind inlines its font stacks, so a host preference wins by specificity, not by being later. */
+html[data-embed-code-font] :is(.font-mono, code, pre) { font-family: var(--pinwhy-code-font); }
+html[data-embed-code-size] :is(.font-mono, code, pre) { font-size: var(--pinwhy-code-size); }

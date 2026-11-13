@@ -3,14 +3,15 @@
  * and the digest the Agent reads, stay exactly as stored.
  *
  * The language is fixed for the page's lifetime, so plain module-level `t()` calls are safe;
- * switching stores the choice and reloads.
+ * switching reloads, storing the choice in the reader's profile or, when framed, in the frame URL.
  */
+import { readPresentation, type EmbedLocale } from './embedded';
 import { zhCN, type MessageKey, type Messages } from './locales/zh-CN';
 import { zhHK } from './locales/zh-HK';
 import { en } from './locales/en';
 import { ja } from './locales/ja';
 
-export type Locale = 'zh-CN' | 'zh-HK' | 'en' | 'ja';
+export type Locale = EmbedLocale;
 export const LOCALES: { id: Locale; name: string }[] = [
   { id: 'zh-CN', name: '简体中文' }, { id: 'zh-HK', name: '繁體中文' }, { id: 'en', name: 'English' }, { id: 'ja', name: '日本語' },
 ];
@@ -36,13 +37,28 @@ function stored(): Locale | null {
 }
 
 const browserTags = () => typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language || ''];
+/** A framing host may name the language; that choice outranks the reader's profile, and only inside an embed. */
+const framed = typeof location === 'undefined' ? null : readPresentation(location.search);
+const requested = framed?.locale ?? null;
 /** Outside a page (tests; Node has `navigator` but no `document`) the source catalogue applies. */
-export const locale: Locale = stored() ?? (typeof document === 'undefined' ? 'zh-CN' : matchLocale(browserTags()));
-export const followsBrowser = () => stored() === null;
+export const locale: Locale = requested ?? stored() ?? (typeof document === 'undefined' ? 'zh-CN' : matchLocale(browserTags()));
+export const followsBrowser = () => requested === null && stored() === null;
 const messages = CATALOGUES[locale];
 
-/** `null` goes back to following the browser. */
+/**
+ * `null` goes back to following the browser. A framed board keeps its language in the frame URL
+ * instead of the reader's profile, so the host's choice never leaks into a later standalone visit.
+ */
 export function setLocale(next: Locale | null) {
+  if (framed?.embedded) {
+    try {
+      const url = new URL(location.href);
+      if (next) url.searchParams.set('lang', next); else url.searchParams.delete('lang');
+      history.replaceState(null, '', url);
+    } catch { /* the frame keeps its current URL */ }
+    location.reload();
+    return;
+  }
   try {
     if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     else localStorage.removeItem(STORAGE_KEY);

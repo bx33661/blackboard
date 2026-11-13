@@ -27,7 +27,8 @@ export function useWorkspaceData(snapshot: GraphSnapshot | null, mode: ViewMode,
         const context = audit.contexts.get(node.id);
         const auditCounts = context ? { contradiction: context.groups.contradiction.length, condition: context.groups.condition.length } : undefined;
         const hasBadges = auditCounts && (auditCounts.contradiction > 0 || auditCounts.condition > 0);
-        return { ...node, style: { ...node.style, height: Number(node.style?.height ?? 128) + (hasBadges ? 72 : 24) }, data: { ...node.data, auditRoles: audit.nodeRoles.get(node.id), auditCounts } };
+        const height = Number(node.style?.height ?? node.height ?? 128) + (hasBadges ? 72 : 24);
+        return { ...node, width: node.width ?? 288, height, initialWidth: node.initialWidth ?? 288, initialHeight: height, style: { ...node.style, height }, data: { ...node.data, auditRoles: audit.nodeRoles.get(node.id), auditCounts } };
       }),
       edges: local.edges.map((edge) => ({ ...edge, data: { ...edge.data, quiet: false } })),
       hidden: 0,

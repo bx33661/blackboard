@@ -37,12 +37,12 @@ export function apply(ctx, config) {
       const agent = await ctx.agentLoop.create('settings-probe-' + process.env.PINWHY_SETTINGS_PHASE, {}, { cwd: config.project });
       agent.session.append('sandbox/mode', { mode: 'read-only' });
       let serial = 0;
-      const call = () => ctx.tools.execute({ callId: 'diagnose-' + ++serial, name: 'pinwhy_diagnose', arguments: {}, agent, signal: new AbortController().signal });
+      const call = () => ctx.tools.execute({ calls: [{ callId: 'diagnose-' + ++serial, name: 'pinwhy_diagnose', arguments: {} }], agent, signal: new AbortController().signal }).then(r => r.results[0].result);
       if (process.env.PINWHY_SETTINGS_PHASE === 'write') {
         const unconfigured = await call();
         assert.ok(!unconfigured.isError, JSON.stringify(unconfigured));
         assert.equal(unconfigured.value.readyToRead, false);
-        assert.ok(unconfigured.value.checks.some(c => c.code === 'NOT_ENABLED'));
+        assert.ok(unconfigured.value.checks.some(c => ['NOT_ENABLED', 'RUNTIME_MISSING'].includes(c.code)));
         await ctx.settings.update('pinwhy', { projects: [{ workspace: config.project }], runtimeCli: config.runtimeCli, timeoutMs: 12000 }, current.revision);
         current = descriptor();
         assert.equal(fiber(), originalFiber, 'volatile edit must retain the plugin instance');

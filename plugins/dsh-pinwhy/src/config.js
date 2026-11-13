@@ -26,7 +26,7 @@ function integer(value, fallback, min, max, label) {
 
 export function normalizeConfig(input = {}, env = process.env) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('config must be an object');
-  const allowed = new Set(['runtimeCli', 'nodeExecutable', 'projects', 'timeoutMs', 'maxOutputBytes']);
+  const allowed = new Set(['runtimeCli', 'nodeExecutable', 'projects', 'timeoutMs', 'maxOutputBytes', 'autoDiscover']);
   for (const key of Object.keys(input)) if (!allowed.has(key)) throw new TypeError(`unknown config field: ${key}`);
   const projects = input.projects ?? [];
   if (!Array.isArray(projects)) throw new TypeError('projects must be an array');
@@ -45,6 +45,7 @@ export function normalizeConfig(input = {}, env = process.env) {
     runtimeCli: absolute(input.runtimeCli ?? path.join(dataHome, 'pinwhy', 'current', 'bin', 'pinwhy.js'), 'runtimeCli'),
     nodeExecutable: absolute(input.nodeExecutable ?? process.execPath, 'nodeExecutable'),
     projects: Object.freeze(rows),
+    autoDiscover: input.autoDiscover === true,
     timeoutMs: integer(input.timeoutMs, 10_000, 50, 120_000, 'timeoutMs'),
     maxOutputBytes: integer(input.maxOutputBytes, 1_048_576, 1024, 16_777_216, 'maxOutputBytes'),
   });

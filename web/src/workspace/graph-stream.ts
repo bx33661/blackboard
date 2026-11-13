@@ -1,4 +1,5 @@
 import type { GraphSnapshot } from '../types';
+import { endpoint } from '../endpoint';
 import { t } from '../i18n';
 
 export type Connection = 'connecting' | 'live' | 'offline';
@@ -85,7 +86,7 @@ export function createGraphSubscription(
     reads.add(controller);
     try {
       let response: GraphResponse;
-      try { response = await ports.fetch('/api/graph', { signal: controller.signal }); }
+      try { response = await ports.fetch(endpoint('/api/graph'), { signal: controller.signal }); }
       catch { throw new Error(t('api.noResponse')); }
       if (disposed) return;
       if (!response.ok) throw new Error(t('api.failed', { status: response.status }));
@@ -105,7 +106,7 @@ export function createGraphSubscription(
   let stream: GraphEventStream | undefined;
   if (!state.isStatic) {
     void reload().catch(() => { if (!disposed && appliedSequence === 0) offline(); });
-    stream = ports.openStream('/events');
+    stream = ports.openStream(endpoint('/events'));
     stream.addEventListener('graph', (event) => {
       if (disposed) return;
       const order = ++sequence;

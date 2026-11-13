@@ -100,7 +100,8 @@
           "doctor": true,
           "editClear": true,
           "listFilters": true,
-          "resourcePaths": true
+          "resourcePaths": true,
+          "ephemeralViewer": true
         },
         "resources": {
           "cli": "<runtime>/bin/pinwhy.js",
@@ -274,6 +275,10 @@
           "receipt": {
             "shape": "object",
             "schema": "pinwhy.receipt.v1"
+          },
+          "serve": {
+            "shape": "object",
+            "schema": "pinwhy.viewer.v1"
           },
           "capabilities": {
             "shape": "object",
@@ -417,7 +422,8 @@
           "doctor": true,
           "editClear": true,
           "listFilters": true,
-          "resourcePaths": true
+          "resourcePaths": true,
+          "ephemeralViewer": true
         },
         "resources": {
           "cli": "<runtime>/bin/pinwhy.js",
@@ -591,6 +597,10 @@
           "receipt": {
             "shape": "object",
             "schema": "pinwhy.receipt.v1"
+          },
+          "serve": {
+            "shape": "object",
+            "schema": "pinwhy.viewer.v1"
           },
           "capabilities": {
             "shape": "object",

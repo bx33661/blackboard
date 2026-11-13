@@ -10,6 +10,8 @@ const backendUrl = viewerUrl(resolvePort({
 
 export default defineConfig({
   root: 'web',
+  // Assets stay relative so a host-embedded viewer works under a token prefix.
+  base: './',
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./web/src', import.meta.url)) } },
   build: {

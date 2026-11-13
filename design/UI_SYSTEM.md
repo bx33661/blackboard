@@ -31,6 +31,11 @@ Quiet tool chrome for exploration. General and security-audit modes are two read
   selecting a node never resizes or re-lays-out the canvas.
 - **⌘K command palette** (cmdk): jump to any node, switch view/theme, copy digest.
   Search no longer dims the canvas; it navigates.
+- **Host embedding**: framed workspaces use one compact toolbar and the host's validated language,
+  colour scheme, text/code font families and sizes without persisting those settings locally.
+  Host navigation selects a reader node only. A live embed may explicitly offer a node-reference
+  action; it sends an id to its host, which owns canonical reading and draft insertion. Historical
+  and static views do not offer that action. No reader gesture moves the authored Agent cursor.
 
 ## Workspace modes
 

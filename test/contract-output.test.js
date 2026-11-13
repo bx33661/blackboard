@@ -397,8 +397,18 @@ test('capabilities resource paths identify actual complete runtime resources bef
 /** The capabilities.outputs entry a case answers to; `activity show` has its own. */
 const outputKey = (command, spec) => command === 'release' ? 'release check' : (command === 'activity' && spec.args[1] === 'show' ? 'activity show' : command);
 
+/**
+ * `serve --json` prints one ready line and then keeps serving, so it has no finite
+ * baseline here; test/viewer-ephemeral.test.js runs it against the documented schema.
+ */
+const LONG_RUNNING = new Set(['serve']);
+
 test('contract output: every output matches the schema capabilities declares', () => {
   const { outputs } = capabilities();
+  for (const key of LONG_RUNNING) {
+    assert.equal(outputs[key]?.shape, 'object', `capabilities.outputs lacks ${key}`);
+    assert.match(outputs[key].schema, /^pinwhy\.[a-z-]+\.v\d+$/);
+  }
   const answered = new Set();
   for (const [command, cases] of Object.entries(CASES)) {
     const baseline = JSON.parse(fs.readFileSync(path.join(OUTPUTS, `${command}.json`), 'utf8'));
@@ -418,7 +428,7 @@ test('contract output: every output matches the schema capabilities declares', (
       }
     });
   }
-  assert.deepEqual([...answered].sort(), Object.keys(outputs).sort(), 'every declared output has a case');
+  assert.deepEqual([...new Set([...answered, ...LONG_RUNNING])].sort(), Object.keys(outputs).sort(), 'every declared output has a case');
 });
 
 test('contract output: commands write only declared targets inside the project', (t) => {

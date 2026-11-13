@@ -3,6 +3,7 @@ import { CliBridge } from './bridge.js';
 import { toolSpecifications } from './tools.js';
 import { skillProvider } from './skills.js';
 import { writeAuthorizer } from './policy.js';
+import { mountViewer } from './viewer.js';
 
 /** Keep SDK registration at the edge; core pinwhy remains an independent executable. */
 export function mount(ctx, input, { defineTool, bundledSkillRank }) {
@@ -12,4 +13,5 @@ export function mount(ctx, input, { defineTool, bundledSkillRank }) {
   ctx.effect(() => () => bridge.dispose());
   for (const spec of toolSpecifications(config, bridge, writeAuthorizer(ctx))) ctx.tools.register(defineTool(spec));
   ctx.skills.registerProvider(() => skillProvider(bridge, bundledSkillRank));
+  ctx.inject(['connection', 'sessions'], viewerCtx => mountViewer(viewerCtx, config, bridge));
 }

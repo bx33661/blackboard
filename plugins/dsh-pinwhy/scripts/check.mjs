@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
 assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml');
-assert.equal(pkg.engines.dsh, '0.2.1-rc.2');
+assert.equal(pkg.engines.dsh, '>=0.2.2-rc.2 <1.0.0');
 assert.equal(pkg.dsh.client.platform, 'web');
 assert.ok(pkg.files.includes('client/'));
 assert.equal(pkg.dependencies, undefined, 'host SDK instances are peer dependencies');

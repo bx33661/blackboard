@@ -175,6 +175,8 @@ export const zhCN = {
   'inspector.inputTruncated': '此记录的输入在写入时被截短，以下字段不是完整原文。',
   'inspector.inputLengths': '{field}：原始 {original} 字符 / 已保存 {stored} 字符',
   'inspector.relationLabel': '关系说明',
+  'inspector.reference': '引用此节点', 'inspector.referencePending': '正在引用…', 'inspector.referenceDone': '已引用', 'inspector.referenceRetry': '重新引用',
+  'inspector.referenceFailed': '引用失败：{error}', 'inspector.referenceTimeout': '宿主未响应',
 
   'filter.label': '筛选节点', 'filter.labelActive': '筛选（已启用 {n} 项）',
   'filter.type': '类型', 'filter.status': '状态', 'filter.confidence': '可信度', 'filter.risk': '风险',

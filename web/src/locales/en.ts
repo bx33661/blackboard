@@ -170,6 +170,8 @@ export const en: Messages = {
   'inspector.inputTruncated': 'This input was shortened when it was saved. The following fields are not the complete original text.',
   'inspector.inputLengths': '{field}: original {original} characters / saved {stored} characters',
   'inspector.relationLabel': 'Relation label',
+  'inspector.reference': 'Reference this node', 'inspector.referencePending': 'Referencing…', 'inspector.referenceDone': 'Referenced', 'inspector.referenceRetry': 'Reference again',
+  'inspector.referenceFailed': 'Could not reference: {error}', 'inspector.referenceTimeout': 'The host did not respond',
 
   'filter.label': 'Filter nodes', 'filter.labelActive': 'Filter ({n} active)',
   'filter.type': 'Type', 'filter.status': 'Status', 'filter.confidence': 'Confidence', 'filter.risk': 'Risk',

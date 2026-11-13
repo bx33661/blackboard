@@ -160,6 +160,8 @@ export const zhHK: Messages = {
   'inspector.inputTruncated': '此記錄的輸入在寫入時被截短，以下欄位並非完整原文。',
   'inspector.inputLengths': '{field}：原始 {original} 字元 / 已儲存 {stored} 字元',
   'inspector.relationLabel': '關係說明',
+  'inspector.reference': "引用此節點", 'inspector.referencePending': "正在引用…", 'inspector.referenceDone': "已引用", 'inspector.referenceRetry': "重新引用",
+  'inspector.referenceFailed': "引用失敗：{error}", 'inspector.referenceTimeout': "宿主未回應",
 
   'filter.label': '篩選節點', 'filter.labelActive': '篩選（已啟用 {n} 項）',
   'filter.type': '類型', 'filter.status': '狀態', 'filter.confidence': '可信度', 'filter.risk': '風險',

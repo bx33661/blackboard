@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { endpoint } from './endpoint';
 import type { CheckpointChanges, GraphSnapshot, NodeHistory, UpdateCheck } from './types';
 import { isGraphSnapshot } from './workspace/graph-stream';
 
@@ -18,7 +19,7 @@ export class NodeConflict extends Error {
 async function send<T>(method: string, url: string, body?: unknown, requestId?: string): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(requestId ? { 'Idempotency-Key': requestId } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+    response = await fetch(endpoint(url), { method, headers: { 'Content-Type': 'application/json', ...(requestId ? { 'Idempotency-Key': requestId } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     throw Object.assign(new Error(t('api.noResponse')), { code: 'no_response' });
   }

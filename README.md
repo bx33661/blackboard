@@ -149,7 +149,7 @@ pinwhy serve --open
 
 **DeepSeek Harness**
 
-安装可选的 `dsh-pinwhy` 插件，在设置中启用项目。插件提供原生记录工具和 Skill，目前支持 DSH `0.2.1-rc.2`。安装与配置见插件 README。[DSH 插件说明](plugins/dsh-pinwhy/README.md)
+安装可选的 `dsh-pinwhy` 插件，在设置中启用项目。插件提供 DSH 原生记录工具、Skill 与内置只读 Web 画板，目前支持 DSH `0.2.2-rc.2`。安装与配置见[DSH 插件说明](plugins/dsh-pinwhy/README.md)。
 
 **其他 Agent 或手动使用**
 

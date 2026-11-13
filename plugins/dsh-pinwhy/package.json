@@ -38,24 +38,44 @@
     "verify:metadata": "node scripts/verify-metadata.mjs",
     "verify:profile": "node scripts/verify-profile.mjs",
     "verify:e2e": "node scripts/verify-e2e.mjs",
-    "verify:settings": "node scripts/verify-settings.mjs"
+    "verify:settings": "node scripts/verify-settings.mjs",
+    "verify:viewer": "node scripts/verify-viewer.mjs"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0",
-    "dsh": "0.2.1-rc.2"
+    "dsh": ">=0.2.2-rc.2 <1.0.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "~4.0.5",
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
-    "@deepseek-ai/dsh-skill": "0.2.1-rc.2",
-    "@deepseek-ai/schemastery": "~3.18.5"
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.2",
+    "@deepseek-ai/schemastery": "~3.19.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-client-connection": { "optional": true },
+    "@deepseek-ai/dsh-host-webserver": { "optional": true }
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
     "client": {
-      "platform": "web"
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-shortcuts",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-api-session-controller"
+      ]
     }
   },
   "license": "MIT",

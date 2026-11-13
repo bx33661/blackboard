@@ -133,9 +133,10 @@ async function checkViewer(cli, board, env) {
     const response = await fetch(url);
     assert.equal(response.status, 200);
     const html = await response.text();
-    const asset = html.match(/src="(\/assets\/[^\"]+\.js)"/);
+    const asset = html.match(/src="((?:\.\/|\/)assets\/[^\"]+\.js)"/);
     assert.ok(asset, 'served workspace must reference its real built entry');
-    assert.equal((await fetch(`${url}${asset[1]}`)).status, 200);
+    const assetPath = asset[1].replace(/^\.\//, '/');
+    assert.equal((await fetch(`${url}${assetPath}`)).status, 200);
   } finally {
     child.kill('SIGTERM');
     let timer;
