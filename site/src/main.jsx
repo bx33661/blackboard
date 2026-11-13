@@ -20,6 +20,9 @@ import Faq from './sections/Faq.jsx';
 import Finale from './sections/Finale.jsx';
 import SecurityPage from './pages/Security.jsx';
 import DshPage from './pages/Dsh.jsx';
+import CommandPalette, { useModKey } from './components/CommandPalette.jsx';
+import { switchThemeWithReveal } from './lib/themeReveal.js';
+import { Search } from 'lucide-react';
 
 function usePopover() {
   const [open, setOpen] = useState(false);
@@ -49,7 +52,7 @@ function ThemeMenu() {
         <div className="pop" role="menu">
           {opts.map(([k, I]) => (
             <button key={k} role="menuitemradio" aria-checked={theme === k} className={theme === k ? 'on' : ''}
-              onClick={() => { setTheme(k); setOpen(false); }}>
+              onClick={() => { setOpen(false); switchThemeWithReveal(k, setTheme); }}>
               <I size={16} />{t.nav.themes[k]}
             </button>
           ))}
@@ -154,10 +157,17 @@ function Nav() {
   const { page, navigate } = useRoute();
   const [scrolled, setScrolled] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const pill = useRef(null);
+  const mod = useModKey();
   const copyPrompt = useCopyPrompt();
 
   useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 8);
+    const on = () => {
+      setScrolled(window.scrollY > 8);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      pill.current?.style.setProperty('--p', max > 0 ? Math.min(1, window.scrollY / max).toFixed(4) : '0');
+    };
     on();
     window.addEventListener('scroll', on, { passive: true });
     return () => window.removeEventListener('scroll', on);
@@ -188,7 +198,8 @@ function Nav() {
 
   return (
     <header className={`nav${scrolled || sheet ? ' scrolled' : ''}`}>
-      <div className="nav-pill">
+      <div className="nav-pill" ref={pill}>
+        <span className="nav-progress" aria-hidden="true" />
         <a className="nav-brand" href="#top" onClick={handleNav('home')} aria-label="Pinwhy Home">
           <img src="/mark.svg" alt="" />
           <b>Pinwhy</b>
@@ -196,6 +207,10 @@ function Nav() {
         </a>
         <NavLinks links={t.nav.links} page={page} onNav={handleNav} />
         <div className="nav-right">
+          <button className="nav-k" onClick={() => setPalette(true)} aria-label={t.nav.palette.open} aria-haspopup="dialog">
+            <Search size={14} strokeWidth={1.75} aria-hidden="true" />
+            <kbd>{mod}</kbd><kbd>K</kbd>
+          </button>
           <LangSwitch />
           <ThemeMenu />
           <a className="icon-btn" href={REPO} target="_blank" rel="noreferrer" aria-label="GitHub">
@@ -227,6 +242,7 @@ function Nav() {
           </button>
         </nav>
       )}
+      <CommandPalette open={palette} setOpen={setPalette} onNav={handleNav} />
     </header>
   );
 }
