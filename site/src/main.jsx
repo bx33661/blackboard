@@ -10,9 +10,11 @@ import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './index.css';
 import { ThemeProvider, useSiteTheme } from './lib/theme.jsx';
-import { LANG_PATH, LangProvider, useLang } from './i18n.jsx';
+import { RouteProvider, useRoute } from './router.jsx';
+import { LangProvider, useLang } from './i18n.jsx';
 import { Icon, REPO, ToastProvider, lenisRef, reducedMotion, scrollToId, useCopyPrompt, useReveal } from './shared.jsx';
 import Hero from './sections/Hero.jsx';
+import Spotlights from './sections/Spotlights.jsx';
 import Stage from './sections/Stage.jsx';
 import Recovery from './sections/Recovery.jsx';
 import Features from './sections/Features.jsx';
@@ -20,6 +22,8 @@ import Start from './sections/Start.jsx';
 import Principles from './sections/Principles.jsx';
 import Faq from './sections/Faq.jsx';
 import Finale from './sections/Finale.jsx';
+import SecurityPage from './pages/Security.jsx';
+import DshPage from './pages/Dsh.jsx';
 
 function usePopover() {
   const [open, setOpen] = useState(false);
@@ -61,13 +65,14 @@ function ThemeMenu() {
 
 /** A two-option segmented switch: 中 / EN. */
 function LangSwitch() {
-  const { lang, setLang, t } = useLang();
+  const { lang, switchLang } = useRoute();
+  const { t } = useLang();
   return (
     <div className="lang-switch sans" role="radiogroup" aria-label={t.nav.lang}>
       <span className="thumb" style={{ transform: `translateX(${lang === 'zh' ? 0 : 100}%)` }} aria-hidden="true" />
       {[['zh', '中', 'zh-CN'], ['en', 'EN', 'en']].map(([id, label, tag]) => (
         <a key={id} role="radio" aria-checked={lang === id} className={lang === id ? 'on' : ''} lang={tag} hrefLang={tag}
-          href={LANG_PATH[id]} onClick={(e) => { e.preventDefault(); setLang(id); }}>{label}</a>
+          href="#" onClick={(e) => { e.preventDefault(); switchLang(id); }}>{label}</a>
       ))}
     </div>
   );
@@ -75,42 +80,94 @@ function LangSwitch() {
 
 function Nav() {
   const { t } = useLang();
+  const { page, navigate } = useRoute();
   const [scrolled, setScrolled] = useState(false);
   const [sheet, setSheet] = useState(false);
   const copyPrompt = useCopyPrompt();
+
   useEffect(() => {
     const on = () => setScrolled(window.scrollY > window.innerHeight * 0.55);
     on();
     window.addEventListener('scroll', on, { passive: true });
     return () => window.removeEventListener('scroll', on);
   }, []);
-  const go = (id) => (e) => { e.preventDefault(); setSheet(false); scrollToId(id); };
+
+  const handleNav = (target) => (e) => {
+    e.preventDefault();
+    setSheet(false);
+    if (target === 'home') {
+      navigate('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (target === 'security') {
+      navigate('security');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (target === 'dsh') {
+      navigate('dsh');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (target.startsWith('home#')) {
+      const hash = target.replace('home#', '');
+      if (page === 'home') {
+        scrollToId(hash);
+      } else {
+        navigate('home', hash);
+        setTimeout(() => scrollToId(hash), 60);
+      }
+    }
+  };
+
   return (
-    <header className={`nav${scrolled ? ' scrolled' : ''}`}>
+    <header className="nav">
       <div className="nav-pill">
-        <a className="nav-brand" href="#top" onClick={go('top')}>
-          <img src="/mark.svg" alt="" /><b>Pinwhy</b><span className="ver">v0.2.0</span>
+        <a className="nav-brand" href="#top" onClick={handleNav('home')} aria-label="Pinwhy Home">
+          <img src="/mark.svg" alt="" />
+          <b>Pinwhy</b>
+          <span className="ver">v0.2.0</span>
         </a>
         <nav className="nav-links" aria-label="primary">
-          {t.nav.links.map(([id, label]) => <a key={id} href={`#${id}`} onClick={go(id)}>{label}</a>)}
+          {t.nav.links.map(([id, label, target]) => {
+            const isActive = (target === 'home' && page === 'home') || target === page;
+            return (
+              <a
+                key={id}
+                href={`#${id}`}
+                className={isActive ? 'active' : ''}
+                onClick={handleNav(target)}
+              >
+                {label}
+              </a>
+            );
+          })}
         </nav>
         <div className="nav-right">
           <LangSwitch />
           <ThemeMenu />
-          <a className="icon-btn gh" href={REPO} target="_blank" rel="noreferrer" aria-label="GitHub"><Icon.github width="18" height="18" /></a>
-          <div className="nav-cta">
-            <button className="btn btn-solid btn-sm" onClick={copyPrompt}><Icon.copy />{t.nav.copy}</button>
-          </div>
-          <button className="icon-btn nav-burger" aria-label={t.nav.menu} aria-expanded={sheet} onClick={() => setSheet((v) => !v)}>
-            {sheet ? <Icon.x /> : <Icon.menu />}
+          <a className="icon-btn" href={REPO} target="_blank" rel="noreferrer" aria-label="GitHub">
+            <Icon.github width="16" height="16" />
+          </a>
+          <button className="nav-cta-btn" onClick={copyPrompt}>
+            <Icon.copy size={14} />
+            <span>{t.nav.copy}</span>
+          </button>
+          <button
+            className="icon-btn nav-burger"
+            aria-label={t.nav.menu}
+            aria-expanded={sheet}
+            onClick={() => setSheet((v) => !v)}
+          >
+            {sheet ? <Icon.x size={16} /> : <Icon.menu size={16} />}
           </button>
         </div>
       </div>
+
       {sheet && (
         <nav className="nav-sheet" aria-label="primary">
-          {t.nav.links.map(([id, label]) => <a key={id} href={`#${id}`} onClick={go(id)}>{label}</a>)}
+          {t.nav.links.map(([id, label, target]) => (
+            <a key={id} href={`#${id}`} onClick={handleNav(target)}>{label}</a>
+          ))}
           <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>
-          <button className="btn btn-solid" onClick={() => { setSheet(false); copyPrompt(); }}><Icon.copy />{t.nav.copy}</button>
+          <button className="nav-cta-btn w-full justify-center mt-2" onClick={() => { setSheet(false); copyPrompt(); }}>
+            <Icon.copy size={14} />{t.nav.copy}
+          </button>
         </nav>
       )}
     </header>
@@ -118,26 +175,38 @@ function Nav() {
 }
 
 function Page() {
+  const { page } = useRoute();
   const { lang } = useLang();
   useReveal();
+
   useEffect(() => {
     if (reducedMotion()) return undefined;
     const lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
     lenisRef.current = lenis;
     let id = requestAnimationFrame(function raf(t) { lenis.raf(t); id = requestAnimationFrame(raf); });
     return () => { cancelAnimationFrame(id); lenis.destroy(); lenisRef.current = null; };
-  }, []);
+  }, [page]);
+
   return (
     <div className={`page lang-${lang}`}>
       <Nav />
       <main id="top">
-        <Hero />
-        <Stage />
-        <Recovery />
-        <Features />
-        <Start />
-        <Principles />
-        <Faq />
+        {page === 'security' ? (
+          <SecurityPage />
+        ) : page === 'dsh' ? (
+          <DshPage />
+        ) : (
+          <>
+            <Hero />
+            <Stage />
+            <Spotlights />
+            <Recovery />
+            <Features />
+            <Start />
+            <Principles />
+            <Faq />
+          </>
+        )}
         <Finale />
       </main>
     </div>
@@ -147,11 +216,13 @@ function Page() {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
-      <LangProvider>
-        <ToastProvider>
-          <Page />
-        </ToastProvider>
-      </LangProvider>
+      <RouteProvider>
+        <LangProvider>
+          <ToastProvider>
+            <Page />
+          </ToastProvider>
+        </LangProvider>
+      </RouteProvider>
     </ThemeProvider>
   </StrictMode>,
 );

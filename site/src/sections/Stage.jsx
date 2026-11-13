@@ -153,8 +153,38 @@ export default function Stage() {
   return (
     <section className="stage-wrap" id="views" aria-label={t.stage.aria}>
       <div className="wrap">
+        {/* Top Tab Bar in Multica Style */}
+        <div className="flex flex-col items-center mb-7">
+          <div className="inline-flex p-1 rounded-full bg-[var(--surface-2)] border border-[var(--line)] shadow-xs" role="tablist" aria-label={t.stage.aria}>
+            {TAB_IDS.map((id) => {
+              const I = TAB_ICON[id];
+              const isSelected = view === id;
+              return (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={isSelected}
+                  onClick={() => setView(id)}
+                  className={`inline-flex items-center gap-2 h-7.5 px-4 rounded-full text-xs sm:text-[13px] font-medium transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[var(--surface)] text-[var(--ink)] shadow-xs font-semibold'
+                      : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  <I size={14} strokeWidth={1.8} aria-hidden="true" />
+                  <span>{t.stage.tabs[id][0]}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs sm:text-sm text-[var(--muted)] text-center max-w-xl">
+            <span className="font-semibold text-[var(--ink)] mr-1.5">{name}:</span>
+            {cap}
+          </p>
+        </div>
+
         <div className="stage-glow" aria-hidden="true" style={{ opacity: flat }} />
-        <div className="stage" ref={frameRef} style={{ transform: `perspective(1800px) rotateX(${(1 - flat) * 20}deg) scale(${0.9 + flat * 0.1})` }}>
+        <div className="stage" ref={frameRef} style={{ transform: `perspective(1800px) rotateX(${(1 - flat) * 16}deg) scale(${0.92 + flat * 0.08})` }}>
           <div className="stage-bar">
             <span className="dots"><i /><i /><i /></span>
             <span className="url"><i className="lock" />localhost:4317<em>/?{URLS[view]}</em></span>
@@ -176,15 +206,7 @@ export default function Stage() {
               <div className="stage-hint">{t.stage.hint}</div>
             </div>
           </div>
-          <BorderBeam size={180} duration={14} colorFrom="#66e0ae" colorTo="#d6b48a" borderWidth={1.5} />
-        </div>
-        <div className="stage-foot">
-          <div className="stage-tabs" role="tablist" aria-label={t.stage.aria}>
-            {TAB_IDS.map((id) => (
-              <button key={id} role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>{(() => { const I = TAB_ICON[id]; return <I size={15} strokeWidth={1.8} aria-hidden="true" />; })()}{t.stage.tabs[id][0]}</button>
-            ))}
-          </div>
-          <p className="stage-caption" key={view + name}><b>{name}</b>{cap}</p>
+          <BorderBeam size={180} duration={14} colorFrom="#10b981" colorTo="#d6b48a" borderWidth={1.5} />
         </div>
       </div>
     </section>
