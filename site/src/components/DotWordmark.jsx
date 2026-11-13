@@ -12,7 +12,7 @@ const BAYER = [
  * A pixel-grid wordmark drawn on canvas. Cells are pushed by the pointer and
  * spring back; a click drops a pin and sends a shockwave through the grid.
  */
-export default function DotWordmark({ text = 'pinwhy', onPin }) {
+export default function DotWordmark({ text = 'Pinwhy', onPin }) {
   const wrap = useRef(null);
   const canvas = useRef(null);
   const onPinRef = useRef(onPin);

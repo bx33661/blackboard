@@ -50,7 +50,7 @@ export default function Finale() {
             <span>{F.play[0]}</span>
             <span aria-live="polite">{F.play[1]} <b>{pins}</b> {F.play[2]}</span>
           </p>
-          <DotWordmark text="pinwhy" onPin={() => setPins((n) => n + 1)} />
+          <DotWordmark text="Pinwhy" onPin={() => setPins((n) => n + 1)} />
         </div>
       </footer>
     </>
