@@ -1,27 +1,40 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, Copy } from 'lucide-react';
+import {
+  siClaude,
+  siCursor,
+  siDeepseek,
+  siGithubcopilot,
+  siGooglegemini,
+  siOpencode,
+} from 'simple-icons';
 import { BorderBeam } from '@/components/ui/border-beam';
 import { useLang, useT } from '../i18n.jsx';
-import { Icon, REPO, useCopyPrompt } from '../shared.jsx';
+import { Brand, Icon, REPO, useCopyPrompt } from '../shared.jsx';
+
+const OpenAIIcon = ({ size = 16, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1683a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4947zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1683a.0757.0757 0 0 1-.071 0l-4.8303-2.7866A4.504 4.504 0 0 1 2.3408 7.8956zm16.0993 3.8558L12.5973 8.3829l2.02-1.1636a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.401-.686zM20.1774 7.744a4.485 4.485 0 0 1 .5346 3.0137l-.142-.0852-4.783-2.7582a.7712.7712 0 0 0-.7806 0L9.1636 11.2828V8.9504a.0804.0804 0 0 1 .0332-.0615l4.9807-2.8763a4.4992 4.4992 0 0 1 6.0001 1.7313zM10.7401 12.074l2.5-1.4435 2.5 1.4435v2.887l-2.5 1.4435-2.5-1.4435z"/>
+  </svg>
+);
 
 const AGENTS = [
-  { name: 'Claude Code', color: '#d97706' },
-  { name: 'Cursor', color: '#0284c7' },
-  { name: 'Codex', color: '#10b981' },
-  { name: 'DeepSeek Harness', color: '#4f46e5' },
-  { name: 'Gemini CLI', color: '#2563eb' },
-  { name: 'OMP', color: '#059669' },
+  { name: 'Claude Code', icon: (p) => <Brand icon={siClaude} {...p} /> },
+  { name: 'Cursor', icon: (p) => <Brand icon={siCursor} {...p} /> },
+  { name: 'Codex', icon: (p) => <OpenAIIcon {...p} /> },
+  { name: 'DeepSeek Harness', icon: (p) => <Brand icon={siDeepseek} {...p} /> },
+  { name: 'Gemini CLI', icon: (p) => <Brand icon={siGooglegemini} {...p} /> },
+  { name: 'Copilot CLI', icon: (p) => <Brand icon={siGithubcopilot} {...p} /> },
 ];
 
 const SUPPORTED_HOSTS = [
-  'Claude Code',
-  'Cursor',
-  'Codex',
-  'DeepSeek Harness',
-  'Gemini CLI',
-  'Copilot CLI',
-  'OMP',
-  'OpenCode',
+  { name: 'Claude Code', icon: (p) => <Brand icon={siClaude} {...p} /> },
+  { name: 'Cursor', icon: (p) => <Brand icon={siCursor} {...p} /> },
+  { name: 'Codex', icon: (p) => <OpenAIIcon {...p} /> },
+  { name: 'DeepSeek Harness', icon: (p) => <Brand icon={siDeepseek} {...p} /> },
+  { name: 'Gemini CLI', icon: (p) => <Brand icon={siGooglegemini} {...p} /> },
+  { name: 'Copilot CLI', icon: (p) => <Brand icon={siGithubcopilot} {...p} /> },
+  { name: 'OpenCode', icon: (p) => <Brand icon={siOpencode} {...p} /> },
 ];
 
 export default function Hero() {
@@ -73,9 +86,11 @@ export default function Hero() {
           {lang === 'zh' ? (
             <>
               给{' '}
-              <span className="relative inline-flex items-center gap-[0.25em] rounded-full border border-emerald-500/25 bg-emerald-500/10 px-[0.38em] py-[0.04em] text-[var(--ink)] align-middle shadow-xs overflow-hidden">
+              <span className="relative inline-flex items-center gap-[0.3em] rounded-full border border-emerald-500/25 bg-emerald-500/10 px-[0.38em] py-[0.04em] text-[var(--ink)] align-middle shadow-xs overflow-hidden">
                 <BorderBeam size={70} duration={4.5} colorFrom="#10b981" colorTo="#38bdf8" borderWidth={1.5} />
-                <span className="text-[var(--accent)] text-[0.8em] font-normal select-none">✳</span>
+                <span className="inline-flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                  {activeAgent.icon({ size: 22, className: 'shrink-0' })}
+                </span>
                 <span
                   className="transition-all duration-200 inline-block font-sans font-bold"
                   style={{
@@ -85,15 +100,17 @@ export default function Hero() {
                 >
                   {activeAgent.name}
                 </span>
-              </span>{' '}
-              留一份有据可查的记忆。
+              </span>
+              留下判断的依据。
             </>
           ) : (
             <>
               Give{' '}
-              <span className="relative inline-flex items-center gap-[0.25em] rounded-full border border-emerald-500/25 bg-emerald-500/10 px-[0.38em] py-[0.04em] text-[var(--ink)] align-middle shadow-xs overflow-hidden">
+              <span className="relative inline-flex items-center gap-[0.3em] rounded-full border border-emerald-500/25 bg-emerald-500/10 px-[0.38em] py-[0.04em] text-[var(--ink)] align-middle shadow-xs overflow-hidden">
                 <BorderBeam size={70} duration={4.5} colorFrom="#10b981" colorTo="#38bdf8" borderWidth={1.5} />
-                <span className="text-[var(--accent)] text-[0.8em] font-normal select-none">✳</span>
+                <span className="inline-flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                  {activeAgent.icon({ size: 22, className: 'shrink-0' })}
+                </span>
                 <span
                   className="transition-all duration-200 inline-block font-sans font-bold"
                   style={{
@@ -103,7 +120,7 @@ export default function Hero() {
                 >
                   {activeAgent.name}
                 </span>
-              </span>{' '}
+              </span>
               a record to build on.
             </>
           )}
@@ -142,10 +159,11 @@ export default function Hero() {
           </span>
           {SUPPORTED_HOSTS.map((host) => (
             <span
-              key={host}
-              className="px-2.5 py-1 rounded-md bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text)] font-mono text-[11.5px]"
+              key={host.name}
+              className="px-3 py-1.5 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text)] font-sans text-xs inline-flex items-center gap-1.5 shadow-2xs hover:border-[var(--line-2)] transition-colors"
             >
-              {host}
+              {host.icon({ size: 14, className: 'shrink-0 opacity-80' })}
+              <span>{host.name}</span>
             </span>
           ))}
         </div>
