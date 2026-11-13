@@ -74,6 +74,81 @@ function LangSwitch() {
   );
 }
 
+/** Tracks which in-page section is under the nav, for the links that point into the home page. */
+function useScrollSpy(ids, enabled) {
+  const [current, setCurrent] = useState(null);
+  useEffect(() => {
+    if (!enabled) { setCurrent(null); return undefined; }
+    const els = ids.map((id) => document.getElementById(id)).filter(Boolean);
+    if (!els.length) return undefined;
+    const io = new IntersectionObserver((entries) => {
+      const hit = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (hit) setCurrent(hit.target.id);
+      else if (window.scrollY < 200) setCurrent(null);
+    }, { rootMargin: '-35% 0px -55% 0px' });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [ids.join(), enabled]);
+  return current;
+}
+
+/** Primary links with a single highlight that stretches toward its next target, then catches up. */
+function NavLinks({ links, page, onNav }) {
+  const box = useRef(null);
+  const anchors = useRef([]);
+  const [hover, setHover] = useState(null);
+  const [blob, setBlob] = useState(null);
+  const prev = useRef(null);
+  const homeIds = links.filter(([, , target]) => target.startsWith('home#')).map(([, , target]) => target.slice(5));
+  const spied = useScrollSpy(homeIds, page === 'home');
+
+  const activeIdx = links.findIndex(([, , target]) => (target.startsWith('home#') ? spied === target.slice(5) : target === page));
+  const idx = hover ?? (activeIdx >= 0 ? activeIdx : null);
+
+  useEffect(() => {
+    const measure = () => {
+      const a = idx == null ? null : anchors.current[idx];
+      if (!a || !box.current) { setBlob((b) => (b ? { ...b, show: false } : null)); return; }
+      const left = a.offsetLeft; const width = a.offsetWidth;
+      const dir = prev.current == null ? 0 : Math.sign(left - prev.current);
+      prev.current = left;
+      setBlob({ left, width, dir, show: true });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [idx, links]);
+
+  const style = blob ? {
+    '--l': `${blob.left}px`,
+    '--r': `${box.current ? box.current.offsetWidth - blob.left - blob.width : 0}px`,
+    '--tl': blob.dir > 0 ? '.42s' : '.24s',
+    '--tr': blob.dir < 0 ? '.42s' : '.24s',
+    opacity: blob.show ? 1 : 0,
+  } : { opacity: 0 };
+
+  return (
+    <nav className="nav-links" aria-label="primary" ref={box} onPointerLeave={() => setHover(null)}>
+      <span className="nav-blob" style={style} aria-hidden="true" />
+      {links.map(([id, label, target], i) => (
+        <a
+          key={id}
+          ref={(el) => { anchors.current[i] = el; }}
+          href={`#${id}`}
+          className={i === activeIdx ? 'active' : ''}
+          aria-current={i === activeIdx ? 'page' : undefined}
+          onPointerEnter={() => setHover(i)}
+          onFocus={() => setHover(i)}
+          onBlur={() => setHover(null)}
+          onClick={onNav(target)}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 function Nav() {
   const { t } = useLang();
   const { page, navigate } = useRoute();
@@ -119,21 +194,7 @@ function Nav() {
           <b>Pinwhy</b>
           <span className="ver">v0.2.0</span>
         </a>
-        <nav className="nav-links" aria-label="primary">
-          {t.nav.links.map(([id, label, target]) => {
-            const isActive = (target === 'home' && page === 'home') || target === page;
-            return (
-              <a
-                key={id}
-                href={`#${id}`}
-                className={isActive ? 'active' : ''}
-                onClick={handleNav(target)}
-              >
-                {label}
-              </a>
-            );
-          })}
-        </nav>
+        <NavLinks links={t.nav.links} page={page} onNav={handleNav} />
         <div className="nav-right">
           <LangSwitch />
           <ThemeMenu />
@@ -176,15 +237,33 @@ function Page() {
   useReveal();
 
   useEffect(() => {
+    const canTilt = window.matchMedia('(hover: hover) and (pointer: fine)').matches && !reducedMotion();
+    let tilted = null;
+    const release = () => {
+      if (!tilted) return;
+      tilted.style.setProperty('--rx', '0deg');
+      tilted.style.setProperty('--ry', '0deg');
+      tilted = null;
+    };
     const onMove = (e) => {
       const card = e.target.closest?.('.bento-card, .pr-list li, .sp-card, .hd');
+      if (tilted && tilted !== card) release();
       if (!card) return;
       const r = card.getBoundingClientRect();
       card.style.setProperty('--mx', `${e.clientX - r.left}px`);
       card.style.setProperty('--my', `${e.clientY - r.top}px`);
+      if (canTilt && card.classList.contains('bento-card')) {
+        const nx = (e.clientX - r.left) / r.width - 0.5;
+        const ny = (e.clientY - r.top) / r.height - 0.5;
+        const max = card.classList.contains('wide') ? 2.2 : 4;
+        card.style.setProperty('--rx', `${(-ny * max).toFixed(2)}deg`);
+        card.style.setProperty('--ry', `${(nx * max).toFixed(2)}deg`);
+        tilted = card;
+      }
     };
     document.addEventListener('pointermove', onMove, { passive: true });
-    return () => document.removeEventListener('pointermove', onMove);
+    document.addEventListener('pointerleave', release);
+    return () => { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerleave', release); };
   }, []);
 
   useEffect(() => {

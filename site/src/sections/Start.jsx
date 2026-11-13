@@ -179,10 +179,15 @@ export default function Start() {
                   );
                 }
                 const key = `l${k}`;
+                const suggest = live && chars >= 3 && chars < it.text.length;
                 return (
-                  <button key={k} className={`tw-cmd${flash === key ? ' done' : ''}`} onClick={() => copy(it.text, key)} title={S.hint}>
+                  <button key={k} className={`tw-cmd${flash === key ? ' done' : ''}${suggest ? ' suggesting' : ''}`} onClick={() => copy(it.text, key)} title={S.hint}>
                     <span className="ps" aria-hidden="true">$</span>
-                    <code><Shell text={text} />{live && <span className="tw-cursor" />}</code>
+                    <code>
+                      <Shell text={text} />{live && <span className="tw-cursor" />}
+                      {suggest && <span className="tw-ghost" aria-hidden="true">{it.text.slice(chars)}</span>}
+                      {suggest && <kbd className="tw-tab" aria-hidden="true">Tab</kbd>}
+                    </code>
                     <span className="tw-cmd-copy" aria-hidden="true">{flash === key ? <><Icon.check size={13} />{S.copied}</> : <Icon.copy size={13} />}</span>
                   </button>
                 );
