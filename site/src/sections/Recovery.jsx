@@ -21,6 +21,9 @@ const EDGES = [
   { a: 'f1', b: 'q1', rel: '产出' },
 ];
 const NW = 44;
+const KIND = { g1: 'goal', hy1: 'hypothesis', o1: 'observation', f1: 'finding', q1: 'question' };
+const PARENT = { hy1: 'g1', o1: 'hy1', f1: 'hy1', q1: 'f1' };
+const TS = { g1: '14:02', hy1: '14:03', o1: '14:05', f1: '14:06', q1: '14:08' };
 
 
 
@@ -57,7 +60,7 @@ export default function Recovery() {
   const restore = clamp((p - 0.76) / 0.18);
 
   const shown = (i) => {
-    if (phase === 0) return build * NODES.length > i + 0.2;
+    if (phase === 0) return build * (NODES.length - 1) + 1 > i + 0.2;
     if (phase === 1) return true;
     return restore * NODES.length > i;
   };
@@ -65,6 +68,34 @@ export default function Recovery() {
   const ctx = phase === 0 ? Math.round(18 + build * 70) : phase === 1 ? Math.round(88 + wipe * 12) : Math.round(14 + restore * 8);
   const cmd = 'pinwhy context --budget 4000';
   const typedCmd = cmd.slice(0, Math.round(typed * cmd.length));
+
+  const visible = NODES.filter((_, i) => shown(i));
+  const latest = visible[visible.length - 1];
+  let log;
+  let cmdLine;
+  if (phase === 0) {
+    log = visible.slice(-3).map((n) => ({
+      key: n.id, cls: n === latest ? 'new' : '', ts: TS[n.id], op: '+ node',
+      body: `{"id":"${n.id}","kind":"${KIND[n.id]}"${PARENT[n.id] ? `,"to":"${PARENT[n.id]}"` : ''}}`,
+    }));
+    cmdLine = latest ? `pinwhy node add ${KIND[latest.id]}${PARENT[latest.id] ? ` --to ${PARENT[latest.id]}` : ''}` : '';
+  } else if (phase === 1) {
+    log = [
+      { key: 'f1', cls: 'gone', ts: TS.f1, op: '+ node', body: '{"id":"f1","kind":"finding","to":"hy1"}' },
+      { key: 'q1', cls: 'gone', ts: TS.q1, op: '+ node', body: '{"id":"q1","kind":"question","to":"f1"}' },
+      { key: 'cp', cls: 'warn', ts: '14:09', op: '~ host', body: 'context compacted · events.jsonl untouched' },
+    ];
+    cmdLine = '';
+  } else {
+    const back = Math.round(restore * NODES.length);
+    log = [
+      { key: 'rd', cls: '', ts: '14:10', op: '> read', body: `events.jsonl · ${NODES.length} nodes · ${EDGES.length} edges` },
+      ...NODES.slice(0, back).slice(-2).map((n, i, arr) => ({
+        key: `r-${n.id}`, cls: i === arr.length - 1 ? 'new' : '', ts: '14:10', op: '< restore', body: `${n.id} ${KIND[n.id]}${n.cur ? ' · cursor' : ''}`,
+      })),
+    ];
+    cmdLine = typedCmd;
+  }
 
   return (
     <section id="how" className="recovery" ref={ref} aria-labelledby="recovery-title">
@@ -140,12 +171,21 @@ export default function Recovery() {
               </div>
             </div>
             <div className="rb-term">
-              <span className="pr">$</span>
-              <span>{phase === 2 ? typedCmd : phase === 0 ? T.writing : ''}</span>
-              <span className="caret" />
-              {phase === 2 && restore > 0.98 && (
-                <span className="rb-ok">{T.ok}</span>
-              )}
+              <ol className="rb-log">
+                {log.map((l) => (
+                  <li key={l.key} className={l.cls}>
+                    <span className="ts">{l.ts}</span>
+                    <span className="op">{l.op}</span>
+                    <span className="body">{l.body}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="rb-cmd">
+                <span className="pr">$</span>
+                <span className="txt">{cmdLine}</span>
+                <span className="caret" />
+                {phase === 2 && restore > 0.98 && <span className="rb-ok">{T.ok}</span>}
+              </div>
             </div>
           </div>
         </div>

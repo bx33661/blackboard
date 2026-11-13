@@ -1,25 +1,62 @@
-import { ArrowRight, Boxes, Shield } from 'lucide-react';
+import { ArrowUpRight, Check } from 'lucide-react';
 import { useT } from '../i18n.jsx';
 import { useRoute } from '../router.jsx';
 
-function SpotCard({ data, icon: I, tone, onOpen, delay }) {
+function AuditVisual() {
+  return (
+    <div className="spv spv-audit" aria-hidden="true">
+      <div className="spv-head">
+        <span className="dot" /> audit / admin-api
+        <span className="badge">SARIF 2.1.0</span>
+      </div>
+      <ul className="tree">
+        <li className="q"><i /> <b>Q1</b> anonymous access boundary?</li>
+        <li className="c ok"><i /> <b>C1</b> read endpoints skip auth <em>supports ×3</em></li>
+        <li className="c no"><i /> <b>C2</b> stale cache explains 200 <em>refuted</em></li>
+        <li className="k"><i /> <b>K1</b> requires anon session <em>condition</em></li>
+      </ul>
+    </div>
+  );
+}
+
+function HostVisual() {
+  return (
+    <div className="spv spv-host" aria-hidden="true">
+      <div className="spv-head">
+        <span className="dot" /> deepseek-harness
+        <span className="badge">plugin · pinwhy</span>
+      </div>
+      <div className="tools">
+        {Array.from({ length: 11 }, (_, i) => (
+          <span key={i} style={{ '--i': i }} />
+        ))}
+      </div>
+      <div className="sess">
+        <span>session a3f9</span>
+        <span className="ok"><Check size={11} strokeWidth={2.4} /> path</span>
+      </div>
+    </div>
+  );
+}
+
+function SpotCard({ data, visual, tone, onOpen, delay }) {
   return (
     <article className={`sp-card sp-${tone} rv`} style={{ '--d': delay }}>
-      <div className="sp-top">
-        <span className="sp-ico"><I size={18} strokeWidth={1.8} aria-hidden="true" /></span>
-        <span className="sp-kicker">{data.kicker}</span>
+      {visual}
+      <div className="sp-body">
+        <div className="sp-kicker"><span className="pip" />{data.kicker}</div>
+        <h3 className="sp-title">{data.title}</h3>
+        <p className="sp-desc">{data.desc}</p>
+        <ul className="sp-list">
+          {data.features.map((f) => (
+            <li key={f}><Check size={14} strokeWidth={2.2} aria-hidden="true" /><span>{f}</span></li>
+          ))}
+        </ul>
+        <button type="button" onClick={onOpen} className="sp-cta">
+          <span>{data.cta}</span>
+          <span className="arr"><ArrowUpRight size={15} aria-hidden="true" /></span>
+        </button>
       </div>
-      <h3 className="sp-title">{data.title}</h3>
-      <p className="sp-desc">{data.desc}</p>
-      <ol className="sp-list">
-        {data.features.map((f, i) => (
-          <li key={f}><span className="n">{String(i + 1).padStart(2, '0')}</span><span>{f}</span></li>
-        ))}
-      </ol>
-      <button type="button" onClick={onOpen} className="sp-cta">
-        <span>{data.cta}</span>
-        <ArrowRight size={15} aria-hidden="true" />
-      </button>
     </article>
   );
 }
@@ -39,8 +76,8 @@ export default function Spotlights() {
         </div>
 
         <div className="sp-grid">
-          <SpotCard data={S.security} icon={Shield} tone="sec" onOpen={() => navigate('security')} delay="0.05s" />
-          <SpotCard data={S.dsh} icon={Boxes} tone="dsh" onOpen={() => navigate('dsh')} delay="0.12s" />
+          <SpotCard data={S.security} visual={<AuditVisual />} tone="sec" onOpen={() => navigate('security')} delay="0.05s" />
+          <SpotCard data={S.dsh} visual={<HostVisual />} tone="dsh" onOpen={() => navigate('dsh')} delay="0.12s" />
         </div>
       </div>
     </section>
