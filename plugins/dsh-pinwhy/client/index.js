@@ -80,8 +80,6 @@ window.__ModuleLoader__.load({ id: 'dsh-pinwhy', factory(require) {
   };
 
   const box = { border: '1px solid var(--dsw-alias-border-l1, #e5e7eb)', borderRadius: 8, padding: 16, margin: '12px 0' };
-  const fieldStyle = { display: 'block', boxSizing: 'border-box', width: '100%', padding: '8px 10px', margin: '6px 0 12px', border: '1px solid var(--dsw-alias-border-l2, #d4d4d8)', borderRadius: 6, background: 'var(--dsw-alias-bg-base, transparent)', color: 'inherit', font: 'inherit' };
-  const buttonStyle = { padding: '7px 12px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l2, #d4d4d8)', background: 'transparent', color: 'inherit', font: 'inherit', cursor: 'pointer' };
 
   const initial = value => ({
     autoDiscover: value?.autoDiscover ?? false,
