@@ -110,6 +110,11 @@ function head(key) {
   ].join('\n    ');
 }
 
+if (!fs.existsSync(CHROME)) {
+  console.log(`ℹ Chrome not found at "${CHROME}". Skipping Puppeteer prerendering in cloud/CI environment.`);
+  process.exit(0);
+}
+
 const template = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8');
 const server = await preview({ root: SITE, logLevel: 'error', preview: { port: 4317 + 100, strictPort: false, open: false } });
 const base = server.resolvedUrls.local[0].replace(/\/$/, '');
