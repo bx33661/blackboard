@@ -44,23 +44,81 @@ export function nodePatchFromDraft(draft: EditDraft): NodePatch {
   };
 }
 
-export type NewNodeDraft = { type: string; title: string; detail: string; tags: string; at: string; status: string; severity: string; confidence: string; label: string; link: string };
-export const EMPTY_NEW: NewNodeDraft = { type: 'fact', title: '', detail: '', tags: '[]', at: '', label: '', status: '', severity: '', confidence: '', link: 'related-to' };
+export type NewNodeDraft = {
+  type: string; title: string; detail: string; tags: string; at: string; status: string; severity: string; confidence: string; label: string; link: string;
+  /** Optional boundaries for a negative-result; authored text is serialized into detail even after a type change. */
+  checkedScope: string; observedResult: string; excludedScope: string; uncovered: string;
+};
+export const EMPTY_NEW: NewNodeDraft = {
+  type: 'fact', title: '', detail: '', tags: '[]', at: '', label: '', status: '', severity: '', confidence: '', link: 'related-to',
+  checkedScope: '', observedResult: '', excludedScope: '', uncovered: '',
+};
+
+/** Each explicit create shortcut owns its draft; the legacy key keeps manual creation and old drafts. */
+export type NewNodeMode = 'related' | 'claim' | 'negative-result';
+export function newNodeDraftKey(currentId: string | undefined, mode: NewNodeMode): string {
+  const base = `new:${currentId || 'standalone'}`;
+  return mode === 'related' ? base : `${base}:${mode}`;
+}
+export function newNodeDefaults(mode: NewNodeMode): NewNodeDraft {
+  if (mode === 'claim') return { ...EMPTY_NEW, type: 'claim', link: 'supports' };
+  if (mode === 'negative-result') return { ...EMPTY_NEW, type: 'negative-result', link: 'related-to' };
+  return EMPTY_NEW;
+}
+/** Presets never mutate an authored draft; type and relation remain explicit form fields. */
+export function changeNewNodeDraft(draft: NewNodeDraft, key: keyof NewNodeDraft, value: string): NewNodeDraft {
+  const next: NewNodeDraft = { ...draft, [key]: value };
+  return next;
+}
+
+export type NegativeDetailLabels = { checkedScope: string; observedResult: string; excludedScope: string; uncovered: string; notes: string };
+const recorded = (value: string | undefined) => typeof value === 'string' && value.trim() !== '';
+/** Explicitly written boundaries survive a later type change; they are never silently dropped. */
+export function hasNegativeBoundaries(draft: Pick<NewNodeDraft, 'checkedScope' | 'observedResult' | 'excludedScope' | 'uncovered'>): boolean {
+  return [draft.checkedScope, draft.observedResult, draft.excludedScope, draft.uncovered].some(recorded);
+}
+
+/**
+ * Save the optional boundaries as ordinary readable detail text. Empty fields stay unrecorded;
+ * authored values, notes, and newlines are copied exactly, and the viewer never parses this back.
+ */
+export function negativeResultDetail(draft: Pick<NewNodeDraft, 'detail' | 'checkedScope' | 'observedResult' | 'excludedScope' | 'uncovered'>, labels: NegativeDetailLabels): string {
+  const sections: string[] = [];
+  const add = (label: string, value: string | undefined) => {
+    if (recorded(value)) sections.push(`${label}:\n${value}`);
+  };
+  add(labels.checkedScope, draft.checkedScope);
+  add(labels.observedResult, draft.observedResult);
+  add(labels.excludedScope, draft.excludedScope);
+  add(labels.uncovered, draft.uncovered);
+  // Legacy or manual negatives keep their detail untouched when no boundary was written.
+  if (!sections.length) return draft.detail || '';
+  if (recorded(draft.detail)) sections.push(`${labels.notes}:\n${draft.detail}`);
+  return sections.join('\n\n');
+}
 
 /** The create form accepts authored types and preserves tag strings and source columns. */
-export function nodeInputFromDraft(draft: NewNodeDraft, currentId?: string): NodeInput {
+export function nodeInputFromDraft(draft: NewNodeDraft, currentId?: string, negativeLabels?: NegativeDetailLabels): NodeInput {
   const tags = parseTags(draft.tags);
+  const type = draft.type.trim();
+  // Boundary text is explicit authored content: keep it in the ordinary detail even after a type change.
+  const detail = negativeLabels && hasNegativeBoundaries(draft) ? negativeResultDetail(draft, negativeLabels) : draft.detail;
+  // "Current depends on new" and "just related" author the selected record as the source; other kinds source the new record.
+  const parentLinked = draft.link === 'related-to' || draft.link === 'depends-on';
   return {
-    type: draft.type.trim(), title: draft.title.trim(),
-    ...(draft.detail ? { detail: draft.detail } : {}),
+    type, title: draft.title.trim(),
+    ...(detail ? { detail } : {}),
     ...(tags.length ? { tags } : {}),
     ...(draft.at ? { at: draft.at } : {}),
     ...(draft.status ? { status: draft.status } : {}),
     ...(draft.severity ? { severity: draft.severity } : {}),
     ...(draft.confidence ? { confidence: draft.confidence } : {}),
-    ...(currentId ? { ...(draft.link === 'related-to' ? { parent: currentId } : { target: currentId }), relation: draft.link, ...(draft.label ? { label: draft.label } : {}) } : {}),
+    ...(currentId ? { ...(parentLinked ? { parent: currentId } : { target: currentId }), relation: draft.link, ...(draft.label ? { label: draft.label } : {}) } : {}),
   };
 }
+
+/** Viewers distinguish the bounded negative type by its authored type string only. */
+export const isNegativeResultType = (type: string) => type.trim() === 'negative-result';
 
 /** Explicit direction for linking existing nodes, without creating a node or moving a cursor. */
 export function existingLink(currentId: string, peerId: string, direction: 'outgoing' | 'incoming', kind = 'related-to') {

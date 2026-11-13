@@ -12,7 +12,7 @@ import { useEdgeRemoval } from './use-node-forms';
 import { AddSection, ConnectSection, EditSection } from './EditPanel';
 import type { BoardEdge, BoardNode } from '../types';
 import { t } from '../i18n';
-import { sourceLocation } from '../research-state';
+import { isNegativeResultType, sourceLocation } from '../research-state';
 import { NodeHistorySection, type HistoryAvailability } from './HistoryPanel';
 
 type Props = HistoryAvailability & {
@@ -49,6 +49,10 @@ export function Inspector({ node, edges, byId, onClose, onFocus, onCopyLink, lin
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <InputIntegrityNotice record={node} />
         <h2 className="m-0 whitespace-pre-wrap text-[17px] font-semibold leading-snug tracking-[-0.01em] [overflow-wrap:anywhere]">{node.title.trim() ? node.title : t('node.untitled')}</h2>
+        {isNegativeResultType(node.type) && <section role="note" aria-label={t('negative.heading')} className="mt-3 rounded-md border border-l-4 border-l-foreground/60 bg-secondary/50 p-3 text-xs leading-5">
+          <p className="m-0 font-medium">{t('negative.heading')}</p>
+          <p className="m-0 mt-1 text-muted-foreground">{t('negative.notice')}</p>
+        </section>}
         {node.detail && <p className="mt-2 mb-0 whitespace-pre-wrap text-[13px] leading-[22px] text-subtle [overflow-wrap:anywhere]">{node.detail}</p>}
 
         <dl className="mt-5 mb-0 divide-y rounded-lg border text-[13px]">

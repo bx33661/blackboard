@@ -7,6 +7,6 @@
 
 | 方法 | 版本 | 何时读 | 说明 | 关系 |
 | --- | --- | --- | --- | --- |
-| [audit](audit.md) | 1 | 你自己判断有用时 | 代码审计场景的记录语义；候选漏洞、静态核对、真实复现、反驳与取代各自怎么记，让写入不比实际证据更强。审计需要黑板记录时可选使用，不规定审计顺序、工具或复现步骤。 | `supports` `contradicts` `derived-from` `supersedes` `related-to` |
+| [audit](audit.md) | 1 | 你自己判断有用时 | 代码审计场景的记录语义；候选漏洞、静态核对、真实复现、反驳与取代各自怎么记，让写入不比实际证据更强。审计需要黑板记录时可选使用，不规定审计顺序、工具或复现步骤。 | `supports` `contradicts` `derived-from` `depends-on` `supersedes` `related-to` |
 | [inquiry](inquiry.md) | 1 | 你自己判断有用时 | 按问题、候选、证据、裁定、排除记录研究；有几个相互竞争的解释、需要记下排除了什么、或要让接手者分清已定与未定时可选使用。只讲怎么记录，不规定研究步骤。 | `answers` `refines` `supports` `contradicts` `supersedes` |
 | [threat-model](threat-model.md) | 1 | 仅用户明确点名时 | 按需威胁建模的思考角度；安全目标、信任假设、失效条件与可修订的解释。仅在用户明确调用 threat model / 威胁建模时读取，默认只分析，不规定建模步骤。 | — |

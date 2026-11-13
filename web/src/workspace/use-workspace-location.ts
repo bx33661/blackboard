@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ViewMode, WorkspaceMode } from '../types';
+import { readClaimPath, writeClaimPath } from './audit';
 
-type ReaderLocation = { workspace: WorkspaceMode; issueId: string | null; candidateId: string | null; node: string | null };
+type ReaderLocation = { workspace: WorkspaceMode; issueId: string | null; candidateId: string | null; node: string | null; claimPath: string[] };
 
 /** Reader navigation lives in the address bar; restoring it never writes board events. */
 export function useWorkspaceLocation() {
@@ -11,13 +12,14 @@ export function useWorkspaceLocation() {
     const mode: ViewMode = view === 'logic' || view === 'all' ? view : 'context';
     const asOf = window.__PINWHY_DATA__ === undefined ? params.get('asOf') || null : null;
     const workspace: WorkspaceMode = params.get('workspace') === 'audit' ? 'audit' : 'general';
-    return { agentId: params.get('agent') || 'agent:primary', mode, workspace, issue: params.get('issue'), candidate: params.get('candidate'), node: params.get('node'), asOf };
+    return { agentId: params.get('agent') || 'agent:primary', mode, workspace, issue: params.get('issue'), candidate: params.get('candidate'), claimPath: readClaimPath(params), node: params.get('node'), asOf };
   });
   const [agentId, setAgentId] = useState(initial.agentId);
   const [mode, setMode] = useState(initial.mode);
   const [workspace, setWorkspace] = useState(initial.workspace);
   const [issueId, setIssueId] = useState<string | null>(initial.issue);
   const [candidateId, setCandidateId] = useState<string | null>(initial.candidate);
+  const [claimPath, setClaimPath] = useState<string[]>(initial.claimPath);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [asOf, setAsOf] = useState<string | null>(initial.asOf);
   const deepLink = useRef(initial.node);
@@ -37,6 +39,11 @@ export function useWorkspaceLocation() {
       setter(value);
       if (value) url.searchParams.set(param, value); else url.searchParams.delete(param);
     }
+    if (patch.claimPath !== undefined) {
+      const next = patch.claimPath.filter(Boolean);
+      setClaimPath(next);
+      writeClaimPath(url, next);
+    }
     if (url.href !== location.href) history.pushState(null, '', url);
   };
 
@@ -49,6 +56,7 @@ export function useWorkspaceLocation() {
       setWorkspace(params.get('workspace') === 'audit' ? 'audit' : 'general');
       setIssueId(params.get('issue'));
       setCandidateId(params.get('candidate'));
+      setClaimPath(readClaimPath(params));
       const node = params.get('node');
       deepLink.current = node;
       pendingFocus.current = node;
@@ -67,6 +75,7 @@ export function useWorkspaceLocation() {
     if (workspace === 'audit') url.searchParams.set('workspace', workspace); else url.searchParams.delete('workspace');
     if (issueId) url.searchParams.set('issue', issueId); else url.searchParams.delete('issue');
     if (candidateId) url.searchParams.set('candidate', candidateId); else url.searchParams.delete('candidate');
+    writeClaimPath(url, claimPath);
     if (!deepLink.current || selectedId) {
       if (selectedId) url.searchParams.set('node', selectedId); else url.searchParams.delete('node');
     }
@@ -74,7 +83,7 @@ export function useWorkspaceLocation() {
       if (asOf) url.searchParams.set('asOf', asOf); else url.searchParams.delete('asOf');
     }
     history.replaceState(null, '', url);
-  }, [mode, agentId, workspace, issueId, candidateId, selectedId, asOf]);
+  }, [mode, agentId, workspace, issueId, candidateId, claimPath, selectedId, asOf]);
 
-  return { workspace, navigateWorkspace, issueId, candidateId, agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus };
+  return { workspace, navigateWorkspace, issueId, candidateId, claimPath, agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus };
 }

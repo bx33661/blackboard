@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import * as api from '../api';
 import { t } from '../i18n';
-import { changeDraft, EMPTY_EDIT, EMPTY_NEW, existingLink, nodeInputFromDraft, nodePatchFromDraft, type EditableField, type EditDraft, type NewNodeDraft } from '../research-state';
+import { changeDraft, changeNewNodeDraft, EMPTY_EDIT, existingLink, newNodeDefaults, newNodeDraftKey, nodeInputFromDraft, nodePatchFromDraft, type EditableField, type EditDraft, type NegativeDetailLabels, type NewNodeDraft, type NewNodeMode } from '../research-state';
 import { useSessionDraft, useSessionWrite } from '../session-drafts';
 import type { BoardNode } from '../types';
 
@@ -56,26 +56,34 @@ export function useNodeEdit(node: BoardNode, onReload: () => Promise<void>) {
   return { ...write, draft, change, discard, save, reloadDraft, reload, remove, startEditing };
 }
 
-/** Creation and its explicit relation are one atomic, recoverable request. */
-export function useNodeCreate(current?: BoardNode, onDone?: () => void) {
-  const key = `new:${current?.id || 'standalone'}`;
-  const [draft, setDraft] = useSessionDraft(key, EMPTY_NEW);
+/** Creation and its explicit relation are one atomic, recoverable request. Each shortcut keeps its own draft. */
+export function useNodeCreate(current?: BoardNode, onDone?: () => void, mode: NewNodeMode = 'related') {
+  const key = newNodeDraftKey(current?.id, mode);
+  const initial = newNodeDefaults(mode);
+  const [draft, setDraft] = useSessionDraft(key, initial);
   const write = useWrite(key);
   const { operation, run, clearError } = write;
-  const change = (key: keyof NewNodeDraft, value: string) => {
+  const change = (field: keyof NewNodeDraft, value: string) => {
     if (operation.locked) return;
-    const next: NewNodeDraft = { ...draft, [key]: value };
-    setDraft(next, JSON.stringify(next) !== JSON.stringify(EMPTY_NEW));
+    const next = changeNewNodeDraft(draft, field, value);
+    setDraft(next, JSON.stringify(next) !== JSON.stringify(initial));
   };
-  const discard = () => { if (!operation.locked) { setDraft(EMPTY_NEW, false); clearError(); } };
+  const discard = () => { if (!operation.locked) { setDraft(initial, false); clearError(); } };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (operation.locked || !draft.title.trim() || !draft.type.trim()) return;
     await run(async (active) => {
       let input: api.NodeInput;
-      try { input = nodeInputFromDraft(draft, current?.id); } catch { throw new Error(t('edit.tagsInvalid')); }
+      const labels: NegativeDetailLabels = {
+        checkedScope: t('negative.checkedScope'),
+        observedResult: t('negative.observedResult'),
+        excludedScope: t('negative.excludedScope'),
+        uncovered: t('negative.uncovered'),
+        notes: t('negative.notes'),
+      };
+      try { input = nodeInputFromDraft(draft, current?.id, labels); } catch { throw new Error(t('edit.tagsInvalid')); }
       return api.addNode(input, active);
-    }, () => { setDraft(EMPTY_NEW, false); onDone?.(); });
+    }, () => { setDraft(initial, false); onDone?.(); });
   };
   return { ...write, draft, change, discard, submit };
 }

@@ -34,7 +34,7 @@ import { useWorkspaceTimeline } from './workspace/use-workspace-timeline';
 import { useWorkspaceChrome, useWorkspaceShortcuts } from './workspace/use-workspace-chrome';
 import { AuditNavigation } from './panels/AuditNavigation';
 import { AuditContext } from './panels/AuditContext';
-import { isAuditIssue } from './workspace/audit';
+import { claimChildEdge, isAuditClaim, isAuditIssue } from './workspace/audit';
 import type { BoardNode } from './types';
 import type { Scene3DProps } from './scene3d/shared';
 
@@ -51,7 +51,7 @@ const Scene3D = lazy(() => import('./scene3d/Scene3D').catch(() => ({
 
 function Workspace() {
   const { snapshot: live, connection, syncedAt, isStatic, reload } = useGraphStream();
-  const { workspace, navigateWorkspace, issueId, candidateId, agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
+  const { workspace, navigateWorkspace, issueId, candidateId, claimPath, agentId, setAgentId, mode, setMode, selectedId, setSelectedId, asOf, setAsOf, deepLink, pendingFocus } = useWorkspaceLocation();
   // A checkpoint view replaces what every panel reads; the live stream keeps running underneath.
   const timeline = useWorkspaceTimeline(live, asOf, setAsOf, isStatic);
   const snapshot = timeline.snapshot;
@@ -70,7 +70,7 @@ function Workspace() {
 
   const auditMode = workspace === 'audit';
   const canvasMode = auditMode ? 'logic' : mode;
-  const { board, agent, audit, expandAudit, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter, auditMode ? { issueId, candidateId, selectedId: selectedId ?? deepLink.current } : undefined);
+  const { board, agent, audit, expandAudit, projection, results, legend } = useWorkspaceData(snapshot, mode, agentId, filter, auditMode ? { issueId, candidateId, selectedId: selectedId ?? deepLink.current, claimPath } : undefined);
   const { allNodes, allEdges, activities, byId, inbox, paletteNodes, filterOptions, counts } = board;
   const { agentIds, digest, currentId, current, findings, openItems } = agent;
   // Stepping through checkpoints is not the Agent writing: only the live board pulses.
@@ -87,20 +87,47 @@ function Workspace() {
   const { highlighted, displayNodes, displayEdges } = useWorkspacePresentation(nodes, edges, selectedId, fresh, canvasMode, edgeStyle, showChanges && timeline.active ? timeline.changeMap : null);
 
   useWorkspaceShortcuts(clearSelection, setPaletteOpen, setShortcutsOpen, setSidebarOpen);
+  const openAuditClaim = (node: BoardNode) => {
+    if (!isAuditClaim(node)) return;
+    const path = audit?.claimPath ?? [];
+    const at = path.findIndex((claim) => claim.id === node.id);
+    const root = audit?.root;
+    const direct = Boolean(root && audit && claimChildEdge(audit.index, root.id, node.id));
+    const underCandidate = Boolean(audit && audit.candidate && claimChildEdge(audit.index, audit.candidate.id, node.id));
+    let next: string[];
+    let standalone = false;
+    if (at >= 0) next = path.slice(0, at + 1).map((claim) => claim.id);
+    else if (direct && root && isAuditClaim(root)) next = [...path.map((claim) => claim.id), node.id];
+    else if (direct || underCandidate) next = [node.id];
+    else { next = [node.id]; standalone = true; }
+    // A claim without an explicit link to the current candidate reads standalone; never invent ownership.
+    navigateWorkspace({ claimPath: next, node: node.id, ...(standalone ? { candidateId: null } : {}) });
+    focusNode(node.id);
+    pendingFocus.current = node.id;
+  };
   const openAuditArgument = (node: BoardNode) => {
-    navigateWorkspace(isAuditIssue(node) ? { issueId: node.id, candidateId: null, node: node.id } : { candidateId: node.id, node: node.id });
+    if (isAuditClaim(node)) { openAuditClaim(node); return; }
+    navigateWorkspace(isAuditIssue(node) ? { issueId: node.id, candidateId: null, claimPath: [], node: node.id } : { candidateId: node.id, claimPath: [], node: node.id });
     focusNode(node.id);
     pendingFocus.current = node.id;
   };
   const chooseIssue = (id: string | null) => {
-    navigateWorkspace({ issueId: id, candidateId: null, node: id });
+    navigateWorkspace({ issueId: id, candidateId: null, claimPath: [], node: id });
     if (id) focusNode(id); else clearSelection();
     pendingFocus.current = id;
   };
   const chooseCandidate = (id: string | null) => {
-    navigateWorkspace({ candidateId: id, node: id ?? issueId });
+    navigateWorkspace({ candidateId: id, claimPath: [], node: id ?? issueId });
     if (id ?? issueId) focusNode((id ?? issueId)!); else clearSelection();
     pendingFocus.current = id ?? issueId;
+  };
+  const returnToClaim = (index: number) => {
+    const path = (audit?.claimPath ?? []).slice(0, index + 1);
+    const target = path[path.length - 1];
+    if (!target) return;
+    navigateWorkspace({ claimPath: path.map((claim) => claim.id), node: target.id });
+    focusNode(target.id);
+    pendingFocus.current = target.id;
   };
 
 
@@ -160,7 +187,7 @@ function Workspace() {
           <>
             <button className="absolute inset-0 z-20 bg-black/20 lg:hidden" aria-label={t('app.closeNav')} onClick={() => setSidebarOpen(false)} />
             <aside className="z-30 w-64 shrink-0 border-r bg-background max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:shadow-float">
-              {audit ? <AuditNavigation audit={audit} selectedId={selectedId} onSelect={focusNode} onIssue={chooseIssue} onCandidate={chooseCandidate} onCandidateIssue={(id) => navigateWorkspace({ issueId: id })} onOpenArgument={openAuditArgument} onExpand={expandAudit} onSearch={() => { setPaletteOpen(true); closeSidebar(); }} /> :
+              {audit ? <AuditNavigation audit={audit} selectedId={selectedId} onSelect={focusNode} onIssue={chooseIssue} onCandidate={chooseCandidate} onCandidateIssue={(id) => navigateWorkspace({ issueId: id, claimPath: [], node: id })} onOpenArgument={openAuditArgument} onOpenClaim={openAuditClaim} onReturnClaim={returnToClaim} onExpand={expandAudit} onSearch={() => { setPaletteOpen(true); closeSidebar(); }} /> :
               <Sidebar
                 current={current}
                 openItems={openItems}
@@ -181,7 +208,7 @@ function Workspace() {
         )}
 
         <main ref={viewportRef} className="relative flex min-w-0 flex-1 flex-col" aria-label={t('app.canvas')}>
-          {audit && <AuditContext audit={audit} selected={selected} onNavigate={() => setSidebarOpen(true)} onSelect={focusNode} onOpenArgument={openAuditArgument} onExpand={expandAudit} />}
+          {audit && <AuditContext audit={audit} selected={selected} onNavigate={() => setSidebarOpen(true)} onSelect={focusNode} onOpenArgument={openAuditArgument} onOpenClaim={openAuditClaim} onExpand={expandAudit} onReturnIssue={() => { if (audit.issue) chooseIssue(audit.issue.id); }} onReturnCandidate={() => { if (audit.candidate) chooseCandidate(audit.candidate.id); }} onReturnClaim={returnToClaim} />}
           <div className="relative min-h-0 flex-1">
           <div ref={flatRef} className="absolute inset-0" inert={scene3d} aria-hidden={scene3d}>
           <ReactFlow

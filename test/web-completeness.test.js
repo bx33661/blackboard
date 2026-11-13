@@ -20,6 +20,7 @@ const server = await createServer({
 after(() => server.close());
 const { Inspector } = await server.ssrLoadModule('/src/panels/Inspector.tsx');
 const { Sidebar } = await server.ssrLoadModule('/src/panels/Sidebar.tsx');
+const { t } = await server.ssrLoadModule('/src/i18n.ts');
 const render = (element) => renderToStaticMarkup(createElement(Tooltip.Provider, null, element));
 const escape = (value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#x27;');
 const node = {
@@ -81,5 +82,39 @@ test('Inspector retains authored relation labels and reports their recorded inpu
   const html = render(createElement(Inspector, { ...inspectorProps, edges: [edge], byId: new Map([[node.id, node], [peer.id, peer]]) }));
   assert.ok(html.includes(`>${escape(label)}</p>`), 'the authored relation label is available alongside the explicit direction');
   assert.ok(html.includes('506') && html.includes('500'));
+});
+
+const negative = {
+  id: 'synthetic-negative', type: 'negative-result', status: 'open', confidence: 'suspected',
+  title: '  检查入口。\n后续标题：排除范围！  ',
+  detail: '检查范围:\n入口 /preview\n匿名\n\n实际结果:\n拒绝\n\n可排除范围:\n成功触发的判断\n\n未覆盖与限制:\n登录后入口\n\n补充说明:\n原文：！？\n保留换行\n',
+};
+
+test('Inspector marks a bounded negative result while retaining the complete authored title and detail', () => {
+  const before = JSON.stringify(negative);
+  const html = render(createElement(Inspector, { ...inspectorProps, node: negative }));
+  const notice = html.match(/<section[^>]*role="note"[^>]*>([\s\S]*?)<\/section>/)?.[1] || '';
+  assert.ok(notice.includes(escape(t('negative.heading'))), 'the bounded notice names the record type');
+  assert.ok(notice.includes(escape(t('negative.notice'))), 'the notice does not turn the observation into automatic counterevidence');
+  assert.ok(html.indexOf('role="note"') < html.indexOf(`>${escape(negative.detail)}</p>`), 'the bounded notice is prominent above the full detail');
+  assert.equal(html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/)?.[1], escape(negative.title), 'the full title, including its continuation, stays visible');
+  assert.ok(html.includes(`>${escape(negative.detail)}</p>`), 'excluded, uncovered and limitation text is shown exactly as authored');
+  assert.equal(JSON.stringify(negative), before, 'reading never alters the stored negative result');
+});
+
+test('a manually authored negative result keeps its detail and gains no generated boundary labels', () => {
+  const manual = { id: 'manual-negative', type: 'negative-result', title: '人工负结果', detail: '原始记录：未记录检查范围。\n\n限制：无。' };
+  const html = render(createElement(Inspector, { ...inspectorProps, node: manual }));
+  assert.ok(html.includes(`>${escape(manual.detail)}</p>`));
+  for (const label of [t('negative.checkedScope'), t('negative.observedResult'), t('negative.excludedScope'), t('negative.uncovered'), t('negative.notes')]) {
+    assert.equal(html.includes(escape(`${label}:`)), false, `the viewer never invents a ${label} section`);
+  }
+});
+
+test('claims stay ordinary records without the bounded-negative notice', () => {
+  const claim = { id: 'synthetic-claim', type: 'claim', title: '匿名输入可控制目标地址', detail: '支持上级候选；限制：尚未检查重定向。' };
+  const html = render(createElement(Inspector, { ...inspectorProps, node: claim }));
+  assert.equal(html.includes(escape(t('negative.heading'))), false);
+  assert.ok(html.includes(`>${escape(claim.detail)}</p>`));
 });
 

@@ -15,7 +15,7 @@ for (const file of ['types.js', 'workspace/audit.js']) {
   fs.writeFileSync(target, fs.readFileSync(target, 'utf8').replace(/from '(\.\.?\/[^']+)'/g, (_all, name) => `from '${name}.js'`));
 }
 fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
-const { selectAudit, buildAuditIndex, argumentRole, changeAuditExpansion, AUDIT_BATCH } = await import(pathToFileURL(path.join(dir, 'workspace/audit.js')).href);
+const { selectAudit, buildAuditIndex, argumentRole, changeAuditExpansion, AUDIT_BATCH, auditRootKey, claimChildEdge, isAuditCandidate, isAuditClaim, readClaimPath, resolveClaimPath, writeClaimPath } = await import(pathToFileURL(path.join(dir, 'workspace/audit.js')).href);
 const node = (id, type, extra = {}) => ({ id, type, title: `Authored ${id}`, ...extra });
 const edge = (id, from, to, kind, extra = {}) => ({ id, from, to, kind, ...extra });
 const nodes = [node('q1', 'question'), node('q2', 'goal'), node('c1', 'finding'), node('c2', 'hypothesis'), node('c3', 'vuln'), node('f1', 'fact'), node('p1', 'fact'), node('condition', 'condition'), node('counter', 'result'), node('unrelated', 'fact'), node('custom', 'custom-record')];
@@ -341,4 +341,218 @@ test('unassigned catalogs stay paged and explicit condition cycles stop at close
   assert.equal(view.contexts.size, 2);
   assert.equal(view.groups.contradiction.length, 0);
   assert.equal(view.snapshot.edges.find((item) => item.id === 'cycle'), cyclic.edges.find((item) => item.id === 'cycle'));
+});
+
+function claimBoard() {
+  return {
+    meta: {},
+    nodes: [
+      node('q39', 'question'), node('q2', 'goal'), node('fd399', 'finding'), node('other', 'finding'),
+      node('cl0', 'claim'), node('cl1', 'claim'), node('neg', 'negative-result'), node('fclaim', 'fact'),
+    ],
+    edges: [
+      edge('fd-q39', 'fd399', 'q39', 'answers'),
+      edge('cl0-fd399', 'cl0', 'fd399', 'supports'),
+      edge('cl1-cl0', 'cl1', 'cl0', 'supports'),
+      edge('fclaim-cl1', 'fclaim', 'cl1', 'supports'),
+      edge('neg-cl1', 'neg', 'cl1', 'contradicts'),
+    ],
+  };
+}
+
+test('nested claim reading preserves issue, candidate and candidate counterevidence isolation', () => {
+  const board = claimBoard();
+  const index = buildAuditIndex(board);
+  const audit = selectAudit(index, 'q39', 'fd399', null, {}, ['cl0', 'cl1']);
+  assert.equal(audit.root.id, 'cl1');
+  assert.equal(audit.issue.id, 'q39');
+  assert.equal(audit.candidate.id, 'fd399');
+  assert.deepEqual(audit.claimPath.map((item) => item.id), ['cl0', 'cl1']);
+  assert.deepEqual(audit.claimPathEdges.map((item) => item.id), ['cl0-fd399', 'cl1-cl0']);
+  assert.deepEqual(audit.groups.contradiction.map((item) => item.id), ['neg-cl1']);
+  assert.deepEqual(audit.pages.support.items.map((item) => item.id), ['fclaim-cl1']);
+  assert.equal(audit.visibleIds.has('neg'), true);
+  assert.equal(audit.outsideIssue, false);
+  assert.deepEqual(audit.catalog.members.items.map((item) => item.id), ['fd399']);
+  assert.equal(audit.catalog.members.items.some(isAuditClaim), false);
+  assert.equal(audit.candidates.some(isAuditClaim), false);
+  assert.deepEqual(index.membership.get('q39').map((item) => item.id), ['fd399']);
+  const candidateView = selectAudit(index, 'q39', 'fd399');
+  assert.equal(candidateView.root.id, 'fd399');
+  assert.deepEqual(candidateView.groups.contradiction, []);
+  assert.equal(candidateView.pages.contradiction.total, 0);
+  assert.deepEqual(candidateView.claims.items.map((item) => item.id), ['cl0-fd399']);
+  assert.equal(candidateView.claims.total, 1);
+});
+
+test('standalone claims read without assigning a candidate and never enter candidate membership', () => {
+  const board = claimBoard();
+  board.nodes.push(node('tagged-claim', 'claim', { tags: ['issue=q39'] }));
+  const index = buildAuditIndex(board);
+  assert.equal(isAuditCandidate(index.byId.get('cl0')), false);
+  assert.equal(isAuditCandidate(index.byId.get('neg')), false);
+  assert.equal(isAuditClaim(index.byId.get('cl0')), true);
+  assert.equal(isAuditClaim(index.byId.get('neg')), false);
+  const standalone = selectAudit(index, null, null, null, {}, ['cl0']);
+  assert.equal(standalone.issue, null);
+  assert.equal(standalone.candidate, null);
+  assert.equal(standalone.root.id, 'cl0');
+  assert.deepEqual(standalone.claimPath.map((item) => item.id), ['cl0']);
+  assert.equal(standalone.claims.total, 1);
+  assert.equal(standalone.visibleIds.has('fd399'), false);
+  const issueOnly = selectAudit(index, 'q39', null, null, {}, ['cl0']);
+  assert.equal(issueOnly.issue.id, 'q39');
+  assert.equal(issueOnly.candidate, null);
+  assert.equal(issueOnly.root.id, 'cl0');
+  assert.equal(issueOnly.visibleIds.has('fd399'), false);
+  assert.deepEqual(index.membership.get('q39').map((item) => item.id), ['fd399']);
+  assert.equal(index.candidates.some((item) => item.id === 'tagged-claim'), false);
+  assert.equal(index.unassigned.some((item) => item.id === 'tagged-claim'), false);
+  assert.deepEqual(selectAudit(index, 'q39', null).catalog.members.items.map((item) => item.id), ['fd399']);
+});
+
+test('claim path validation stops at the safe prefix for missing, typed, unrelated and checkpoint records', () => {
+  const board = claimBoard();
+  board.nodes.push(node('unrelated-claim', 'claim'));
+  board.edges.push(edge('unrelated-other', 'unrelated-claim', 'other', 'supports'));
+  const index = buildAuditIndex(board);
+  const missing = selectAudit(index, 'q39', 'fd399', null, {}, ['cl0', 'absent']);
+  assert.deepEqual(missing.claimPath.map((item) => item.id), ['cl0']);
+  assert.deepEqual([missing.claimNotice.kind, missing.claimNotice.id], ['missing', 'absent']);
+  assert.equal(missing.root.id, 'cl0');
+  assert.equal(missing.issue.id, 'q39');
+  assert.equal(missing.candidate.id, 'fd399');
+  const firstMissing = selectAudit(index, 'q39', 'fd399', null, {}, ['absent', 'cl0']);
+  assert.deepEqual(firstMissing.claimPath, []);
+  assert.equal(firstMissing.claimNotice.kind, 'missing');
+  assert.equal(firstMissing.root.id, 'fd399');
+  const wrongType = selectAudit(index, 'q39', 'fd399', null, {}, ['fclaim']);
+  assert.deepEqual(wrongType.claimPath, []);
+  assert.deepEqual([wrongType.claimNotice.kind, wrongType.claimNotice.id], ['type', 'fclaim']);
+  assert.equal(wrongType.root.id, 'fd399');
+  const unrelated = selectAudit(index, 'q39', 'fd399', null, {}, ['unrelated-claim']);
+  assert.deepEqual(unrelated.claimPath, []);
+  assert.deepEqual([unrelated.claimNotice.kind, unrelated.claimNotice.id, unrelated.claimNotice.parent.id], ['invalid', 'unrelated-claim', 'fd399']);
+  assert.equal(unrelated.root.id, 'fd399');
+  const checkpoint = buildAuditIndex({
+    meta: {},
+    nodes: board.nodes.filter((item) => item.id !== 'cl1'),
+    edges: board.edges.filter((item) => item.from !== 'cl1' && item.to !== 'cl1'),
+  });
+  const stale = selectAudit(checkpoint, 'q39', 'fd399', null, {}, ['cl0', 'cl1']);
+  assert.deepEqual(stale.claimPath.map((item) => item.id), ['cl0']);
+  assert.deepEqual([stale.claimNotice.kind, stale.claimNotice.id], ['missing', 'cl1']);
+  assert.equal(stale.root.id, 'cl0');
+  assert.equal(stale.issue.id, 'q39');
+  assert.equal(stale.candidate.id, 'fd399');
+  const unlinked = buildAuditIndex({ ...board, edges: board.edges.filter((item) => item.id !== 'cl1-cl0') });
+  const brokenPath = selectAudit(unlinked, 'q39', 'fd399', null, {}, ['cl0', 'cl1']);
+  assert.deepEqual(brokenPath.claimPath.map((item) => item.id), ['cl0']);
+  assert.deepEqual([brokenPath.claimNotice.kind, brokenPath.claimNotice.id, brokenPath.claimNotice.parent.id], ['invalid', 'cl1', 'cl0']);
+  assert.equal(brokenPath.root.id, 'cl0');
+});
+
+test('claim paths stop before cycles, follow shared claims and reject reverse or weak directions', () => {
+  const board = claimBoard();
+  const index = buildAuditIndex(board);
+  const cyclic = selectAudit(index, 'q39', 'fd399', null, {}, ['cl0', 'cl1', 'cl0']);
+  assert.deepEqual(cyclic.claimPath.map((item) => item.id), ['cl0', 'cl1']);
+  assert.deepEqual([cyclic.claimNotice.kind, cyclic.claimNotice.id], ['cycle', 'cl0']);
+  assert.equal(cyclic.root.id, 'cl1');
+  assert.deepEqual(cyclic.claimPathEdges.map((item) => item.id), ['cl0-fd399', 'cl1-cl0']);
+  const shared = buildAuditIndex({
+    meta: {},
+    nodes: [node('p1', 'claim'), node('p2', 'claim'), node('shared', 'claim'), node('evidence', 'fact')],
+    edges: [edge('shared-p1', 'shared', 'p1', 'supports'), edge('shared-p2', 'shared', 'p2', 'supports'), edge('evidence-shared', 'evidence', 'shared', 'supports')],
+  });
+  assert.equal(claimChildEdge(shared, 'p1', 'shared').id, 'shared-p1');
+  assert.equal(claimChildEdge(shared, 'p2', 'shared').id, 'shared-p2');
+  assert.deepEqual(resolveClaimPath(shared, 'p1', ['shared']).claims.map((item) => item.id), ['shared']);
+  assert.equal(resolveClaimPath(shared, 'p2', ['shared']).edges[0].id, 'shared-p2');
+  const sharedView = selectAudit(shared, null, null, null, {}, ['shared']);
+  assert.equal(sharedView.root.id, 'shared');
+  assert.equal(sharedView.visibleIds.has('evidence'), true);
+  assert.equal(sharedView.visibleIds.has('p1'), false);
+  assert.equal(sharedView.visibleIds.has('p2'), false);
+  const directed = buildAuditIndex({
+    meta: {},
+    nodes: [node('parent', 'claim'), node('support', 'claim'), node('derived', 'claim'), node('required', 'claim'), node('weak', 'claim')],
+    edges: [edge('support', 'support', 'parent', 'proves'), edge('derived', 'parent', 'derived', 'derived-from'), edge('required', 'parent', 'required', 'depends-on'), edge('weak', 'weak', 'parent', 'related-to')],
+  });
+  assert.equal(claimChildEdge(directed, 'parent', 'support').id, 'support');
+  assert.equal(claimChildEdge(directed, 'parent', 'derived').id, 'derived');
+  assert.equal(claimChildEdge(directed, 'parent', 'required').id, 'required');
+  assert.equal(claimChildEdge(directed, 'parent', 'weak'), null);
+  const wrong = buildAuditIndex({
+    meta: {},
+    nodes: [node('parent', 'claim'), node('child', 'claim')],
+    edges: [edge('parent-supports-child', 'parent', 'child', 'supports'), edge('child-derived-parent', 'child', 'parent', 'derived-from')],
+  });
+  assert.equal(claimChildEdge(wrong, 'parent', 'child'), null);
+});
+
+test('direct child claim lists stay bounded while support groups keep full totals', () => {
+  const children = Array.from({ length: 30 }, (_, i) => node(`child-${i}`, 'claim'));
+  const index = buildAuditIndex({
+    meta: {},
+    nodes: [node('parent', 'claim'), ...children],
+    edges: children.map((item, i) => edge(`link-${i}`, item.id, 'parent', 'supports')),
+  });
+  const audit = selectAudit(index, null, null, null, {}, ['parent']);
+  assert.equal(audit.claims.total, 30);
+  assert.equal(audit.claims.shown, AUDIT_BATCH);
+  assert.equal(audit.claims.hidden, 18);
+  assert.equal(audit.pages.support.total, 30);
+  assert.equal(audit.pages.support.shown, AUDIT_BATCH);
+  assert.deepEqual(audit.claims.items.map((item) => item.id), Array.from({ length: 12 }, (_, i) => `link-${i}`));
+  assert.equal(audit.snapshot.nodes.length, 1 + AUDIT_BATCH);
+  const expanded = selectAudit(index, null, null, null, changeAuditExpansion({}, 'claims', 'more'), ['parent']);
+  assert.equal(expanded.claims.shown, 24);
+  assert.equal(expanded.claims.hidden, 6);
+  assert.equal(expanded.snapshot.nodes.length, 1 + 24);
+  const collapsed = selectAudit(index, null, null, null, changeAuditExpansion({ claims: 30 }, 'claims', 'collapse'), ['parent']);
+  assert.equal(collapsed.claims.shown, AUDIT_BATCH);
+  assert.equal(collapsed.claims.hidden, 18);
+});
+
+test('repeated claim URL parameters survive share, reload, history, checkpoint and offline round trips', () => {
+  const url = new URL('https://pinwhy.test/?workspace=audit&issue=q39&candidate=fd399&claim=cl0&claim=cl1&node=cl1&asOf=checkpoint-1');
+  assert.deepEqual(readClaimPath(url.searchParams), ['cl0', 'cl1']);
+  assert.deepEqual(readClaimPath(new URLSearchParams(url.search)), ['cl0', 'cl1']);
+  writeClaimPath(url, ['cl0']);
+  assert.deepEqual(readClaimPath(url.searchParams), ['cl0']);
+  for (const [key, value] of [['issue', 'q39'], ['candidate', 'fd399'], ['node', 'cl1'], ['asOf', 'checkpoint-1']]) assert.equal(url.searchParams.get(key), value);
+  writeClaimPath(url, []);
+  assert.deepEqual(readClaimPath(url.searchParams), []);
+  assert.equal(url.searchParams.get('issue'), 'q39');
+  assert.equal(url.searchParams.get('candidate'), 'fd399');
+  assert.deepEqual(readClaimPath(new URLSearchParams('claim=&claim=cl0&claim=&claim=cl1')), ['cl0', 'cl1']);
+  assert.deepEqual(readClaimPath(new URLSearchParams('')), []);
+});
+
+test('audit root identity resets expansion only when the reading root changes, not on snapshot refreshes', () => {
+  assert.equal(auditRootKey('q39', 'fd399', ['cl0', 'cl1']), auditRootKey('q39', 'fd399', ['cl0', 'cl1']));
+  assert.notEqual(auditRootKey('q39', 'fd399', ['cl0']), auditRootKey('q39', 'fd399', ['cl0', 'cl1']));
+  assert.notEqual(auditRootKey('q39', 'fd399', []), auditRootKey('q39', 'fd399', ['cl0']));
+  assert.notEqual(auditRootKey('q39', 'fd399', ['cl0']), auditRootKey('q39', 'other', ['cl0']));
+  assert.notEqual(auditRootKey('q39', 'fd399', ['cl0']), auditRootKey('q2', 'fd399', ['cl0']));
+});
+
+test('reader selection stays independent of the claim root and never rewrites status, edges or records', () => {
+  const board = claimBoard();
+  const original = JSON.stringify(board);
+  const index = buildAuditIndex(board);
+  const audit = selectAudit(index, 'q39', 'fd399', 'other', {}, ['cl0', 'cl1']);
+  assert.equal(audit.root.id, 'cl1');
+  assert.deepEqual(audit.claimPath.map((item) => item.id), ['cl0', 'cl1']);
+  assert.equal(audit.visibleIds.has('other'), true);
+  assert.deepEqual(audit.groups.contradiction.map((item) => item.id), ['neg-cl1']);
+  assert.deepEqual(index.arguments.get('fd399').contradiction, []);
+  const authored = board.edges.find((item) => item.id === 'neg-cl1');
+  assert.equal(audit.snapshot.edges.find((item) => item.id === 'neg-cl1'), authored);
+  assert.deepEqual([authored.from, authored.to, authored.kind], ['neg', 'cl1', 'contradicts']);
+  assert.equal(JSON.stringify(board), original);
+  assert.equal(audit.index.byId.get('cl0').status, undefined);
+  assert.equal(audit.index.byId.get('cl1').status, undefined);
+  assert.equal(audit.candidates.some(isAuditClaim), false);
 });

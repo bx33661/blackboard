@@ -3,20 +3,22 @@ import { project, type RelationGroup } from '../graph';
 import { filterActive, filterNodes, type NodeFilter } from '../presentation';
 import type { GraphSnapshot, ViewMode } from '../types';
 import { selectWorkspaceAgent, selectWorkspaceSnapshot } from './selectors';
-import { AUDIT_BATCH, buildAuditIndex, changeAuditExpansion, selectAudit, type AuditExpansion, type AuditExpansionAction } from './audit';
+import { AUDIT_BATCH, auditRootKey, buildAuditIndex, changeAuditExpansion, selectAudit, type AuditExpansion, type AuditExpansionAction } from './audit';
 
 /** Keep snapshot catalogues stable when only the reader's view, selection or filters change. */
-export function useWorkspaceData(snapshot: GraphSnapshot | null, mode: ViewMode, agentId: string, filter: NodeFilter, auditLocation?: { issueId: string | null; candidateId: string | null; selectedId: string | null }) {
+export function useWorkspaceData(snapshot: GraphSnapshot | null, mode: ViewMode, agentId: string, filter: NodeFilter, auditLocation?: { issueId: string | null; candidateId: string | null; selectedId: string | null; claimPath?: string[] }) {
   const board = useMemo(() => selectWorkspaceSnapshot(snapshot), [snapshot]);
   const agent = useMemo(() => selectWorkspaceAgent(snapshot, board, agentId), [snapshot, board, agentId]);
   const auditIndex = useMemo(() => snapshot ? buildAuditIndex(snapshot) : null, [snapshot]);
-  const rootKey = JSON.stringify([auditLocation?.issueId, auditLocation?.candidateId]);
+  const claimIds = auditLocation?.claimPath ?? [];
+  const claimKey = claimIds.join('\u0000');
+  const rootKey = auditRootKey(auditLocation?.issueId ?? null, auditLocation?.candidateId ?? null, claimIds);
   const [expanded, setExpanded] = useState<{ rootKey: string; values: AuditExpansion }>({ rootKey, values: {} });
   // Reset on a reader root change, while snapshot/SSE refreshes retain the displayed row budget.
   if (expanded.rootKey !== rootKey) setExpanded({ rootKey, values: {} });
   const expansion = expanded.rootKey === rootKey ? expanded.values : {};
   const expandAudit = (key: string, action: AuditExpansionAction, defaultLimit = AUDIT_BATCH) => setExpanded((previous) => ({ rootKey, values: changeAuditExpansion(previous.rootKey === rootKey ? previous.values : {}, key, action, defaultLimit) }));
-  const audit = useMemo(() => auditIndex && auditLocation ? selectAudit(auditIndex, auditLocation.issueId, auditLocation.candidateId, auditLocation.selectedId, expansion) : null, [auditIndex, auditLocation?.issueId, auditLocation?.candidateId, auditLocation?.selectedId, expansion]);
+  const audit = useMemo(() => auditIndex && auditLocation ? selectAudit(auditIndex, auditLocation.issueId, auditLocation.candidateId, auditLocation.selectedId, expansion, claimIds) : null, [auditIndex, auditLocation?.issueId, auditLocation?.candidateId, auditLocation?.selectedId, claimKey, expansion]);
   const projection = useMemo(() => {
     if (!snapshot) return null;
     if (!audit) return project(snapshot, mode, '', agentId);

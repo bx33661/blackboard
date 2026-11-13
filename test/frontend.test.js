@@ -28,7 +28,7 @@ resolveModuleExtensions(dir);
 fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
 const modulePath = path.join(dir, 'presentation.js');
 const { confidenceLabel, presentNode, nodeStateSummary, matchesNode, statusLabel, severityLabel, typeLabel } = await import(pathToFileURL(modulePath).href);
-const { changeDraft, EMPTY_EDIT, EMPTY_NEW, existingLink, parseTags, nodeInputFromDraft, nodePatchFromDraft, sourceLocation, historyValue } = await import(pathToFileURL(path.join(dir, 'research-state.js')).href);
+const { changeDraft, EMPTY_EDIT, EMPTY_NEW, existingLink, parseTags, nodeInputFromDraft, nodePatchFromDraft, sourceLocation, historyValue, changeNewNodeDraft, isNegativeResultType, negativeResultDetail, newNodeDefaults, newNodeDraftKey } = await import(pathToFileURL(path.join(dir, 'research-state.js')).href);
 const api = await import(pathToFileURL(path.join(dir, 'api.js')).href);
 const { selectWorkspaceSnapshot, selectWorkspaceAgent } = await import(pathToFileURL(path.join(dir, 'workspace/selectors.js')).href);
 const node = { id: 'node-7', type: 'hypothesis', title: 'Gateway policy。Verify middleware next.', detail: 'Session boundary', status: 'open', severity: 'high', confidence: 'static-confirmed' };
@@ -105,6 +105,8 @@ test('previously unset fields use the empty-string API baseline without inventin
 test('existing-node links default to weak semantics and preview exactly the submitted direction', () => {
   assert.deepEqual(existingLink('a', 'b', 'outgoing'), { from: 'a', to: 'b', kind: 'related-to' });
   assert.deepEqual(existingLink('a', 'b', 'incoming', 'contradicts'), { from: 'b', to: 'a', kind: 'contradicts' });
+  assert.deepEqual(existingLink('a', 'b', 'outgoing', 'depends-on'), { from: 'a', to: 'b', kind: 'depends-on' });
+  assert.deepEqual(existingLink('a', 'b', 'incoming', 'depends-on'), { from: 'b', to: 'a', kind: 'depends-on' });
   assert.equal(existingLink('a', '', 'outgoing'), null);
   assert.equal(existingLink('a', 'a', 'outgoing'), null);
 });
@@ -354,6 +356,143 @@ test('invalid tags remain in the draft until corrected without losing their base
   assert.deepEqual(draft.expected, { tags: '["original,tag"]' });
   const fixed = changeDraft(draft, { ...initial, tags: ['agent-tag'] }, 'tags', '["fixed,tag"]');
   assert.deepEqual(nodePatchFromDraft(fixed), { tags: ['fixed,tag'], expected: { tags: ['original,tag'] } });
+});
+
+const negativeLabels = { checkedScope: '检查范围', observedResult: '实际结果', excludedScope: '可排除的范围', uncovered: '未覆盖与限制', notes: '补充说明' };
+
+test('negative-result creation serializes optional labeled boundaries as readable detail without trimming authored text', () => {
+  const draft = {
+    ...newNodeDefaults('negative-result'),
+    title: '负结果：入口检查',
+    detail: '补充记录：\n保留空行\n\n末尾限制！',
+    checkedScope: '入口 /preview\n匿名请求',
+    observedResult: '请求被拒绝\n\n未观察到目标访问',
+    excludedScope: '上述输入成功触发的判断',
+    uncovered: '登录后入口\n非默认配置',
+  };
+  const before = JSON.stringify(draft);
+  const input = nodeInputFromDraft(draft, 'parent', negativeLabels);
+  assert.equal(input.detail, [
+    '检查范围:\n入口 /preview\n匿名请求',
+    '实际结果:\n请求被拒绝\n\n未观察到目标访问',
+    '可排除的范围:\n上述输入成功触发的判断',
+    '未覆盖与限制:\n登录后入口\n非默认配置',
+    '补充说明:\n补充记录：\n保留空行\n\n末尾限制！',
+  ].join('\n\n'));
+  assert.equal(input.parent, 'parent');
+  assert.equal(input.target, undefined);
+  assert.equal(input.relation, 'related-to');
+  assert.equal('status' in input, false);
+  assert.equal('severity' in input, false);
+  assert.equal('confidence' in input, false);
+  assert.equal(JSON.stringify(draft), before, 'conversion never mutates the authored draft');
+});
+
+test('unwritten negative boundaries stay unrecorded and manual detail passes through exactly', () => {
+  const manual = { ...EMPTY_NEW, type: 'negative-result', title: '手工负结果', detail: '原始详情\n\n保留尾部  ' };
+  assert.equal(negativeResultDetail(manual, negativeLabels), manual.detail);
+  assert.equal(nodeInputFromDraft(manual, undefined, negativeLabels).detail, manual.detail);
+  const partial = { ...manual, checkedScope: '   ', observedResult: '观察\n' };
+  assert.equal(negativeResultDetail(partial, negativeLabels), '实际结果:\n观察\n\n\n补充说明:\n原始详情\n\n保留尾部  ');
+  const blank = { ...manual, checkedScope: ' ', observedResult: '', excludedScope: '\n', uncovered: '' };
+  assert.equal(negativeResultDetail(blank, negativeLabels), manual.detail);
+});
+
+test('claim and negative shortcuts use explicit directions and the weak negative default never refutes automatically', () => {
+  const claim = newNodeDefaults('claim');
+  assert.equal(claim.type, 'claim');
+  assert.equal(claim.link, 'supports');
+  const claimInput = nodeInputFromDraft(claim, 'conclusion');
+  assert.equal(claimInput.target, 'conclusion');
+  assert.equal(claimInput.parent, undefined);
+  assert.equal(claimInput.relation, 'supports');
+
+  const negative = newNodeDefaults('negative-result');
+  assert.equal(negative.type, 'negative-result');
+  assert.equal(negative.link, 'related-to');
+  const weak = nodeInputFromDraft(negative, 'candidate', negativeLabels);
+  assert.equal(weak.parent, 'candidate');
+  assert.equal(weak.target, undefined);
+  assert.equal(weak.relation, 'related-to');
+  assert.equal('status' in weak, false);
+  assert.equal('confidence' in weak, false);
+
+  const explicit = changeNewNodeDraft(negative, 'link', 'contradicts');
+  const refute = nodeInputFromDraft(explicit, 'candidate', negativeLabels);
+  assert.equal(refute.target, 'candidate');
+  assert.equal(refute.parent, undefined);
+  assert.equal(refute.relation, 'contradicts');
+  assert.equal(negative.link, 'related-to', 'authoring a contradiction never rewrites the preset');
+
+  const parent = { id: 'candidate', type: 'finding', title: 'Still open', status: 'open', confidence: 'suspected' };
+  const before = JSON.stringify(parent);
+  nodeInputFromDraft(negative, parent.id, negativeLabels);
+  nodeInputFromDraft(claim, parent.id);
+  assert.equal(JSON.stringify(parent), before, 'creation helpers cannot change the selected record');
+});
+
+test('necessary subclaim creation authors current depends-on new, while other creation kinds source the new node', () => {
+  const base = newNodeDefaults('claim');
+  const parentKinds = ['related-to', 'depends-on'];
+  const targetKinds = ['supports', 'contradicts', 'derived-from'];
+  for (const kind of parentKinds) {
+    const input = nodeInputFromDraft(changeNewNodeDraft(base, 'link', kind), 'current');
+    assert.equal(input.relation, kind);
+    assert.equal(input.parent, 'current');
+    assert.equal(input.target, undefined);
+  }
+  for (const kind of targetKinds) {
+    const input = nodeInputFromDraft(changeNewNodeDraft(base, 'link', kind), 'current');
+    assert.equal(input.relation, kind);
+    assert.equal(input.target, 'current');
+    assert.equal(input.parent, undefined);
+  }
+  assert.ok(api.LINKS.some((link) => link.id === 'depends-on'), 'the authoring selector exposes the real relation');
+});
+
+test('each creation shortcut owns a draft and switching types keeps authored detail and boundary text', () => {
+  assert.equal(newNodeDraftKey(undefined, 'related'), 'new:standalone');
+  assert.equal(newNodeDraftKey('p', 'related'), 'new:p');
+  assert.equal(newNodeDraftKey('p', 'claim'), 'new:p:claim');
+  assert.equal(newNodeDraftKey('p', 'negative-result'), 'new:p:negative-result');
+  assert.equal(new Set(['related', 'claim', 'negative-result'].map((mode) => newNodeDraftKey('p', mode))).size, 3);
+
+  const negative = { ...newNodeDefaults('negative-result'), title: '草稿标题', detail: '原始详情\n保留', checkedScope: '检查范围文本' };
+  const switched = changeNewNodeDraft(negative, 'type', 'fact');
+  assert.equal(switched.detail, negative.detail);
+  assert.equal(switched.checkedScope, negative.checkedScope);
+  assert.equal(switched.title, negative.title);
+  assert.equal(nodeInputFromDraft(switched, undefined, negativeLabels).type, 'fact');
+  assert.equal(nodeInputFromDraft(switched, undefined, negativeLabels).detail, '检查范围:\n检查范围文本\n\n补充说明:\n原始详情\n保留');
+  assert.equal(negative.type, 'negative-result', 'the authored draft is never mutated by switching');
+  assert.equal(changeNewNodeDraft(switched, 'type', 'negative-result').checkedScope, '检查范围文本');
+});
+
+test('boundary text authored before a type change is still serialized and the type stays as chosen', () => {
+  const draft = {
+    ...newNodeDefaults('negative-result'), title: '切换类型',
+    checkedScope: '入口 /preview', observedResult: '拒绝\n未访问目标', excludedScope: '成功触发的判断', uncovered: '登录后入口', detail: '补充：\n保留空行',
+  };
+  const switched = changeNewNodeDraft(draft, 'type', 'observation');
+  const input = nodeInputFromDraft(switched, 'parent', negativeLabels);
+  assert.equal(input.type, 'observation', 'switching type never changes it back to negative-result');
+  assert.equal(input.parent, 'parent');
+  assert.equal(input.relation, 'related-to');
+  assert.equal(input.detail, [
+    '检查范围:\n入口 /preview',
+    '实际结果:\n拒绝\n未访问目标',
+    '可排除的范围:\n成功触发的判断',
+    '未覆盖与限制:\n登录后入口',
+    '补充说明:\n补充：\n保留空行',
+  ].join('\n\n'));
+  assert.equal(draft.type, 'negative-result');
+});
+
+test('negative raw detail edits keep the loaded full text as the conflict baseline', () => {
+  const negativeNode = { id: 'neg', type: 'negative-result', title: 'Bounded', detail: '检查范围:\n入口\n\n未覆盖与限制:\n登录后入口' };
+  const draft = changeDraft({ ...EMPTY_EDIT, editing: true }, negativeNode, 'detail', `${negativeNode.detail}\n\n补充说明:\n复核后补充`);
+  assert.deepEqual(nodePatchFromDraft(draft), { detail: `${negativeNode.detail}\n\n补充说明:\n复核后补充`, expected: { detail: negativeNode.detail } });
+  assert.equal(negativeNode.detail, '检查范围:\n入口\n\n未覆盖与限制:\n登录后入口', 'editing never parses or rewrites the stored sections');
 });
 
 async function writeServer(t) {

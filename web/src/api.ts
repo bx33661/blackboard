@@ -169,15 +169,16 @@ export const removeNode = (id: string, operation = new WriteOperation()) => oper
 export const addEdge = (from: string, to: string, kind: string, label?: string, operation = new WriteOperation()) => operation.submit({ command: 'addEdge', method: 'POST', url: '/api/edges', body: { from, to, kind, ...(label ? { label } : {}), rejectTruncation: true } });
 export const removeEdge = (id: string, operation = new WriteOperation()) => operation.submit({ command: 'removeEdge', method: 'DELETE', url: `/api/edges?id=${encodeURIComponent(id)}`, id });
 
-/** How a new card relates to the selected one. Each reads "new <relation> current" except the last. */
+/** How a new card relates to the selected one; each label states the authored direction. */
 export const LINKS = [
   { id: 'supports', label: t('link.supports') },
   { id: 'contradicts', label: t('link.contradicts') },
   { id: 'derived-from', label: t('link.derived-from') },
+  { id: 'depends-on', label: t('link.depends-on') },
   { id: 'related-to', label: t('link.related-to') },
 ] as const;
 
-export const CREATABLE_TYPES = ['fact', 'observation', 'hypothesis', 'question', 'action', 'result', 'finding', 'vuln', 'note', 'goal', 'condition', 'coverage'] as const;
+export const CREATABLE_TYPES = ['fact', 'observation', 'hypothesis', 'question', 'action', 'result', 'finding', 'vuln', 'note', 'goal', 'condition', 'coverage', 'claim', 'negative-result'] as const;
 export const SETTABLE_STATUSES = ['open', 'active', 'done', 'blocked', 'dead', 'confirmed', 'refuted', 'deferred', 'superseded'] as const;
 
 /** Read projections from this server only; static exports never call these. */

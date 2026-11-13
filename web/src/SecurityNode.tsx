@@ -1,8 +1,8 @@
 import { memo, type CSSProperties } from 'react';
 import { Handle, Position, useStore, type NodeProps } from '@xyflow/react';
 import {
-  Activity, AlertTriangle, CheckCircle2, CircleHelp, Crosshair, FileSearch,
-  Flag, Lightbulb, ListChecks, MessageSquareText, Route, ShieldAlert, Sparkles,
+  Activity, AlertTriangle, CheckCircle2, CircleDot, CircleHelp, Crosshair, FileSearch,
+  Flag, Lightbulb, ListChecks, MessageSquareText, Route, ScanSearch, ShieldAlert, Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CanvasNode } from './graph';
@@ -12,6 +12,7 @@ import { detailLevel } from './canvas-state';
 import { confidenceLabel, nodeStateSummary, presentNode, statusLabel } from './presentation';
 import { SeverityBadge } from './SeverityBadge';
 import { t } from './i18n';
+import { isNegativeResultType } from './research-state';
 
 const ICONS = {
   goal: Flag,
@@ -27,6 +28,8 @@ const ICONS = {
   hint: Sparkles,
   summary: ListChecks,
   note: MessageSquareText,
+  claim: CircleDot,
+  'negative-result': ScanSearch,
 } as const;
 
 export function NodeTypeIcon({ type, size = 13 }: { type: string; size?: number }) {
@@ -39,8 +42,10 @@ const DOT_CLASS: Record<string, string> = {
   start: 'bg-node-start', goal: 'bg-node-goal', intent: 'bg-node-intent', hypothesis: 'bg-node-hypothesis',
   question: 'bg-node-question', fact: 'bg-node-fact', observation: 'bg-node-observation', action: 'bg-node-action',
   result: 'bg-node-result', finding: 'bg-node-finding', vuln: 'bg-node-vuln', hint: 'bg-node-hint',
-  summary: 'bg-node-summary', note: 'bg-node-note',
+  summary: 'bg-node-summary', note: 'bg-node-note', claim: 'bg-node-intent', 'negative-result': 'bg-node-observation',
 };
+/** Custom types reuse a palette token; no second colour vocabulary. */
+const COLOR_TOKEN: Record<string, string> = { claim: 'intent', 'negative-result': 'observation' };
 export function TypeDot({ type, className }: { type: string; className?: string }) {
   return <i className={cn('inline-block size-2 shrink-0 rounded-full', DOT_CLASS[type] || 'bg-node-note', className)} />;
 }
@@ -59,11 +64,12 @@ export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeP
   // The header that names severity is gone in the overview, so it moves to a badge that survives zooming out.
   const rated = item.severity && item.severity !== 'info';
   const retired = ['dead', 'refuted', 'superseded'].includes(item.status || '');
+  const color = COLOR_TOKEN[item.type] || (item.type in DOT_CLASS ? item.type : 'note');
 
   return (
     <BaseNode
       tabIndex={-1}
-      style={{ '--c': `var(--node-${item.type in DOT_CLASS ? item.type : 'note'})` } as CSSProperties}
+      style={{ '--c': `var(--node-${color})` } as CSSProperties}
       data-detail-level={level}
       title={change === 'added' ? `${t('node.changeAdded')}\n${t('node.previewHint')}` : change === 'updated' ? `${t('node.changeUpdated', { fields: (changeFields || []).join(', ') })}\n${t('node.previewHint')}` : t('node.previewHint')}
       aria-label={`${typeLabel(item.type)}：${item.title}${state ? ` · ${state}` : ''}`}
@@ -103,8 +109,8 @@ export const SecurityNode = memo(function SecurityNode({ data, selected }: NodeP
       )}
       {!overview && (
         <header className="flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
-          <span className="inline-flex shrink-0 items-center gap-1 font-medium text-[color-mix(in_srgb,var(--c)_78%,var(--ink))]">
-            <NodeTypeIcon type={item.type} size={12} />{typeLabel(item.type)}
+          <span title={isNegativeResultType(item.type) ? t('negative.notice') : undefined} className="inline-flex shrink-0 items-center gap-1 font-medium text-[color-mix(in_srgb,var(--c)_78%,var(--ink))]">
+            <NodeTypeIcon type={item.type} size={12} />{isNegativeResultType(item.type) ? t('negative.cardCue') : typeLabel(item.type)}
           </span>
           {current && (
             <span className="ml-1 inline-flex items-center gap-1 text-live">

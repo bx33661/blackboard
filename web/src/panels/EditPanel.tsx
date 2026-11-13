@@ -9,7 +9,7 @@ import { relationLabel } from '../graph';
 import type { BoardNode } from '../types';
 import { t } from '../i18n';
 import { useNodeConnect, useNodeCreate, useNodeEdit } from './use-node-forms';
-import { parseTags, sourceLocation } from '../research-state';
+import { hasNegativeBoundaries, isNegativeResultType, parseTags, sourceLocation, type NewNodeMode } from '../research-state';
 
 const field = 'w-full rounded-md border border-strong bg-card px-2 text-[13px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring';
 
@@ -51,6 +51,7 @@ export function EditSection({ node, onReload }: { node: BoardNode; onReload: () 
         <form className="flex flex-col gap-2" onSubmit={save}>
           <input aria-label={t('edit.title')} aria-invalid={draft.conflictFields?.includes('title') || undefined} className={cn(field, 'h-8')} value={title} onChange={(e) => change('title', e.target.value)} disabled={busy} autoFocus />
           <textarea aria-label={t('edit.detail')} aria-invalid={draft.conflictFields?.includes('detail') || undefined} className={cn(field, 'min-h-24 py-1.5 leading-5')} value={detail} onChange={(e) => change('detail', e.target.value)} disabled={busy} placeholder={t('edit.detailPlaceholder')} />
+          {isNegativeResultType(node.type) && <p className="m-0 text-[11px] text-muted-foreground">{t('negative.editGuidance')}</p>}
           <TagFields value={draft.fields.tags ?? JSON.stringify(Array.isArray(node.tags) ? node.tags : [])} onChange={(value) => change('tags', value)} disabled={busy} invalid={draft.conflictFields?.includes('tags')} />
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">{t('edit.at')}
             <input aria-invalid={draft.conflictFields?.includes('at') || undefined} className={cn(field, 'h-8')} value={draft.fields.at ?? sourceLocation(node)} onChange={(event) => change('at', event.target.value)} disabled={busy} />
@@ -107,10 +108,20 @@ export function EditSection({ node, onReload }: { node: BoardNode; onReload: () 
 }
 
 /** A new card, optionally tied to the selected one. */
-function NodeForm({ current, onDone, autoFocus }: { current?: BoardNode; onDone?: () => void; autoFocus?: boolean }) {
-  const { draft, busy: pending, locked, operation, error, change, discard, submit } = useNodeCreate(current, onDone);
+function NodeForm({ current, onDone, autoFocus, mode = 'related' }: { current?: BoardNode; onDone?: () => void; autoFocus?: boolean; mode?: NewNodeMode }) {
+  const { draft, busy: pending, locked, operation, error, change, discard, submit } = useNodeCreate(current, onDone, mode);
   const busy = pending || locked;
   const { type, title, link } = draft;
+  const claim = type.trim() === 'claim';
+  const negative = isNegativeResultType(type);
+  const authoredBoundaries = hasNegativeBoundaries(draft);
+  const withBoundaries = negative || authoredBoundaries;
+  const boundaries = [
+    ['checkedScope', t('negative.checkedScope')],
+    ['observedResult', t('negative.observedResult')],
+    ['excludedScope', t('negative.excludedScope')],
+    ['uncovered', t('negative.uncovered')],
+  ] as const;
 
   return (
     <form className="flex flex-col gap-2" onSubmit={submit}>
@@ -119,7 +130,13 @@ function NodeForm({ current, onDone, autoFocus }: { current?: BoardNode; onDone?
         <datalist id={`node-types-${current?.id ?? 'standalone'}`}>{api.CREATABLE_TYPES.map((item) => <option key={item} value={item}>{typeLabel(item)}</option>)}</datalist>
         <input aria-label={t('edit.newTitle')} className={cn(field, 'h-8')} value={title} disabled={busy} onChange={(e) => change('title', e.target.value)} placeholder={t('edit.newPlaceholder')} autoFocus={autoFocus} />
       </div>
-      <textarea aria-label={t('edit.detail')} className={cn(field, 'min-h-16 py-1.5')} value={draft.detail} disabled={busy} onChange={(event) => change('detail', event.target.value)} placeholder={t('edit.detailPlaceholder')} />
+      {withBoundaries && <p className="m-0 text-[11px] text-muted-foreground">{negative ? t('negative.formHint') : t('negative.switchedHint')}</p>}
+      {withBoundaries && boundaries.map(([key, label]) => (
+        <label key={key} className="flex flex-col gap-1 text-xs text-muted-foreground">{label}
+          <textarea aria-label={label} className={cn(field, 'min-h-16 py-1.5 leading-5')} value={draft[key] ?? ''} disabled={busy} onChange={(event) => change(key, event.target.value)} />
+        </label>
+      ))}
+      <textarea aria-label={t('edit.detail')} className={cn(field, 'min-h-16 py-1.5')} value={draft.detail} disabled={busy} onChange={(event) => change('detail', event.target.value)} placeholder={withBoundaries ? t('negative.notes') : t('edit.detailPlaceholder')} />
       <TagFields value={draft.tags} onChange={(value) => change('tags', value)} disabled={busy} />
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">{t('edit.at')}<input className={cn(field, 'h-8')} value={draft.at} disabled={busy} onChange={(event) => change('at', event.target.value)} /></label>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{([
@@ -132,9 +149,11 @@ function NodeForm({ current, onDone, autoFocus }: { current?: BoardNode; onDone?
           {api.LINKS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       )}
+      {claim && current && link === 'supports' && <p className="m-0 text-[11px] text-muted-foreground">{t('edit.claimHint')}</p>}
+      {negative && current && <p className="m-0 text-[11px] text-muted-foreground">{t('negative.relationHint')}</p>}
       {current && <label className="flex flex-col gap-1 text-xs text-muted-foreground">{t('inspector.relationLabel')}<input className={cn(field, 'h-8')} value={draft.label} disabled={busy} onChange={(event) => change('label', event.target.value)} /></label>}
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" variant="default" size="sm" disabled={busy || !title.trim() || !type.trim()}><Plus className="size-3.5" />{t('edit.add')}</Button>
+        <Button type="submit" variant="default" size="sm" disabled={busy || !title.trim() || !type.trim()}><Plus className="size-3.5" />{negative ? t('edit.addNegative') : claim ? t('edit.addClaim') : t('edit.add')}</Button>
         <Button type="button" size="sm" disabled={busy} onClick={discard}>{t('edit.discard')}</Button>
         <span className="text-[11px] text-muted-foreground">{t('edit.humanNote')}</span>
       </div>
@@ -153,10 +172,20 @@ function NodeForm({ current, onDone, autoFocus }: { current?: BoardNode; onDone?
 }
 
 export function AddSection({ node }: { node: BoardNode }) {
+  const [mode, setMode] = useState<NewNodeMode>('related');
+  const modes = [
+    { id: 'related', label: t('edit.relatedMode') },
+    { id: 'claim', label: t('edit.claimMode') },
+    { id: 'negative-result', label: t('edit.negativeMode') },
+  ] as const;
   return (
     <section className="mt-5 flex flex-col gap-2" aria-label={t('edit.related')}>
       <h3 className="m-0 text-xs font-medium text-muted-foreground">{t('edit.related')}</h3>
-      <NodeForm current={node} />
+      <div role="group" aria-label={t('edit.createMode')} className="flex flex-wrap gap-1">
+        {modes.map((item) => <Button key={item.id} type="button" size="sm" variant={mode === item.id ? 'default' : 'outline'} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}>{item.label}</Button>)}
+      </div>
+      <p className="m-0 text-[11px] text-muted-foreground">{t('edit.shortcutHint')}</p>
+      <NodeForm key={mode} current={node} mode={mode} />
     </section>
   );
 }
